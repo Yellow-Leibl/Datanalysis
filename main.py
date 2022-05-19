@@ -36,10 +36,12 @@ class Window(QMainWindow):
         edit_menu.actions()[0].setShortcut(Qt.CTRL + Qt.Key_T)
         edit_menu.addAction("&Стандартизувати", self.standardization)
         edit_menu.actions()[1].setShortcut(Qt.CTRL + Qt.Key_S)
+        edit_menu.addAction("&Зсунути", self.sliding)
+        edit_menu.actions()[2].setShortcut(Qt.CTRL + Qt.Key_P)
         edit_menu.addAction("&Повернути", self.UndoChange)
-        edit_menu.actions()[2].setShortcut(Qt.CTRL + Qt.Key_Z)
+        edit_menu.actions()[3].setShortcut(Qt.CTRL + Qt.Key_Z)
         edit_menu.addAction("&Видалити аномалії", self.autoRemoveAnomaly)
-        edit_menu.actions()[3].setShortcut(Qt.CTRL + Qt.Key_D)
+        edit_menu.actions()[4].setShortcut(Qt.CTRL + Qt.Key_D)
         self.reprod_num = -1
 
         self.vidt_menu = QMenu("&Відтворити", self)
@@ -190,6 +192,8 @@ class Window(QMainWindow):
                 self.spin_box_number_column.setMaximum(len(self.d.x))
                 self.spin_box_number_column.setValue(0)
                 self.spin_box_number_column.blockSignals(False)
+                
+                self.reprod_num = -1
 
                 self.changeXSeries()
         except FileNotFoundError:
@@ -221,6 +225,12 @@ class Window(QMainWindow):
         self.changeXSeries()
 
     @QtCore.pyqtSlot()
+    def sliding(self):
+        self.series_list.append(self.d.x.copy())
+        self.d.toSlide()
+        self.changeXSeries()
+
+    @QtCore.pyqtSlot()
     def UndoChange(self):
         if len(self.series_list) <= 1:
             return
@@ -236,10 +246,8 @@ class Window(QMainWindow):
     @QtCore.pyqtSlot()
     def autoRemoveAnomaly(self):
         self.series_list.append(self.d.x.copy())
-        # while self.d.AutoRemoveAnomaly():
-        #     print("Successful delete anomaly")
-        self.d.AutoRemoveAnomaly()
-        self.changeXSeries()
+        if self.d.AutoRemoveAnomaly():
+            self.changeXSeries()
 
     def writeTable(self):
         self.table.setColumnCount(len(self.d.x))
@@ -309,21 +317,34 @@ class Window(QMainWindow):
     def drawReproductionSeries(self):
         self.hist_series_reproduction = QLineSeries()
         self.emp_series_reproduction = QLineSeries()
-
-        x_gen = self.d.toGenerateReproduction(self.reprod_num, self.hist_axisY.max())
+        self.emp_series_reproduction_low_limit = QLineSeries()
+        self.emp_series_reproduction_high_limit = QLineSeries()
+        
+        x_gen = self.d.toGenerateReproduction(self.reprod_num)
         if len(x_gen) == 0:
             return
 
-        emp_sum = 0.0
         for i in x_gen:
-            emp_sum += i[1]
             self.hist_series_reproduction.append(i[0], i[1])
-            self.emp_series_reproduction.append(i[0], emp_sum)
+            self.emp_series_reproduction_low_limit.append(i[0], i[2])
+            self.emp_series_reproduction.append(i[0], i[3])
+            self.emp_series_reproduction_high_limit.append(i[0], i[4])
+            print(i[2], i[3], i[3])
 
         self.hist_chart.addSeries(self.hist_series_reproduction)
-        self.emp_chart.addSeries(self.emp_series_reproduction)
-        
         self.hist_series_reproduction.attachAxis(self.hist_axisY)
+        
+        self.emp_chart.addSeries(self.emp_series_reproduction)
+        self.emp_chart.addSeries(self.emp_series_reproduction_low_limit)
+        self.emp_chart.addSeries(self.emp_series_reproduction_high_limit)
+
+        emp_axis_y = QValueAxis()
+        self.emp_chart.addAxis(emp_axis_y, Qt.AlignmentFlag.AlignLeft)
+        self.emp_series_reproduction.attachAxis(emp_axis_y)
+        self.emp_series_reproduction_low_limit.attachAxis(emp_axis_y)
+        self.emp_series_reproduction_high_limit.attachAxis(emp_axis_y)
+        
+        self.emp_chart.axes()[-1].setVisible(False)
 
     # розподіл Арксінус
 
@@ -363,5 +384,5 @@ def application(file: str = ''):
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    # application("data/500/vnle_a.txt")
-    application()
+    application("data/500/norm.txt")
+    # application()

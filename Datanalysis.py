@@ -1,14 +1,12 @@
 import math
+from func import *
 
-# alpha 0.05 for tStudent
-
-# 1.69   1.96
-
-# 52   204
+# student kvant
 
 T_STUDENTA_INF_95P = 1.96
 T_STUDENTA_INF_90P = 1.64
 
+# normal kvant
 
 KVANT_NORMAL_69P = 0.5
 KVANT_NORMAL_75P = 0.7
@@ -16,9 +14,9 @@ KVANT_NORMAL_90P = 1.3
 KVANT_NORMAL_95P = 1.7
 KVANT_NORMAL_99P = 2.4
 
+# reproduction tools
 
 NUM_DOT_REPRODUCTION = 500
-
 
 def calculateDx(x_start, x_end, n = NUM_DOT_REPRODUCTION):
     while n > 1:
@@ -26,6 +24,8 @@ def calculateDx(x_start, x_end, n = NUM_DOT_REPRODUCTION):
             break
         n -= 1
     return (x_end - x_start) / n
+
+# number classes
 
 def calculateM(n) -> int:
     if n < 100:
@@ -35,27 +35,7 @@ def calculateM(n) -> int:
     m -= 1 - m % 2
     return m
 
-def fNorm(x, m = 0, sigma = 1):
-    return 1 / (sigma * math.sqrt(2 * math.pi)) * math.exp(- (x - m) ** 2 / (2 * sigma ** 2))
-
-def fUniform(a, b):
-    return 1 / b - a
-
-def fExp(x, lam):
-    if x < 0:
-        return None
-    try:
-        return lam * math.exp(-lam * x)
-    except OverflowError:
-        return 1
-
-def fWeibull(x, alpha, beta):
-    return beta / alpha * x ** (beta - 1) * math.exp(-x ** beta / alpha)
-
-def fArcsin(x, a):
-    if not -a < x < a:
-        return None
-    return 1 / (math.pi * math.sqrt(a ** 2 - x ** 2))
+# Main class
 
 class DataAnalysis:
     def __init__(self, not_ranked_series_x: list):
@@ -261,17 +241,43 @@ class DataAnalysis:
         self.det_W_ = self.W_ * math.sqrt((1 + 2 * self.W_ ** 2) / (2 * N)) * T_STUDENTA_INF_95P
         self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * T_STUDENTA_INF_95P
     
-    def toGenerateReproduction(self, func, max_height_column):
+    def toGenerateReproduction(self, func):
         x_gen = []
         N = len(self.x)
         
+        DF = lambda x : 0
+        
         if func == 0:
-            f = lambda x : fNorm(x, self.x_, self.Sigma) # 
+            m = self.x_
+            sigma = self.Sigma
+            f = lambda x : fNorm(x, m, sigma)
+            
+            F = lambda x : FNorm(x, m, sigma)
+            
+            DF = lambda x : DFTwoParametr(fNorm_d_m(x, m, sigma),
+                                          fNorm_d_sigma(x, m, sigma),
+                                          sigma ** 2 / N, sigma ** 2 / (2 * N), 0)
         elif func == 1:
-            f = lambda x : fUniform(self.x_ - math.sqrt(3 * self.u2), self.x_ + math.sqrt(3 * self.u2))
+            a = self.x_ - math.sqrt(3 * self.u2)
+            b = self.x_ + math.sqrt(3 * self.u2)
+            
+            f = lambda x : fUniform(a, b)
+
+            F = lambda x : FUniform(x, a, b)
+
+            DF = lambda x : (x - b) ** 2 / (b - a) ** 4
         elif func == 2:
-            f = lambda x : fExp(x, 1 / self.x_) # MM
+            # MM
+            lamd_a = 1 / self.x_
+            
+            f = lambda x : fExp(x, lamd_a)
+            
+            F = lambda x : FExp(x, lamd_a)
+            
+            DF = lambda x : DFOneParametr(fExp_d_lamda(x, lamd_a),
+                                          lamd_a ** 2 / N)
         elif func == 3:
+            # MHK
             a11 = N - 1
             a12 = a21 = 0.0
             a22 = 0.0
@@ -286,45 +292,73 @@ class DataAnalysis:
                 b2 += math.log(math.log(1 / (1 - emp_func))) * math.log(self.x[i])
             a21 = a12
 
-            alpha = math.exp(- (b1 * a22 - b2 * a12) / (a11 * a22 - a12 * a21))
+            alpha = math.exp(-(b1 * a22 - b2 * a12) / (a11 * a22 - a12 * a21))
             beta = (b2 * a11 - b1 * a21) / (a11 * a22 - a12 * a21)
 
-            f = lambda x : fWeibull(x, alpha, beta) # MHK
+            f = lambda x : fWeibull(x, alpha, beta)
+            
+            F = lambda x : FWeibull(x, alpha, beta)
+            
+            S_2 = 0.0
+            emp_func = 0.0
+            for i in range(N - 1):
+                emp_func += self.probabilityX[i]
+                S_2 += (math.log(math.log(1 / (1 - emp_func))) \
+                    + math.log(alpha) - beta * math.log(self.x[i])) ** 2
+            
+            S_2 /= N - 3
+            
+            D_A_ = a22 * S_2 / (a11 * a22 - a12 * a21)
+            D_alpha = math.exp(2 * math.log(alpha)) * D_A_
+            
+            D_beta = a11 * S_2 / (a11 * a22 - a12 * a21)
+            
+            cov_A_beta = -a12 * S_2 / (a11 * a22 - a12 * a21)
+            cov_alpha_beta = -math.exp(-math.log(alpha)) * cov_A_beta
+            
+            DF = lambda x : DFTwoParametr(fWeibull_d_alpha(x, alpha, beta),
+                                          fWeibull_d_beta(x, alpha, beta),
+                                          D_alpha, D_beta, cov_alpha_beta)
         elif func == 4:
-            f = lambda x : fArcsin(x, math.sqrt(2 * self.u2))
+            a_ = math.sqrt(2 * self.u2)
+            f = lambda x : fArcsin(x, a_)
+            
+            F = lambda x : FArcsin(x, a_)
+            
+            DF = lambda x : DFOneParametr(-x / (math.pi * a_ * math.sqrt(a_ ** 2 - x ** 2)), a_ ** 4 / (8 * N))
         else:
             return []
         
-        DF = 0.0
-        DF = KVANT_NORMAL_90P * math.sqrt(DF)
+        limit = lambda x : KVANT_NORMAL_99P * math.sqrt(DF(x))
         
-        max_y = f(self.x[0])
         dx = calculateDx(self.x[0], self.x[-1])
         x = self.x[0]
         while x < self.x[-1]:
             y = f(x)
             if y != None:
                 x_gen.append((x, f(x)))
-                if max_y == None or max_y < y:
-                    max_y = y
             x += dx
         if x_gen[-1][1] != self.x[-1]:
             y = f(self.x[-1])
             if y != None:
+                # (x, y)
                 x_gen.append((self.x[-1], y))
-                if max_y < y:
-                    max_y = y
 
-        k = max_height_column / max_y
+        k = self.h
         for i in range(len(x_gen)):
-            x_gen[i] = (x_gen[i][0], x_gen[i][1] * k)
-        
+            # (x, dest y, low limit y, func y, high limit y)
+            x = x_gen[i][0]
+            y_f = x_gen[i][1]
+            y_F = F(x)
+            dy = limit(x)
+            x_gen[i] = (x, y_f * k, (y_F - dy) * k, y_F * k, (y_F + dy) * k)
+
         return x_gen
 
     def toTransform(self):
         if self.min < 0:
             for i in range(len(self.x)):
-                self.x[i] -= self.min - 10
+                self.x[i] -= self.min - 1
         for i in range(len(self.x)):
             self.x[i] = math.log10(self.x[i])
         self.toCalculateCharacteristic()
@@ -332,6 +366,12 @@ class DataAnalysis:
     def toStandardization(self):
         for i in range(len(self.x)):
             self.x[i] = (self.x[i] - self.x_) / self.Sigma
+        self.toCalculateCharacteristic()
+    
+    def toSlide(self, value = 1):
+        if self.min < 0:
+            for i in range(len(self.x)):
+                self.x[i] -= self.min - value
         self.toCalculateCharacteristic()
 
     def get_histogram_data(self, number_of_column: int):
