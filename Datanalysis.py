@@ -1,18 +1,12 @@
 import math
+from time import time
 from func import *
+import numpy as np
 
 # student kvant
 
 T_STUDENTA_INF_95P = 1.96
 T_STUDENTA_INF_90P = 1.64
-
-# normal kvant
-
-KVANT_NORMAL_69P = 0.5
-KVANT_NORMAL_75P = 0.7
-KVANT_NORMAL_90P = 1.3
-KVANT_NORMAL_95P = 1.7
-KVANT_NORMAL_99P = 2.4
 
 # reproduction tools
 
@@ -43,6 +37,7 @@ class DataAnalysis:
         self.probabilityX = []
 
         self.h = 0.0
+        self.hist_list = []
 
         self.min = 0.0
         self.max = 0.0
@@ -80,7 +75,7 @@ class DataAnalysis:
         is_item_del = False
 
         t1 = 2 + 0.2 * math.log10(0.04 * N)
-        t2 = (19 * (self.E + 2) ** 0.5 + 1) ** 0.5
+        t2 = (19 * math.sqrt(self.E + 2) + 1) ** 0.5
         a = 0
         b = 0
         if self.A < -0.2:
@@ -136,6 +131,7 @@ class DataAnalysis:
             self.probabilityX[i] /= number_all_observ
 
     def toCalculateCharacteristic(self):
+        t1 = time()
         N = len(self.x)
 
         self.h = 0.0
@@ -240,6 +236,8 @@ class DataAnalysis:
         self.det_c_E = math.sqrt(abs(u4 / sigma_u2 ** 4) / (29 * N)) * math.pow(abs(u4 / sigma_u2 ** 4 - 1) ** 3, 0.25) * T_STUDENTA_INF_95P
         self.det_W_ = self.W_ * math.sqrt((1 + 2 * self.W_ ** 2) / (2 * N)) * T_STUDENTA_INF_95P
         self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * T_STUDENTA_INF_95P
+
+        print(f"Calculate Characteristic time = {time() - t1}")
     
     def toGenerateReproduction(self, func):
         x_gen = []
@@ -258,6 +256,7 @@ class DataAnalysis:
                                           fNorm_d_sigma(x, m, sigma),
                                           sigma ** 2 / N, sigma ** 2 / (2 * N), 0)
         elif func == 1:
+            # MM
             a = self.x_ - math.sqrt(3 * self.u2)
             b = self.x_ + math.sqrt(3 * self.u2)
             
@@ -265,7 +264,7 @@ class DataAnalysis:
 
             F = lambda x : FUniform(x, a, b)
 
-            DF = lambda x : (x - b) ** 2 / (b - a) ** 4
+            # DF = lambda x : (x - b) ** 2 / (b - a) ** 4
         elif func == 2:
             # MM
             lamd_a = 1 / self.x_
@@ -329,7 +328,7 @@ class DataAnalysis:
         else:
             return []
         
-        limit = lambda x : KVANT_NORMAL_99P * math.sqrt(DF(x))
+        limit = lambda x : QuantileNorm(0.99) * math.sqrt(DF(x))
         
         dx = calculateDx(self.x[0], self.x[-1])
         x = self.x[0]
@@ -338,7 +337,8 @@ class DataAnalysis:
             if y != None:
                 x_gen.append((x, f(x)))
             x += dx
-        if x_gen[-1][1] != self.x[-1]:
+        
+        if len(x_gen) > 0 and x_gen[-1][1] != self.x[-1]:
             y = f(self.x[-1])
             if y != None:
                 # (x, y)
@@ -352,8 +352,79 @@ class DataAnalysis:
             y_F = F(x)
             dy = limit(x)
             x_gen[i] = (x, y_f * k, (y_F - dy) * k, y_F * k, (y_F + dy) * k)
-
+        
+        self.KolmogorovTest(F)
+        self.XiXiTest(F)
+        
         return x_gen
+    
+    def KolmogorovTest(self, func_reproduction):
+        N = len(self.x)
+
+        D = 0.0
+        emp_func = 0.0
+        for i in range(N):
+            emp_func += self.probabilityX[i]
+            DN_plus = abs(emp_func - func_reproduction(self.x[i]))
+            DN_minus = abs(emp_func - func_reproduction(self.x[i - 1]))
+            if DN_plus > D:
+                D = DN_plus
+            if i > 0 and DN_minus > D:
+                D = DN_minus
+        
+        z = math.sqrt(N) * D
+        Kz = 0.0
+        for k in range(1, 5):
+            f1 = k ** 2 - 0.5 * (1 - (-1) ** k)
+            f2 = 5 * k ** 2 + 22 - 7.5 * (1 - (-1) ** k)
+            Kz += (-1) ** k * math.exp(-2 * k ** 2 * z ** 2) \
+                * (1 - 2 * k ** 2 * z / (3 * math.sqrt(N)) \
+                - 1 / (18 * N) * ((f1 - 4 * (f1 + 3)) * k ** 2 * z ** 2 \
+                    + 8 * k ** 4 * z ** 4) + k ** 2 * z / (27 * math.sqrt(N ** 3)) \
+                        * (f2 ** 2 / 5 - 4 * (f2 + 45) * k ** 2 * z ** 2 / 15 \
+                            + 8 * k ** 4 * z ** 4))
+        Kz = 1 + 2 * Kz
+        Pz = 1 - Kz
+        alpha_zgodi = 0.0
+        if N > 100:
+            alpha_zgodi = 0.05
+        else:
+            alpha_zgodi = 0.3
+
+        if Pz >= alpha_zgodi:
+            print(f"Відтворення адекватне за критерієм згоди Колмогорова: P(z)={Pz}")
+            return True
+        else:
+            print(f"Відтворення неадекватне за критерієм згоди Колмогорова: P(z)={Pz}")
+            return False
+
+    def XiXiTest(self, func_reproduction): # Pearson test
+        hist_num = []
+        
+        M = len(self.hist_list)
+        N = len(self.x)
+        Xi = 0.0
+        xi = self.min
+        j = 0
+        for i in range(M):
+            hist_num.append(0)
+            print(self.h * i, self.x[j] - self.min, self.h * (i + 1))
+            while j < N and self.h * i <= self.x[j] - self.min <= self.h * (i + 1):
+                hist_num[i] += 1
+                j += 1
+            xi += self.h
+            print(hist_num[i], i)
+            ni_o = hist_num[i] * (func_reproduction(xi) - func_reproduction(xi - self.h))
+            if ni_o == 0:
+                return
+            Xi += (self.hist_list[i] - ni_o) ** 2 / ni_o
+
+        Xi2 = QuantileXiXi(0.05, M - 1)
+        print(f"{Xi2} < {Xi}")
+        if Xi > Xi2:
+            print("Відтворення критичне за Пірсоном")
+        else:
+            print("Відтворення некритичне за Пірсоном")
 
     def toTransform(self):
         if self.min < 0:
@@ -382,15 +453,15 @@ class DataAnalysis:
         elif number_of_column <= len(self.x):
             M = calculateM(n)
         self.h = (self.x[n - 1] - self.x[0]) / M
-        hist_list = []
+        self.hist_list = []
         j = 0
         begin_j = self.x[0]
         for i in range(M):
-            hist_list.append(0)
+            self.hist_list.append(0)
             while j < n and begin_j + self.h * (i + 1) >= self.x[j]:
-                hist_list[len(hist_list) - 1] += self.probabilityX[j]
+                self.hist_list[len(self.hist_list) - 1] += self.probabilityX[j]
                 j += 1
-        return hist_list
+        return self.hist_list
 
     def getProtocol(self) -> str:
         NM_SMBLS = 32
@@ -401,7 +472,7 @@ class DataAnalysis:
         f"{'INF'.ljust(VL_SMBLS)}{'Значення'.ljust(VL_SMBLS)}" +\
         f"{'SUP'.ljust(VL_SMBLS)}{'SKV'.ljust(VL_SMBLS)}\n")
         
-        info.append("мат сподівання".ljust(NM_SMBLS) +\
+        info.append("сер арифметичне".ljust(NM_SMBLS) +\
             f"{self.x_-self.det_x_:.5}".ljust(VL_SMBLS) +\
                 f"{self.x_:.5}".ljust(VL_SMBLS) +\
                     f"{self.x_+self.det_x_:.5}".ljust(VL_SMBLS) +\
@@ -461,8 +532,9 @@ class DataAnalysis:
         
         info.append("")
 
-        info.append("Квантилі\n------------------\nЙмовірність\tX")
+        info.append("Квантилі\n------------------\n" + "Ймовірність".ljust(VL_SMBLS) + "X".ljust(VL_SMBLS))
         for i in range(len(self.kvant)):
-            info.append(f"{self.step_kvant * (i + 1):.3}\t{self.kvant[i]}")
+            info.append(f"{self.step_kvant * (i + 1):.3}".ljust(VL_SMBLS) +\
+                f"{self.kvant[i]:.5}".ljust(VL_SMBLS))
 
         return "\n".join(info)

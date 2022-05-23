@@ -9,6 +9,32 @@ def DFTwoParametr(dF_d_theta1, dF_d_theta2, D_theta1, D_theta2, cov_theta12):
     return dF_d_theta1 ** 2 * D_theta1 + dF_d_theta2 ** 2 * D_theta2 \
         + 2 * dF_d_theta1 * dF_d_theta2 * cov_theta12
 
+# kvant
+
+def QuantileNorm(alpha):
+    p = alpha
+    t = math.sqrt(math.log(1 / p ** 2))
+    c0 = 2.515517
+    c1 = 0.802853
+    c2 = 0.010328
+    d1 = 1.432788
+    d2 = 0.1892659
+    d3 = 0.001308
+    Ea = 4.5 * 10 ** -4
+    return t - (c0 + c1 * t + c2 * t ** 2) /\
+        (1 + d1 * t + d2 * t ** 2 + d3 * t ** 3) + Ea
+
+def QuantileTStudent(alpha, nu):
+    u = FNorm(alpha)
+    g1 = 1 / 4 * (u ** 3 + u)
+    g2 = 1 / 96 * (5 * u ** 5 + 16 * u ** 3 + 3 * u)
+    g3 = 1 / 384 * (3 * u ** 7 + 19 * u ** 5 + 17 * u ** 3 - 15 * u)
+    g4 = 1 / 92160 * (79 * u ** 9 + 779 * u ** 7 + 1482 * u ** 5 - 1920 * u ** 3 - 945 * u)
+    return u + 1 / nu * g1 + 1 / nu ** 2 * g2 + 1 / nu ** 3 * g3 + 1 / nu ** 4 * g4
+
+def QuantileXiXi(alpha, nu):
+    return nu * (1 - 2 / (9 * nu) + QuantileNorm(alpha) * math.sqrt(2 / (9 * nu))) ** 3
+
 # probability functions
 
 def FNorm(x, m = 0, sigma = 1):

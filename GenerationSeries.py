@@ -6,14 +6,13 @@ from main import application
 
 a = 0
 b = 1
-N = 5000
+N = 10000
 
 def generateNormal():
     l = []
     for i in range(N):
-        rand_list = [random.random() * b for i in range(N)]
-        avr = sum(rand_list) / len(rand_list)
-        l.append(str(avr))
+        x = sum([random.random() * b for i in range(10)])
+        l.append(str(x))
     return l
 
 def generateUniform():
@@ -25,16 +24,14 @@ def generateUniform():
 def generateExp():
     l = []
     for i in range(N):
-        avr = np.average([random.random() * b for i in range(N)])
-        l.append(str(avr * math.log(1 / (1 - random.random()))))
+        alpha = sum([random.random() * b for i in range(10)])
+        l.append(str(alpha * math.log(1 / (1 - random.random()))))
     return l
 
 def generateWeibulla():
     l = []
     a = random.random()
     b = 0.2 + random.random() * 10
-    print("a=", a)
-    print("b=", b)
     for i in range(N):
         l.append(str((-a * math.log(1 - random.random())) ** (1 / b)))
     return l
@@ -42,8 +39,8 @@ def generateWeibulla():
 def generateArcsin():
     l = []
     for i in range(N):
-        avr = np.average([random.random() * b for i in range(N)])
-        l.append(str(avr * math.sin(math.pi * (random.random() - 0.5))))
+        x = np.average([random.random() * b for i in range(5000)])
+        l.append(str(x * math.sin(math.pi * (random.random() - 0.5))))
     return l
 
 t1 = time()

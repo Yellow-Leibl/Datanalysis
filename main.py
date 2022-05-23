@@ -27,8 +27,9 @@ class Window(QMainWindow):
         self.menuBar.addMenu(file_menu)
         file_menu.addAction("&Відкрити", self.openFileAct)
         file_menu.actions()[0].setShortcut(open_file_shortcut)
+        file_menu.addAction("&Зберегти", self.saveFileAct)
         file_menu.addAction("В&ийти", exit)
-        file_menu.actions()[1].setShortcut(Qt.CTRL + Qt.Key_Q)
+        file_menu.actions()[-1].setShortcut(Qt.CTRL + Qt.Key_Q)
 
         edit_menu = QMenu("&Редагувати", self)
         self.menuBar.addMenu(edit_menu)
@@ -198,6 +199,15 @@ class Window(QMainWindow):
                 self.changeXSeries()
         except FileNotFoundError:
             print("\"", file_name, "\" not found")
+    
+    def saveFileAct(self):
+        file_name = QFileDialog().getSaveFileName(self, "Зберегти файл",
+                                                  os.getcwd(), "Bci файли (*)")[0]
+        try:
+            with open(file_name, 'w') as file:
+                file.write('\n'.join([str(i) for i in self.d.x]))
+        except:
+            print("Error saving file")
 
     def changeXSeries(self):
         self.spin_box_min_x.setMinimum(self.d.min)
@@ -329,7 +339,6 @@ class Window(QMainWindow):
             self.emp_series_reproduction_low_limit.append(i[0], i[2])
             self.emp_series_reproduction.append(i[0], i[3])
             self.emp_series_reproduction_high_limit.append(i[0], i[4])
-            print(i[2], i[3], i[3])
 
         self.hist_chart.addSeries(self.hist_series_reproduction)
         self.hist_series_reproduction.attachAxis(self.hist_axisY)
@@ -345,8 +354,6 @@ class Window(QMainWindow):
         self.emp_series_reproduction_high_limit.attachAxis(emp_axis_y)
         
         self.emp_chart.axes()[-1].setVisible(False)
-
-    # розподіл Арксінус
 
     def drawEmpFunc(self, hist_data: List[float], x_min: float, x_max: float, h: float):
         self.emp_axisX.setRange(x_min, x_max)
