@@ -125,6 +125,7 @@ class Window(QMainWindow):
         self.text_edit = QTextEdit(self)
         self.text_edit.setReadOnly(True)
         self.text_edit.setFontFamily("Monospace")
+        self.text_edit.setFontFamily("Andale Mono")
 
         # # template
         widget = QWidget()
@@ -200,6 +201,7 @@ class Window(QMainWindow):
         except FileNotFoundError:
             print("\"", file_name, "\" not found")
     
+    @QtCore.pyqtSlot()
     def saveFileAct(self):
         file_name = QFileDialog().getSaveFileName(self, "Зберегти файл",
                                                   os.getcwd(), "Bci файли (*)")[0]
@@ -330,7 +332,11 @@ class Window(QMainWindow):
         self.emp_series_reproduction_low_limit = QLineSeries()
         self.emp_series_reproduction_high_limit = QLineSeries()
         
-        x_gen = self.d.toGenerateReproduction(self.reprod_num)
+        x_gen = []
+        try:
+            x_gen = self.d.toGenerateReproduction(self.reprod_num)
+        except:
+            print("Error reproduction")
         if len(x_gen) == 0:
             return
 

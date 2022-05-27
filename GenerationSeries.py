@@ -51,7 +51,7 @@ print("Тип розподілу\n\
     4. Вейбулла\n\
     5. Арксінус")
 # n = int(input())
-n = 5
+n = 4
 with open("out.txt", "w") as f:
     rozp = []
     if n == 1:

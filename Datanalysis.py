@@ -3,11 +3,6 @@ from time import time
 from func import *
 import numpy as np
 
-# student kvant
-
-T_STUDENTA_INF_95P = 1.96
-T_STUDENTA_INF_90P = 1.64
-
 # reproduction tools
 
 NUM_DOT_REPRODUCTION = 500
@@ -19,20 +14,10 @@ def calculateDx(x_start, x_end, n = NUM_DOT_REPRODUCTION):
         n -= 1
     return (x_end - x_start) / n
 
-# number classes
-
-def calculateM(n) -> int:
-    if n < 100:
-        m = math.floor(math.sqrt(n))
-    else:
-        m = math.floor(n ** (1 / 3))
-    m -= 1 - m % 2
-    return m
-
 # Main class
 
 class DataAnalysis:
-    def __init__(self, not_ranked_series_x: list):
+    def __init__(self, not_ranked_series_x):
         self.x = not_ranked_series_x.copy()
         self.probabilityX = []
 
@@ -54,6 +39,17 @@ class DataAnalysis:
         self.MED = 0.0
         self.MED_Walsh = 0.0
         self.MAD = 0.0
+
+    # number classes
+
+    @staticmethod
+    def calculateM(n) -> int:
+        if n < 100:
+            m = math.floor(math.sqrt(n))
+        else:
+            m = math.floor(n ** (1 / 3))
+        m -= 1 - m % 2
+        return m
 
     def setSeries(self, not_ranked_series_x: list):
         self.x = not_ranked_series_x.copy()
@@ -195,15 +191,18 @@ class DataAnalysis:
         self.E = ((N ** 2 - 1) / ((N - 2) * (N - 3))) * ((u4 / sigma_u2 ** 4 - 3) + 6 / (N + 1))
 
         self.c_E = 1.0 / math.sqrt(abs(self.E))
-
-        self.W_ = self.Sigma / self.x_
+        
+        if self.x_ != 0:
+            self.W_ = self.Sigma / self.x_
+        else:
+            self.W_ = math.inf
 
         self.Wp = self.MAD / self.MED
 
         ip = 0.0
-        self.kvant = []
+        self.quant = []
         p = 0.0
-        self.step_kvant = 0.025
+        self.step_quant = 0.025
         # 0.025     0.05    0.075   0.1     0.125
         # 0.15      0.175   0.2     0.225   0.25
         # 0.275     0.3     0.325   0.35    0.375
@@ -214,13 +213,21 @@ class DataAnalysis:
         # 0.95      0.975   1.000
         for i in range(N):
             p += self.probabilityX[i]
-            while ip + self.step_kvant < p:
-                ip += self.step_kvant
-                self.kvant.append(self.x[i])
-        self.inter_range = self.kvant[math.floor(0.75 / self.step_kvant) - 1] - self.kvant[math.floor(0.25 / self.step_kvant) - 1]
+            while ip + self.step_quant < p:
+                ip += self.step_quant
+                self.quant.append(self.x[i])
+        ind75 = math.floor(0.75 / self.step_quant) - 1
+        ind25 = math.floor(0.25 / self.step_quant) - 1
+        self.inter_range = self.quant[ind75] - self.quant[ind25]
 
-        self.det_x_ = self.Sigma / math.sqrt(N) * T_STUDENTA_INF_95P
-        self.det_Sigma = self.Sigma / math.sqrt(2 * N) * T_STUDENTA_INF_95P
+        if N > 60:
+            T_STUDENTA = QuantileNorm(0.05)
+        else:
+            T_STUDENTA = QuantileTStudent(0.05, N)
+        print("student=", T_STUDENTA)
+
+        self.det_x_ = self.Sigma / math.sqrt(N) * T_STUDENTA
+        self.det_Sigma = self.Sigma / math.sqrt(2 * N) * T_STUDENTA
         self.det_S = 2 * self.S / (N - 1)
 
         B1 = u3 * u3 / (u2 ** 3)
@@ -230,12 +237,12 @@ class DataAnalysis:
         B6 = u8 / (u2 ** 4)
 
         # det_A is negative
-        self.det_A = math.sqrt(abs(1.0 / (4 * N) * (4 * B4 - 12 * B3 - 24 * B2 + 9 * B2 * B1 + 35 * B1 - 36))) * T_STUDENTA_INF_95P
+        self.det_A = math.sqrt(abs(1.0 / (4 * N) * (4 * B4 - 12 * B3 - 24 * B2 + 9 * B2 * B1 + 35 * B1 - 36))) * T_STUDENTA
         self.det_A = math.sqrt(6 * (N - 2) / ((N + 1) * (N + 3)))
-        self.det_E = math.sqrt(1.0 / N * (B6 - 4 * B4 * B2 - 8 * B3 + 4 * B2 ** 3 - B2 ** 2 + 16 * B2 * B1 + 16 * B1)) * T_STUDENTA_INF_95P
-        self.det_c_E = math.sqrt(abs(u4 / sigma_u2 ** 4) / (29 * N)) * math.pow(abs(u4 / sigma_u2 ** 4 - 1) ** 3, 0.25) * T_STUDENTA_INF_95P
-        self.det_W_ = self.W_ * math.sqrt((1 + 2 * self.W_ ** 2) / (2 * N)) * T_STUDENTA_INF_95P
-        self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * T_STUDENTA_INF_95P
+        self.det_E = math.sqrt(1.0 / N * (B6 - 4 * B4 * B2 - 8 * B3 + 4 * B2 ** 3 - B2 ** 2 + 16 * B2 * B1 + 16 * B1)) * T_STUDENTA
+        self.det_c_E = math.sqrt(abs(u4 / sigma_u2 ** 4) / (29 * N)) * math.pow(abs(u4 / sigma_u2 ** 4 - 1) ** 3, 0.25) * T_STUDENTA
+        self.det_W_ = self.W_ * math.sqrt((1 + 2 * self.W_ ** 2) / (2 * N)) * T_STUDENTA
+        self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * T_STUDENTA
 
         print(f"Calculate Characteristic time = {time() - t1}")
     
@@ -353,9 +360,11 @@ class DataAnalysis:
             dy = limit(x)
             x_gen[i] = (x, y_f * k, (y_F - dy) * k, y_F * k, (y_F + dy) * k)
         
-        self.KolmogorovTest(F)
-        self.XiXiTest(F)
-        
+        try:
+            self.KolmogorovTest(F)
+            self.XiXiTest(F)
+        except:
+            pass
         return x_gen
     
     def KolmogorovTest(self, func_reproduction):
@@ -392,10 +401,10 @@ class DataAnalysis:
             alpha_zgodi = 0.3
 
         if Pz >= alpha_zgodi:
-            print(f"Відтворення адекватне за критерієм згоди Колмогорова: P(z)={Pz}")
+            print(f"\nВідтворення адекватне за критерієм згоди Колмогорова: P(z)={Pz}")
             return True
         else:
-            print(f"Відтворення неадекватне за критерієм згоди Колмогорова: P(z)={Pz}")
+            print(f"\nВідтворення неадекватне за критерієм згоди Колмогорова: P(z)={Pz}")
             return False
 
     def XiXiTest(self, func_reproduction): # Pearson test
@@ -408,23 +417,21 @@ class DataAnalysis:
         j = 0
         for i in range(M):
             hist_num.append(0)
-            print(self.h * i, self.x[j] - self.min, self.h * (i + 1))
             while j < N and self.h * i <= self.x[j] - self.min <= self.h * (i + 1):
                 hist_num[i] += 1
                 j += 1
             xi += self.h
-            print(hist_num[i], i)
-            ni_o = hist_num[i] * (func_reproduction(xi) - func_reproduction(xi - self.h))
+            ni_o = N * (func_reproduction(xi) - func_reproduction(xi - self.h))
             if ni_o == 0:
                 return
-            Xi += (self.hist_list[i] - ni_o) ** 2 / ni_o
+            Xi += (hist_num[i] - ni_o) ** 2 / ni_o
 
         Xi2 = QuantileXiXi(0.05, M - 1)
-        print(f"{Xi2} < {Xi}")
-        if Xi > Xi2:
-            print("Відтворення критичне за Пірсоном")
+        print(f"Пірсона: Quant xixi(0.05)={Xi2}, val={Xi}")
+        if Xi < Xi2:
+            return True
         else:
-            print("Відтворення некритичне за Пірсоном")
+            return False
 
     def toTransform(self):
         if self.min < 0:
@@ -451,7 +458,7 @@ class DataAnalysis:
         if number_of_column > 0:
             M = number_of_column
         elif number_of_column <= len(self.x):
-            M = calculateM(n)
+            M = DataAnalysis.calculateM(n)
         self.h = (self.x[n - 1] - self.x[0]) / M
         self.hist_list = []
         j = 0
@@ -533,8 +540,8 @@ class DataAnalysis:
         info.append("")
 
         info.append("Квантилі\n------------------\n" + "Ймовірність".ljust(VL_SMBLS) + "X".ljust(VL_SMBLS))
-        for i in range(len(self.kvant)):
-            info.append(f"{self.step_kvant * (i + 1):.3}".ljust(VL_SMBLS) +\
-                f"{self.kvant[i]:.5}".ljust(VL_SMBLS))
+        for i in range(len(self.quant)):
+            info.append(f"{self.step_quant * (i + 1):.3}".ljust(VL_SMBLS) +\
+                f"{self.quant[i]:.5}".ljust(VL_SMBLS))
 
         return "\n".join(info)
