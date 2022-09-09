@@ -1,22 +1,55 @@
 import math
 from time import time
-from func import *
-import numpy as np
+from func import (QuantileNorm, QuantileTStudent, QuantileXiXi,
+                  FNorm, fNorm, fNorm_d_m, fNorm_d_sigma,
+                  FUniform, fUniform,
+                  FArcsin, fArcsin,
+                  FWeibull, fWeibull, fWeibull_d_alpha, fWeibull_d_beta,
+                  FExp, fExp, fExp_d_lamda,
+                  DF1Parametr, DF2Parametr)
+
+NM_SMBLS = 32
+VL_SMBLS = 16
 
 # reproduction tools
 
 NUM_DOT_REPRODUCTION = 500
 
-def calculateDx(x_start, x_end, n = NUM_DOT_REPRODUCTION):
+SPLIT_CHAR = ' '
+
+
+def calculateDx(x_start, x_end, n=NUM_DOT_REPRODUCTION):
     while n > 1:
         if (x_end - x_start) / n > 0:
             break
         n -= 1
     return (x_end - x_start) / n
 
-# Main class
 
-class DataAnalysis:
+def splitAndRemoveEmpty(string):
+    return list(filter(None, string.split(SPLIT_CHAR)))
+
+
+class SamplingDatas:
+    def __init__(self, not_ranked_series_str):
+        split_float_data = [[float(j) for j in splitAndRemoveEmpty(i)]
+                            for i in not_ranked_series_str]
+        self.dimension = len(split_float_data[0])
+
+        self.samples = [SamplingData([j[i] for j in split_float_data])
+                        for i in range(self.dimension)]
+        [self.samples[i].toRanking() for i in range(self.dimension)]
+        [self.samples[i].toCalculateCharacteristic()
+         for i in range(self.dimension)]
+
+    def __getitem__(self, i):
+        return self.samples[i]
+
+    def getMaxDepth(self):
+        return max([len(i.x) for i in self.samples])
+
+
+class SamplingData:
     def __init__(self, not_ranked_series_x):
         self.x = not_ranked_series_x.copy()
         self.probabilityX = []
@@ -26,14 +59,14 @@ class DataAnalysis:
 
         self.min = 0.0
         self.max = 0.0
-        self.x_ = 0.0 # math except
-        self.S = 0.0  # dispersion
-        self.Sigma = 0.0  # stand_dev
-        self.A = 0.0  # asymmetric_c
-        self.E = 0.0  # excess_c
-        self.c_E = 0.0  # contre_excess_c : X/-\
-        self.W_ = 0.0  # pearson_c
-        self.Wp = 0.0  # param_var_c
+        self.x_ = 0.0       # mathematical exception
+        self.S = 0.0        # dispersion
+        self.Sigma = 0.0    # standart deviation
+        self.A = 0.0        # asymmetric_c
+        self.E = 0.0        # excess_c
+        self.c_E = 0.0      # contre_excess_c : X/-\
+        self.W_ = 0.0       # pearson_c
+        self.Wp = 0.0       # param_var_c
         self.inter_range = 0.0
 
         self.MED = 0.0
@@ -51,6 +84,9 @@ class DataAnalysis:
         m -= 1 - m % 2
         return m
 
+    def __getitem__(self, i):
+        return self.x[i]
+
     def setSeries(self, not_ranked_series_x: list):
         self.x = not_ranked_series_x.copy()
         self.toRanking()
@@ -65,7 +101,7 @@ class DataAnalysis:
         if num_deleted != 0:
             self.toRanking()
             self.toCalculateCharacteristic()
-    
+
     def AutoRemoveAnomaly(self):
         N = len(self.x)
         is_item_del = False
@@ -85,7 +121,7 @@ class DataAnalysis:
             b = self.x_ + t1 * self.S
 
         for i in range(N // 2 + N % 2):
-            if not(a <= self.x[i] <= b) and not (a <= self.x[-i - 1] <= b):
+            if not (a <= self.x[i] <= b) and not (a <= self.x[-i - 1] <= b):
                 if abs(a - self.x[i]) > abs(b - self.x[-i - 1]):
                     self.x.pop(i)
                 else:
@@ -188,10 +224,11 @@ class DataAnalysis:
         self.Sigma = math.sqrt(self.S)
 
         self.A = u3 * math.sqrt(N * (N - 1)) / ((N - 2) * sigma_u2 ** 3)
-        self.E = ((N ** 2 - 1) / ((N - 2) * (N - 3))) * ((u4 / sigma_u2 ** 4 - 3) + 6 / (N + 1))
+        self.E = ((N ** 2 - 1) / ((N - 2) * (N - 3))) * (
+            (u4 / sigma_u2 ** 4 - 3) + 6 / (N + 1))
 
         self.c_E = 1.0 / math.sqrt(abs(self.E))
-        
+
         if self.x_ != 0:
             self.W_ = self.Sigma / self.x_
         else:
@@ -224,7 +261,6 @@ class DataAnalysis:
             T_STUDENTA = QuantileNorm(0.05)
         else:
             T_STUDENTA = QuantileTStudent(0.05, N)
-        print("student=", T_STUDENTA)
 
         self.det_x_ = self.Sigma / math.sqrt(N) * T_STUDENTA
         self.det_Sigma = self.Sigma / math.sqrt(2 * N) * T_STUDENTA
@@ -237,52 +273,62 @@ class DataAnalysis:
         B6 = u8 / (u2 ** 4)
 
         # det_A is negative
-        self.det_A = math.sqrt(abs(1.0 / (4 * N) * (4 * B4 - 12 * B3 - 24 * B2 + 9 * B2 * B1 + 35 * B1 - 36))) * T_STUDENTA
+        self.det_A = math.sqrt(abs(1.0 / (4 * N) * (4 * B4 - 12 * B3 - 24 * B2
+                                                    + 9 * B2 * B1 + 35 * B1 -
+                                                    36))) * T_STUDENTA
+
         self.det_A = math.sqrt(6 * (N - 2) / ((N + 1) * (N + 3)))
-        self.det_E = math.sqrt(1.0 / N * (B6 - 4 * B4 * B2 - 8 * B3 + 4 * B2 ** 3 - B2 ** 2 + 16 * B2 * B1 + 16 * B1)) * T_STUDENTA
-        self.det_c_E = math.sqrt(abs(u4 / sigma_u2 ** 4) / (29 * N)) * math.pow(abs(u4 / sigma_u2 ** 4 - 1) ** 3, 0.25) * T_STUDENTA
-        self.det_W_ = self.W_ * math.sqrt((1 + 2 * self.W_ ** 2) / (2 * N)) * T_STUDENTA
+
+        self.det_E = math.sqrt(1.0 / N * (B6 - 4 * B4 * B2 - 8 * B3 +
+                                          4 * B2 ** 3 - B2 ** 2 +
+                                          16 * B2 * B1 + 16 * B1)) * T_STUDENTA
+
+        self.det_c_E = math.sqrt(abs(u4 / sigma_u2 ** 4) / (29 * N)) * (
+            abs(u4 / sigma_u2 ** 4 - 1) ** 3) ** 0.25 * T_STUDENTA
+
+        self.det_W_ = self.W_ * math.sqrt((1 + 2 * self.W_ ** 2) / (2 * N)
+                                          ) * T_STUDENTA
+
         self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * T_STUDENTA
 
         print(f"Calculate Characteristic time = {time() - t1}")
-    
-    def toGenerateReproduction(self, func):
-        x_gen = []
+
+    def toCreateReproductionFunc(self, func_num: int):
         N = len(self.x)
-        
-        DF = lambda x : 0
-        
-        if func == 0:
+
+        if func_num == 0:
             m = self.x_
             sigma = self.Sigma
-            f = lambda x : fNorm(x, m, sigma)
-            
-            F = lambda x : FNorm(x, m, sigma)
-            
-            DF = lambda x : DFTwoParametr(fNorm_d_m(x, m, sigma),
+            def f(x): return fNorm(x, m, sigma)
+
+            def F(x): return FNorm(x, m, sigma)
+
+            def DF(x): return DF2Parametr(fNorm_d_m(x, m, sigma),
                                           fNorm_d_sigma(x, m, sigma),
-                                          sigma ** 2 / N, sigma ** 2 / (2 * N), 0)
-        elif func == 1:
+                                          sigma ** 2 / N, sigma ** 2 / (2 * N),
+                                          0)
+        elif func_num == 1:
             # MM
             a = self.x_ - math.sqrt(3 * self.u2)
             b = self.x_ + math.sqrt(3 * self.u2)
-            
-            f = lambda x : fUniform(a, b)
 
-            F = lambda x : FUniform(x, a, b)
+            def f(x): return fUniform(a, b)
+
+            def F(x): return FUniform(x, a, b)
 
             # DF = lambda x : (x - b) ** 2 / (b - a) ** 4
-        elif func == 2:
+            def DF(x): return 0
+        elif func_num == 2:
             # MM
             lamd_a = 1 / self.x_
-            
-            f = lambda x : fExp(x, lamd_a)
-            
-            F = lambda x : FExp(x, lamd_a)
-            
-            DF = lambda x : DFOneParametr(fExp_d_lamda(x, lamd_a),
+
+            def f(x): return fExp(x, lamd_a)
+
+            def F(x): return FExp(x, lamd_a)
+
+            def DF(x): return DF1Parametr(fExp_d_lamda(x, lamd_a),
                                           lamd_a ** 2 / N)
-        elif func == 3:
+        elif func_num == 3:
             # MHK
             a11 = N - 1
             a12 = a21 = 0.0
@@ -295,59 +341,67 @@ class DataAnalysis:
                 a12 += math.log(self.x[i])
                 a22 += math.log(self.x[i]) ** 2
                 b1 += math.log(math.log(1 / (1 - emp_func)))
-                b2 += math.log(math.log(1 / (1 - emp_func))) * math.log(self.x[i])
+                b2 += math.log(math.log(1 / (1 - emp_func))
+                               ) * math.log(self.x[i])
             a21 = a12
 
             alpha = math.exp(-(b1 * a22 - b2 * a12) / (a11 * a22 - a12 * a21))
             beta = (b2 * a11 - b1 * a21) / (a11 * a22 - a12 * a21)
 
-            f = lambda x : fWeibull(x, alpha, beta)
-            
-            F = lambda x : FWeibull(x, alpha, beta)
-            
+            def f(x): return fWeibull(x, alpha, beta)
+
+            def F(x): return FWeibull(x, alpha, beta)
+
             S_2 = 0.0
             emp_func = 0.0
             for i in range(N - 1):
                 emp_func += self.probabilityX[i]
-                S_2 += (math.log(math.log(1 / (1 - emp_func))) \
-                    + math.log(alpha) - beta * math.log(self.x[i])) ** 2
-            
+                S_2 += (math.log(math.log(1 / (1 - emp_func))) +
+                        math.log(alpha) - beta * math.log(self.x[i])) ** 2
+
             S_2 /= N - 3
-            
+
             D_A_ = a22 * S_2 / (a11 * a22 - a12 * a21)
             D_alpha = math.exp(2 * math.log(alpha)) * D_A_
-            
+
             D_beta = a11 * S_2 / (a11 * a22 - a12 * a21)
-            
+
             cov_A_beta = -a12 * S_2 / (a11 * a22 - a12 * a21)
             cov_alpha_beta = -math.exp(-math.log(alpha)) * cov_A_beta
-            
-            DF = lambda x : DFTwoParametr(fWeibull_d_alpha(x, alpha, beta),
+
+            def DF(x): return DF2Parametr(fWeibull_d_alpha(x, alpha, beta),
                                           fWeibull_d_beta(x, alpha, beta),
                                           D_alpha, D_beta, cov_alpha_beta)
-        elif func == 4:
+        elif func_num == 4:
             a_ = math.sqrt(2 * self.u2)
-            f = lambda x : fArcsin(x, a_)
-            
-            F = lambda x : FArcsin(x, a_)
-            
-            DF = lambda x : DFOneParametr(-x / (math.pi * a_ * math.sqrt(a_ ** 2 - x ** 2)), a_ ** 4 / (8 * N))
+            def f(x): return fArcsin(x, a_)
+
+            def F(x): return FArcsin(x, a_)
+
+            def DF(x): return DF1Parametr(-x / (math.pi * a_ *
+                                                math.sqrt(a_ ** 2 - x ** 2)),
+                                          a_ ** 4 / (8 * N))
         else:
-            return []
-        
-        limit = lambda x : QuantileNorm(0.99) * math.sqrt(DF(x))
-        
+            return None, None, None
+
+        return f, F, DF
+
+    def toGenerateReproduction(self, f, F, DF):
+        x_gen = []
+
+        def limit(x): return QuantileNorm(0.97) * math.sqrt(DF(x))
+
         dx = calculateDx(self.x[0], self.x[-1])
         x = self.x[0]
         while x < self.x[-1]:
             y = f(x)
-            if y != None:
+            if y is not None:
                 x_gen.append((x, f(x)))
             x += dx
-        
+
         if len(x_gen) > 0 and x_gen[-1][1] != self.x[-1]:
             y = f(self.x[-1])
-            if y != None:
+            if y is not None:
                 # (x, y)
                 x_gen.append((self.x[-1], y))
 
@@ -359,14 +413,9 @@ class DataAnalysis:
             y_F = F(x)
             dy = limit(x)
             x_gen[i] = (x, y_f * k, (y_F - dy) * k, y_F * k, (y_F + dy) * k)
-        
-        try:
-            self.KolmogorovTest(F)
-            self.XiXiTest(F)
-        except:
-            pass
+
         return x_gen
-    
+
     def KolmogorovTest(self, func_reproduction):
         N = len(self.x)
 
@@ -380,18 +429,19 @@ class DataAnalysis:
                 D = DN_plus
             if i > 0 and DN_minus > D:
                 D = DN_minus
-        
+
         z = math.sqrt(N) * D
         Kz = 0.0
         for k in range(1, 5):
             f1 = k ** 2 - 0.5 * (1 - (-1) ** k)
             f2 = 5 * k ** 2 + 22 - 7.5 * (1 - (-1) ** k)
-            Kz += (-1) ** k * math.exp(-2 * k ** 2 * z ** 2) \
-                * (1 - 2 * k ** 2 * z / (3 * math.sqrt(N)) \
-                - 1 / (18 * N) * ((f1 - 4 * (f1 + 3)) * k ** 2 * z ** 2 \
-                    + 8 * k ** 4 * z ** 4) + k ** 2 * z / (27 * math.sqrt(N ** 3)) \
-                        * (f2 ** 2 / 5 - 4 * (f2 + 45) * k ** 2 * z ** 2 / 15 \
-                            + 8 * k ** 4 * z ** 4))
+            Kz += (-1) ** k * math.exp(-2 * k ** 2 * z ** 2) * (
+                1 - 2 * k ** 2 * z / (3 * math.sqrt(N)) -
+                1 / (18 * N) * ((f1 - 4 * (f1 + 3)) * k ** 2 * z ** 2 +
+                                8 * k ** 4 * z ** 4) +
+                k ** 2 * z / (27 * math.sqrt(N ** 3)) *
+                (f2 ** 2 / 5 - 4 * (f2 + 45) * k ** 2 * z ** 2 / 15 +
+                 8 * k ** 4 * z ** 4))
         Kz = 1 + 2 * Kz
         Pz = 1 - Kz
         alpha_zgodi = 0.0
@@ -401,15 +451,13 @@ class DataAnalysis:
             alpha_zgodi = 0.3
 
         if Pz >= alpha_zgodi:
-            print(f"\nВідтворення адекватне за критерієм згоди Колмогорова: P(z)={Pz}")
             return True
         else:
-            print(f"\nВідтворення неадекватне за критерієм згоди Колмогорова: P(z)={Pz}")
             return False
 
-    def XiXiTest(self, func_reproduction): # Pearson test
+    def XiXiTest(self, func_reproduction):  # Pearson test
         hist_num = []
-        
+
         M = len(self.hist_list)
         N = len(self.x)
         Xi = 0.0
@@ -417,7 +465,8 @@ class DataAnalysis:
         j = 0
         for i in range(M):
             hist_num.append(0)
-            while j < N and self.h * i <= self.x[j] - self.min <= self.h * (i + 1):
+            while j < N and \
+                    self.h * i <= self.x[j] - self.min <= self.h * (i + 1):
                 hist_num[i] += 1
                 j += 1
             xi += self.h
@@ -427,7 +476,6 @@ class DataAnalysis:
             Xi += (hist_num[i] - ni_o) ** 2 / ni_o
 
         Xi2 = QuantileXiXi(0.05, M - 1)
-        print(f"Пірсона: Quant xixi(0.05)={Xi2}, val={Xi}")
         if Xi < Xi2:
             return True
         else:
@@ -445,8 +493,8 @@ class DataAnalysis:
         for i in range(len(self.x)):
             self.x[i] = (self.x[i] - self.x_) / self.Sigma
         self.toCalculateCharacteristic()
-    
-    def toSlide(self, value = 1):
+
+    def toSlide(self, value=1):
         if self.min < 0:
             for i in range(len(self.x)):
                 self.x[i] -= self.min - value
@@ -458,7 +506,7 @@ class DataAnalysis:
         if number_of_column > 0:
             M = number_of_column
         elif number_of_column <= len(self.x):
-            M = DataAnalysis.calculateM(n)
+            M = SamplingData.calculateM(n)
         self.h = (self.x[n - 1] - self.x[0]) / M
         self.hist_list = []
         j = 0
@@ -471,77 +519,84 @@ class DataAnalysis:
         return self.hist_list
 
     def getProtocol(self) -> str:
-        NM_SMBLS = 32
-        VL_SMBLS = 16
         info = []
-        info.append("-------------------------ПРОТОКОЛ-------------------------\n")
-        info.append(f"{'Характеристика'.ljust(NM_SMBLS)}" +\
-        f"{'INF'.ljust(VL_SMBLS)}{'Значення'.ljust(VL_SMBLS)}" +\
-        f"{'SUP'.ljust(VL_SMBLS)}{'SKV'.ljust(VL_SMBLS)}\n")
-        
-        info.append("сер арифметичне".ljust(NM_SMBLS) +\
-            f"{self.x_-self.det_x_:.5}".ljust(VL_SMBLS) +\
-                f"{self.x_:.5}".ljust(VL_SMBLS) +\
-                    f"{self.x_+self.det_x_:.5}".ljust(VL_SMBLS) +\
-                        f"{self.det_x_:.5}".ljust(VL_SMBLS))
-        
+        info.append("-" * 40 + "ПРОТОКОЛ" + "-" * 40 + "\n")
+        info.append(formatName('Характеристика') +
+                    f"{'INF'.ljust(VL_SMBLS)}{'Значення'.ljust(VL_SMBLS)}" +
+                    f"{'SUP'.ljust(VL_SMBLS)}{'SKV'.ljust(VL_SMBLS)}\n")
 
-        info.append("Дисперсія".ljust(NM_SMBLS) +\
-            f"{self.S - self.det_S:.5}".ljust(VL_SMBLS) +\
-                f"{self.S:.5}".ljust(VL_SMBLS) +\
-                    f"{self.S + self.det_S:.5}".ljust(VL_SMBLS) +\
-                        f"{self.det_S:.5}".ljust(VL_SMBLS))
+        info.append("Сер арифметичне".ljust(NM_SMBLS) +
+                    f"{self.x_-self.det_x_:.5}".ljust(VL_SMBLS) +
+                    f"{self.x_:.5}".ljust(VL_SMBLS) +
+                    f"{self.x_+self.det_x_:.5}".ljust(VL_SMBLS) +
+                    f"{self.det_x_:.5}".ljust(VL_SMBLS))
 
-        info.append("Сер квадратичне".ljust(NM_SMBLS) +\
-            f"{self.Sigma - self.det_Sigma:.5}".ljust(VL_SMBLS) +\
-                f"{self.Sigma:.5}".ljust(VL_SMBLS) +\
-                    f"{self.Sigma + self.det_Sigma:.5}".ljust(VL_SMBLS) +\
-                        f"{self.det_Sigma:.5}".ljust(VL_SMBLS))
+        info.append("Дисперсія".ljust(NM_SMBLS) +
+                    f"{self.S - self.det_S:.5}".ljust(VL_SMBLS) +
+                    f"{self.S:.5}".ljust(VL_SMBLS) +
+                    f"{self.S + self.det_S:.5}".ljust(VL_SMBLS) +
+                    f"{self.det_S:.5}".ljust(VL_SMBLS))
 
-        info.append("Коеф. асиметрії".ljust(NM_SMBLS) +\
-            f"{self.A - self.det_A:.5}".ljust(VL_SMBLS) +\
-                f"{self.A:.5}".ljust(VL_SMBLS) +\
-                    f"{self.A + self.det_A:.5}".ljust(VL_SMBLS) +\
-                        f"{self.det_A:.5}".ljust(VL_SMBLS))
+        info.append("Сер квадратичне".ljust(NM_SMBLS) +
+                    f"{self.Sigma - self.det_Sigma:.5}".ljust(VL_SMBLS) +
+                    f"{self.Sigma:.5}".ljust(VL_SMBLS) +
+                    f"{self.Sigma + self.det_Sigma:.5}".ljust(VL_SMBLS) +
+                    f"{self.det_Sigma:.5}".ljust(VL_SMBLS))
 
-        info.append("коеф. ексцесу".ljust(NM_SMBLS) +\
-            f"{self.E - self.det_E:.5}".ljust(VL_SMBLS) +\
-                f"{self.E:.5}".ljust(VL_SMBLS) +\
-                    f"{self.E + self.det_E:.5}".ljust(VL_SMBLS) +\
-                        f"{self.det_E:.5}".ljust(VL_SMBLS))
+        info.append("Коеф. асиметрії".ljust(NM_SMBLS) +
+                    f"{self.A - self.det_A:.5}".ljust(VL_SMBLS) +
+                    f"{self.A:.5}".ljust(VL_SMBLS) +
+                    f"{self.A + self.det_A:.5}".ljust(VL_SMBLS) +
+                    f"{self.det_A:.5}".ljust(VL_SMBLS))
 
-        info.append(f"коеф. контрексцесу".ljust(NM_SMBLS) +\
-            f"{self.c_E - self.det_c_E:.5}".ljust(VL_SMBLS) +\
-                f"{self.c_E:.5}".ljust(VL_SMBLS) +\
-                    f"{self.c_E + self.det_c_E:.5}".ljust(VL_SMBLS) +\
-                        f"{self.det_c_E:.5}".ljust(VL_SMBLS))
+        info.append("коеф. ексцесу".ljust(NM_SMBLS) +
+                    f"{self.E - self.det_E:.5}".ljust(VL_SMBLS) +
+                    f"{self.E:.5}".ljust(VL_SMBLS) +
+                    f"{self.E + self.det_E:.5}".ljust(VL_SMBLS) +
+                    f"{self.det_E:.5}".ljust(VL_SMBLS))
 
-        info.append(f"коеф. варіації Пірсона".ljust(NM_SMBLS) +\
-            f"{self.W_ - self.det_W_:.5}".ljust(VL_SMBLS) +\
-                f"{self.W_:.5}".ljust(VL_SMBLS) +\
-                    f"{self.W_ + self.det_W_:.5}".ljust(VL_SMBLS) +\
-                        f"{self.det_W_:.5}".ljust(VL_SMBLS))
-        
+        info.append("коеф. контрексцесу".ljust(NM_SMBLS) +
+                    f"{self.c_E - self.det_c_E:.5}".ljust(VL_SMBLS) +
+                    f"{self.c_E:.5}".ljust(VL_SMBLS) +
+                    f"{self.c_E + self.det_c_E:.5}".ljust(VL_SMBLS) +
+                    f"{self.det_c_E:.5}".ljust(VL_SMBLS))
+
+        info.append("коеф. варіації Пірсона".ljust(NM_SMBLS) +
+                    f"{self.W_ - self.det_W_:.5}".ljust(VL_SMBLS) +
+                    f"{self.W_:.5}".ljust(VL_SMBLS) +
+                    f"{self.W_ + self.det_W_:.5}".ljust(VL_SMBLS) +
+                    f"{self.det_W_:.5}".ljust(VL_SMBLS))
+
         info.append("")
 
         info.append("MED".ljust(NM_SMBLS) + f"{self.MED:.5}")
         info.append("усіченне середнє".ljust(NM_SMBLS) + f"{self.x_a:.5}")
         info.append("MED Уолша".ljust(NM_SMBLS) + f"{self.MED_Walsh:.5}")
         info.append("MAD".ljust(NM_SMBLS) + f"{self.MAD:.5}")
-        info.append("непарам. коеф. варіацій".ljust(NM_SMBLS) + f"{self.Wp:.5}")
-        info.append("коеф. інтер. розмаху".ljust(NM_SMBLS) + f"{self.inter_range:.5}")
-        
+        info.append(formatName("непарам. коеф. варіацій") + f"{self.Wp:.5}")
+        info.append(formatName("коеф. інтер. розмаху") +
+                    f"{self.inter_range:.5}")
+
         info.append("")
 
-        info.append("мат спод.інтерв.передбачення".ljust(NM_SMBLS) +\
-            f"{self.x_-self.vanga_x_:.5}".ljust(VL_SMBLS) +\
-                f"{self.x_+self.vanga_x_:.5}".ljust(VL_SMBLS))
-        
+        info.append("мат спод.інтерв.передбачення".ljust(NM_SMBLS) +
+                    f"{self.x_-self.vanga_x_:.5}".ljust(VL_SMBLS) +
+                    f"{self.x_+self.vanga_x_:.5}".ljust(VL_SMBLS))
+
         info.append("")
 
-        info.append("Квантилі\n------------------\n" + "Ймовірність".ljust(VL_SMBLS) + "X".ljust(VL_SMBLS))
+        info.append("Квантилі\n" + "-" * VL_SMBLS * 2 + "\n" +
+                    formatValue("Ймовірність") + formatValue("X"))
         for i in range(len(self.quant)):
-            info.append(f"{self.step_quant * (i + 1):.3}".ljust(VL_SMBLS) +\
-                f"{self.quant[i]:.5}".ljust(VL_SMBLS))
+            info.append(formatValue(f"{self.step_quant * (i + 1):.3}") +
+                        formatValue(f"{self.quant[i]:.5}"))
 
         return "\n".join(info)
+
+
+def formatName(string):
+    return string.ljust(NM_SMBLS)
+
+
+def formatValue(string):
+    return string.ljust(VL_SMBLS)
