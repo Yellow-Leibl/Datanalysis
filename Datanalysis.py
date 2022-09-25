@@ -412,7 +412,7 @@ class SamplingData:
             y_f = x_gen[i][1]
             y_F = F(x)
             dy = limit(x)
-            x_gen[i] = (x, y_f * k, (y_F - dy) * k, y_F * k, (y_F + dy) * k)
+            x_gen[i] = (x, y_f * k, (y_F - dy), y_F, (y_F + dy))
 
         return x_gen
 

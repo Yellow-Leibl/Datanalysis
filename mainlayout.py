@@ -2,9 +2,9 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QMenu, QMenuBar,
                              QSpinBox, QDoubleSpinBox, QPushButton,
                              QTableWidget, QTextEdit, QTabWidget,
                              QHBoxLayout, QVBoxLayout, QLabel)
-from PyQt5.QtChart import (QChart, QChartView, QValueAxis,
-                           QLineSeries, QAreaSeries)
 from PyQt5.QtCore import Qt
+from pyqtgraph import PlotWidget
+import pyqtgraph as pg
 
 import platform
 
@@ -73,49 +73,12 @@ class MainLayout(QMainWindow):
         self.menuBar.addMenu(self.vidt_menu)
 
         # Histogram chart
-        self.hist_chart = QChart()
-        self.hist_chart.setTitle("Гістограмна оцінка")
-        self.hist_chart.legend().setVisible(False)
-        hist_chart_view = QChartView(self.hist_chart)
+        self.hist_plot: PlotWidget = pg.PlotWidget()
+        self.hist_plot.setBackground((45, 45, 45))
 
         # Empirical chart
-        self.emp_chart = QChart()
-        self.emp_chart.setTitle("Емпірична функція розподілу")
-        self.emp_chart.legend().setVisible(False)
-        emp_chart_view = QChartView(self.emp_chart)
-
-        # Histogram axes
-        self.hist_axisX = QValueAxis()
-        self.hist_axisY = QValueAxis()
-        self.hist_axisX.setTitleText("x")
-        self.hist_axisY.setTitleText("P")
-        self.hist_axisY.setTickCount(11)
-        self.hist_chart.addAxis(self.hist_axisX, Qt.AlignBottom)
-        self.hist_chart.addAxis(self.hist_axisY, Qt.AlignLeft)
-
-        # Empirical axes
-        self.emp_axisX = QValueAxis()
-        self.emp_axisY = QValueAxis()
-        self.emp_axisX.setTitleText("x")
-        self.emp_axisY.setTitleText("P")
-        self.emp_axisY.setTickCount(11)
-        self.emp_chart.addAxis(self.emp_axisX, Qt.AlignBottom)
-        self.emp_chart.addAxis(self.emp_axisY, Qt.AlignLeft)
-
-        # Histogram series
-        self.hist_series_top_line = QLineSeries()
-        self.hist_series_under_line = QLineSeries()
-        self.hist_series_area = QAreaSeries()
-        self.hist_series_reproduction = QLineSeries()
-
-        # Empirical series
-        self.emp_series_class = QLineSeries()
-        self.emp_chart.addSeries(self.emp_series_class)
-        self.emp_series_func = QLineSeries()
-        self.emp_series_reproduction = QLineSeries()
-
-        self.emp_series_class.attachAxis(self.emp_axisX)
-        self.emp_series_class.attachAxis(self.emp_axisY)
+        self.emp_plot: PlotWidget = pg.PlotWidget()
+        self.emp_plot.setBackground((45, 45, 45))
 
         # spin boxes
         self.spin_box_number_column = QSpinBox()
@@ -183,8 +146,8 @@ class MainLayout(QMainWindow):
 
         # 2 chart box
         graphics_box = QHBoxLayout()
-        graphics_box.addWidget(hist_chart_view)
-        graphics_box.addWidget(emp_chart_view)
+        graphics_box.addWidget(self.hist_plot)
+        graphics_box.addWidget(self.emp_plot)
 
         main_vbox.addLayout(graphics_box, 3)
         main_vbox.addLayout(info_text_box, 1)
@@ -199,3 +162,8 @@ def MonoFontForSpecificOS():
         return "Andale Mono"
     else:
         return "Monospace"
+
+
+if __name__ == "__main__":
+    import pyqtgraph.examples
+    pyqtgraph.examples.run()
