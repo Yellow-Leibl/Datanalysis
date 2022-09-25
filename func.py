@@ -11,12 +11,16 @@ def DF2Parametr(dF_d_theta1, dF_d_theta2, D_theta1, D_theta2, cov_theta12):
     return dF_d_theta1 ** 2 * D_theta1 + dF_d_theta2 ** 2 * D_theta2 \
         + 2 * dF_d_theta1 * dF_d_theta2 * cov_theta12
 
+
 # kvant
 
 
 def QuantileNorm(alpha):
-    p = alpha
-    t = math.sqrt(math.log(1 / p ** 2))
+    if alpha <= 0.5:
+        p = alpha
+    else:
+        p = 1 - alpha
+    t = math.log(1 / p ** 2) ** 0.5
     c0 = 2.515517
     c1 = 0.802853
     c2 = 0.010328
@@ -24,12 +28,15 @@ def QuantileNorm(alpha):
     d2 = 0.1892659
     d3 = 0.001308
     Ea = 4.5 * 10 ** -4
-    return t - (c0 + c1 * t + c2 * t ** 2) /\
-        (1 + d1 * t + d2 * t ** 2 + d3 * t ** 3) + Ea
+    u = t - (c0 + c1 * t + c2 * t ** 2) / (
+        1 + d1 * t + d2 * t ** 2 + d3 * t ** 3) + Ea
+    if alpha <= 0.5:
+        u = -u
+    return u
 
 
 def QuantileTStudent(alpha, nu):
-    u = FNorm(alpha)
+    u = QuantileNorm(alpha)
     g1 = 1 / 4 * (u ** 3 + u)
     g2 = 1 / 96 * (5 * u ** 5 + 16 * u ** 3 + 3 * u)
     g3 = 1 / 384 * (3 * u ** 7 + 19 * u ** 5 + 17 * u ** 3 - 15 * u)
@@ -39,11 +46,39 @@ def QuantileTStudent(alpha, nu):
         1 / nu ** 3 * g3 + 1 / nu ** 4 * g4
 
 
-def QuantileXiXi(alpha, nu):
+def QuantilePearson(alpha, nu):
     return nu * (1 - 2 / (9 * nu) +
                  QuantileNorm(alpha) * math.sqrt(2 / (9 * nu))) ** 3
 
+
+def QuantileFisher(alpha, nu1, nu2):
+    sigma = 1 / nu1 + 1 / nu2
+    delta = 1 / nu1 - 1 / nu2
+    u = QuantileNorm(alpha)
+
+    z = u * (sigma / 2) ** 0.5 - 1 / 6 * delta * (u ** 2 + 2) + \
+        (sigma / 2) ** 0.5 * (sigma / 24 * (u ** 2 + 3 * u) +
+                              1 / 72 * delta ** 2 / sigma * (u ** 3 + 11 * u))\
+        - delta * sigma / 120 * (u ** 4 + 9 * u ** 2 + 8) + \
+        delta ** 3 / (3240 * sigma) * (3 * u ** 4 + 7 * u ** 2 - 16) + \
+        (sigma / 2) ** 0.5 * \
+        (sigma ** 2 / 1920 * (u ** 5 + 20 * u ** 3 + 15 * u) +
+         delta ** 4 / 2880 * (u ** 5 + 44 * u ** 3 + 183 * u) +
+         delta ** 4 / (155520 * sigma ** 2) *
+         (9 * u ** 5 - 284 * u ** 3 - 1513 * u))
+
+    return math.exp(2 * z)
+
+
 # probability functions
+
+
+def L(z, N):
+    return 1 - math.e ** (-2 * z ** 2) * (
+        1 - 2 * z / (3 * N ** 0.5) +
+        2 * z ** 2 / (3 * N) * (1 - 2 * z ** 2 / 3) +
+        4 * z / (9 * N ** 1.5) * (1 / 5 - 19 * z ** 2 / 15 + 2 * z ** 4 / 3)
+        + z ** 12 / N ** 2)
 
 
 def FNorm(x, m=0, sigma=1):
@@ -88,6 +123,7 @@ def FArcsin(x, a):
         return 1.0
     return 0.5 + 1 / math.pi * math.asin(x / a)
 
+
 # probability density functions
 
 
@@ -117,6 +153,7 @@ def fArcsin(x, a):
     if not -a < x < a:
         return None
     return 1 / (math.pi * math.sqrt(a ** 2 - x ** 2))
+
 
 # Derivative functions
 

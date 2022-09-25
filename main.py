@@ -1,14 +1,15 @@
 import sys
 import os
 
-from PyQt5.QtCore import Qt, QPointF
-from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
-from PyQt5.QtChart import QLineSeries, QAreaSeries, QValueAxis
+from PyQt5.QtWidgets import (QFileDialog, QTableWidgetItem, QApplication)
+from PyQt5.QtChart import QLineSeries, QAreaSeries
+from PyQt5.QtCore import QPointF
 from PyQt5.QtGui import QPen, QColor
 
+from mainlayout import MainLayout
 from Datanalysis import SamplingDatas
 from historystack import HistoryStask
-from mainlayout import MainLayout, dict_edit
+from GeneralConstants import dict_edit, dict_repr, Edit
 
 
 class Window(MainLayout):
@@ -16,6 +17,7 @@ class Window(MainLayout):
         super().__init__()  # layout here
 
         self.number_sample = 0
+        self.datas = SamplingDatas()
 
         if file != "":
             self.openFile(file)
@@ -35,8 +37,8 @@ class Window(MainLayout):
             with open(file_name, 'r') as file:
                 all_file = [i for i in file]
 
-                self.datas = SamplingDatas(all_file)
-                self.history_series = HistoryStask(self.datas.dimension)
+                self.datas.append(all_file)
+                self.history_series = HistoryStask(len(self.datas))
                 self.d = self.datas[self.number_sample]
 
                 self.spin_box_number_column.blockSignals(True)
@@ -70,40 +72,49 @@ class Window(MainLayout):
         self.writeTable()
         self.writeProtocol()
 
-    def EditEvent(self):
-        act = dict_edit[self.sender().text()]
+    def editEvent(self):
+        act = Edit(dict_edit[self.sender().text()])
 
-        if act != 3:
+        if act != Edit.UNDO:
             self.history_series.push(self.number_sample, self.d.x.copy())
         else:
             if self.history_series.len(self.number_sample) == 0:
                 return
             self.d.setSeries(self.history_series.pop(self.number_sample))
 
-        if act == 0:
+        if act == Edit.TRANSFORM:
             self.d.toTransform()
-        elif act == 1:
+        elif act == Edit.STANDARTIZATION:
             self.d.toStandardization()
-        elif act == 2:
+        elif act == Edit.SLIDE:
             self.d.toSlide()
-        elif act == 4:
-            if not self.d.AutoRemoveAnomaly():
+        elif act == Edit.DELETE_ANOMALY:
+            if not self.d.autoRemoveAnomaly():
                 return
+        elif act == Edit.DELETE_SAMPLES:
+            self.deleteSamples()
         self.changeXSeries()
 
     def removeAnomaly(self):
-        self.d.RemoveAnomaly(self.spin_box_min_x.value(),
+        self.d.removeAnomaly(self.spin_box_min_x.value(),
                              self.spin_box_max_x.value())
+
+    def deleteSamples(self):
+        sel = self.getSelectedRows()
+        p = 0
+        for i in sel:
+            self.datas.pop(i - p)
+            p += 1
 
     def writeTable(self):
         self.table.clear()
         self.table.setColumnCount(self.datas.getMaxDepth())
-        self.table.setRowCount(self.datas.dimension)
-        for s in range(self.datas.dimension):
+        self.table.setRowCount(len(self.datas))
+        for s in range(len(self.datas)):
             for i, e in enumerate(self.datas[s].x):
                 self.table.setItem(s,
                                    i,
-                                   QTableWidgetItem(str(self.datas[s][i])))
+                                   QTableWidgetItem(f"{self.datas[s][i]:.5}"))
 
     def numberColumnChanged(self):
         if self.d is None:
@@ -172,12 +183,10 @@ class Window(MainLayout):
 
         col_height = 0.0
         for p, i in enumerate(hist_data):
-            if col_height > 1:
-                col_height = 1
-            self.emp_series_class.append(x_min + p * h, col_height)
-            self.emp_series_class.append(x_min + p * h, col_height + i)
-            self.emp_series_class.append(x_min + (p + 1) * h, col_height + i)
             col_height += i
+            self.emp_series_class.append(x_min + p * h, col_height - i)
+            self.emp_series_class.append(x_min + p * h, col_height)
+            self.emp_series_class.append(x_min + (p + 1) * h, col_height)
 
         sum_ser = 0.0
         for i in range(len(self.d.probabilityX)):
@@ -190,12 +199,24 @@ class Window(MainLayout):
         self.emp_axisY.setMin(0)
 
     def setReproductionSeries(self):
-        reprod = self.sender()
-        for i in range(len(self.vidt_menu.actions())):
-            if reprod == self.vidt_menu.actions()[i]:
-                self.reprod_num = i
-                break
+        self.reprod_num = dict_repr[self.sender().text()]
         self.updateGraphics(self.spin_box_number_column.value())
+
+    def toCreateReproductionFunc(self, func_num):
+        if func_num == 0:
+            f, F, DF = self.d.toCreateNormalFunc()
+        elif func_num == 1:
+            f, F, DF = self.d.toCreateUniformFunc()
+        elif func_num == 2:
+            f, F, DF = self.d.toCreateExponentialFunc()
+        elif func_num == 3:
+            f, F, DF = self.d.toCreateWeibullFunc()
+        elif func_num == 4:
+            f, F, DF = self.d.toCreateArcsinFunc()
+        else:
+            return None, None, None
+
+        return f, F, DF
 
     def drawReproductionSeries(self):
         self.hist_series_reproduction = QLineSeries()
@@ -205,7 +226,7 @@ class Window(MainLayout):
 
         x_gen = []
         try:
-            f, F, DF = self.d.toCreateReproductionFunc(self.reprod_num)
+            f, F, DF = self.toCreateReproductionFunc(self.reprod_num)
             if f is not None:
                 x_gen = self.d.toGenerateReproduction(f, F, DF)
         except ValueError:
@@ -218,14 +239,19 @@ class Window(MainLayout):
             return
 
         criterion_text = '\n'
-        if self.d.KolmogorovTest(F):
+        if self.d.kolmogorovTest(F):
             criterion_text += "Відтворення адекватне за критерієм" + \
                 " згоди Колмогорова\n"
         else:
             criterion_text += "Відтворення неадекватне за критерієм" + \
                 " згоди Колмогорова\n"
 
-        if self.d.XiXiTest(F):
+        try:
+            xi_test_result = self.d.xiXiTest(F)
+        except ZeroDivisionError:
+            xi_test_result = False
+
+        if xi_test_result:
             criterion_text += "Відтворення адекватне за критерієм Пірсона\n"
         else:
             criterion_text += "Відтворення неадекватне за критерієм Пірсона\n"
@@ -244,14 +270,6 @@ class Window(MainLayout):
         self.emp_chart.addSeries(self.emp_series_reproduction_low_limit)
         self.emp_chart.addSeries(self.emp_series_reproduction_high_limit)
 
-        emp_axis_y = QValueAxis()
-        self.emp_chart.addAxis(emp_axis_y, Qt.AlignmentFlag.AlignLeft)
-        self.emp_series_reproduction.attachAxis(emp_axis_y)
-        self.emp_series_reproduction_low_limit.attachAxis(emp_axis_y)
-        self.emp_series_reproduction_high_limit.attachAxis(emp_axis_y)
-
-        self.emp_chart.axes()[-1].setVisible(False)
-
     def setSample(self, row):
         self.number_sample = row
         self.d = self.datas[self.number_sample]
@@ -262,6 +280,29 @@ class Window(MainLayout):
         self.spin_box_number_column.blockSignals(False)
         self.changeXSeries()
 
+    def critsSamples(self):
+        sel = self.getSelectedRows()
+        print(f"{sel}")
+        if len(sel) == 1:
+            P = self.datas[sel[0]].critetionAbbe()
+            if P > 0.1:
+                self.showMessageBox("Критерій Аббе",
+                                    f"{P:.5} > 0.1\nСпостереження незалежні")
+            else:
+                self.showMessageBox("Критерій Аббе",
+                                    f"{P:.5} < 0.1\nСпостереження залежні")
+
+        elif len(sel) == 2:
+            if self.datas.ident2Samples(sel[0], sel[1]):
+                self.showMessageBox("Вибірки ідентичні", "")
+            else:
+                self.showMessageBox("Вибірки неідентичні", "")
+        else:
+            if self.datas.identKSamples([self.datas[i] for i in sel]):
+                self.showMessageBox("Вибірки ідентичні", "")
+            else:
+                self.showMessageBox("Вибірки неідентичні", "")
+
 
 def application(file: str = ''):
     app = QApplication(sys.argv)
@@ -271,5 +312,5 @@ def application(file: str = ''):
 
 
 if __name__ == "__main__":
-    application("data/500/norm3n.txt")
+    application("out.txt")
     # application()
