@@ -1,29 +1,19 @@
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QMenu, QMenuBar,
-                             QSpinBox, QDoubleSpinBox, QPushButton,
-                             QTableWidget, QTextEdit, QTabWidget,
-                             QHBoxLayout, QVBoxLayout, QLabel)
+from PyQt5.QtWidgets import (
+    QMainWindow, QWidget, QMenu, QMenuBar,
+    QSpinBox, QDoubleSpinBox, QPushButton,
+    QTableWidget, QAbstractItemView,
+    QTextEdit, QTabWidget,
+    QHBoxLayout, QVBoxLayout,
+    QLabel, QMessageBox)
 from PyQt5.QtCore import Qt
 from pyqtgraph import PlotWidget
 import pyqtgraph as pg
 
 import platform
 
-
-dict_edit = {
-    "&Перетворити": 0,
-    "&Стандартизувати": 1,
-    "&Зсунути": 2,
-    "&Повернути": 3,
-    "&Видалити аномалії": 4
-}
-
-dict_shortcut = {
-    "&Перетворити": Qt.CTRL + Qt.Key_T,
-    "&Стандартизувати": Qt.CTRL + Qt.Key_S,
-    "&Зсунути": Qt.CTRL + Qt.Key_P,
-    "&Повернути": Qt.CTRL + Qt.Key_Z,
-    "&Видалити аномалії": Qt.CTRL + Qt.Key_D
-}
+from GeneralConstants import (
+    dict_edit, dict_edit_shortcut, dict_repr, dict_repr_shortcut,
+    dict_crit, dict_crit_shortcut)
 
 
 class MainLayout(QMainWindow):
@@ -44,33 +34,31 @@ class MainLayout(QMainWindow):
         # Editing menu
         edit_menu = QMenu("&Редагувати", self)
         for k, v in dict_edit.items():
-            edit_menu.addAction(k, self.EditEvent)
-            edit_menu.actions()[v].setShortcut(dict_shortcut[k])
+            edit_menu.addAction(k, self.editEvent)
+            edit_menu.actions()[-1].setShortcut(dict_edit_shortcut[k])
         self.reprod_num = -1
 
         # Reproduction menu
-        self.vidt_menu = QMenu("&Відтворити", self)
-        self.vidt_menu.addAction("&Нормальний", self.setReproductionSeries)
-        self.vidt_menu.actions()[0].setShortcut(Qt.CTRL + Qt.Key_N)
-        self.vidt_menu.addAction("&Рівномірний", self.setReproductionSeries)
-        self.vidt_menu.actions()[1].setShortcut(Qt.CTRL + Qt.Key_U)
-        self.vidt_menu.addAction("&Експоненціальний",
-                                 self.setReproductionSeries)
-        self.vidt_menu.actions()[2].setShortcut(Qt.CTRL + Qt.Key_E)
-        self.vidt_menu.addAction("&Вейбулла", self.setReproductionSeries)
-        self.vidt_menu.actions()[3].setShortcut(Qt.CTRL + Qt.Key_W)
-        self.vidt_menu.addAction("&Арксинус", self.setReproductionSeries)
-        self.vidt_menu.actions()[4].setShortcut(Qt.CTRL + Qt.Key_A)
-        self.vidt_menu.addSeparator()
-        self.vidt_menu.addAction("&Очистити", self.setReproductionSeries)
-        self.vidt_menu.actions()[-1].setShortcut(Qt.CTRL + Qt.Key_C)
+        vidt_menu = QMenu("&Відтворити", self)
+        for k, v in dict_repr.items():
+            if k == "&Очистити":
+                vidt_menu.addSeparator()
+            vidt_menu.addAction(k, self.setReproductionSeries)
+            vidt_menu.actions()[-1].setShortcut(dict_repr_shortcut[k])
+
+        # Critetion menu
+        crit_menu = QMenu("&Критерії", self)
+        for k, v in dict_crit.items():
+            crit_menu.addAction(k, self.critsSamples)
+            crit_menu.actions()[-1].setShortcut(dict_crit_shortcut[k])
 
         # Menu bar
         self.menuBar = QMenuBar()
         self.setMenuBar(self.menuBar)
         self.menuBar.addMenu(file_menu)
         self.menuBar.addMenu(edit_menu)
-        self.menuBar.addMenu(self.vidt_menu)
+        self.menuBar.addMenu(vidt_menu)
+        self.menuBar.addMenu(crit_menu)
 
         # Histogram chart
         self.hist_plot: PlotWidget = pg.PlotWidget()
@@ -96,6 +84,8 @@ class MainLayout(QMainWindow):
         self.table = QTableWidget()
         self.table.cellDoubleClicked.connect(
             lambda: self.setSample(self.table.currentRow()))
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        # self.table.setSelectionMode(QAbstractItemView.MultiSelection)
 
         # Protocol
         self.protocol = QTextEdit()
@@ -106,10 +96,6 @@ class MainLayout(QMainWindow):
         self.criterion_protocol = QTextEdit()
         self.criterion_protocol.setReadOnly(True)
         self.criterion_protocol.setFontFamily(MonoFontForSpecificOS())
-
-        # # Layout
-        widget = QWidget()
-        main_vbox = QVBoxLayout()
 
         # table and textEdit tab
         tab_text_info = QTabWidget()
@@ -149,11 +135,27 @@ class MainLayout(QMainWindow):
         graphics_box.addWidget(self.hist_plot)
         graphics_box.addWidget(self.emp_plot)
 
+        main_vbox = QVBoxLayout()
         main_vbox.addLayout(graphics_box, 3)
         main_vbox.addLayout(info_text_box, 1)
 
+        widget = QWidget()
         widget.setLayout(main_vbox)
         self.setCentralWidget(widget)
+
+    def getSelectedRows(self) -> list:
+        ranges = self.table.selectedRanges()
+        sel_rows = []
+        for r in ranges:
+            for i in range(r.topRow(), r.bottomRow() + 1):
+                sel_rows.append(i)
+        return sel_rows
+
+    def showMessageBox(self, text: str, informative_text: str):
+        box = QMessageBox()
+        box.setText(text)
+        box.setInformativeText(informative_text)
+        box.exec()
 
 
 def MonoFontForSpecificOS():
