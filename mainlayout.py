@@ -25,7 +25,7 @@ class MainLayout(QMainWindow):
 
         # File menu
         file_menu = QMenu("&Файл", self)
-        file_menu.addAction("&Відкрити", self.openFileAct)
+        file_menu.addAction("&Відкрити", lambda: self.openFile(''))
         file_menu.actions()[0].setShortcut(Qt.CTRL + Qt.Key_O)
         file_menu.addAction("&Зберегти", self.saveFileAct)
         file_menu.addAction("В&ийти", exit)
@@ -49,7 +49,9 @@ class MainLayout(QMainWindow):
         # Critetion menu
         crit_menu = QMenu("&Критерії", self)
         for k, v in dict_crit.items():
-            crit_menu.addAction(k, self.critsSamples)
+            crit_menu.addAction(k,
+                                lambda: self.critsSamples(
+                                    self.spin_box_level.value()))
             crit_menu.actions()[-1].setShortcut(dict_crit_shortcut[k])
 
         # Menu bar
@@ -61,11 +63,13 @@ class MainLayout(QMainWindow):
         self.menuBar.addMenu(crit_menu)
 
         # Histogram chart
-        self.hist_plot: PlotWidget = pg.PlotWidget()
+        self.hist_plot: PlotWidget = pg.PlotWidget(
+            title="Гістограмна оцінка")
         self.hist_plot.setBackground((45, 45, 45))
 
         # Empirical chart
-        self.emp_plot: PlotWidget = pg.PlotWidget()
+        self.emp_plot: PlotWidget = pg.PlotWidget(
+            title="Емпірична функція розподілу")
         self.emp_plot.setBackground((45, 45, 45))
 
         # spin boxes
@@ -73,6 +77,15 @@ class MainLayout(QMainWindow):
         self.spin_box_number_column.setMinimum(0)
         self.spin_box_number_column.valueChanged.connect(
             self.numberColumnChanged)
+
+        self.spin_box_level = QDoubleSpinBox()
+        self.spin_box_level.setDecimals(5)
+        self.spin_box_level.setMinimum(0)
+        self.spin_box_level.setMaximum(1)
+        self.spin_box_level.setValue(0.05)
+        self.spin_box_level.valueChanged.connect(
+            lambda: self.changeTrust(self.spin_box_level.value()))
+
         self.spin_box_min_x = QDoubleSpinBox()
         self.spin_box_min_x.setDecimals(5)
         self.spin_box_max_x = QDoubleSpinBox()
@@ -109,8 +122,13 @@ class MainLayout(QMainWindow):
 
         # number of classes
         h_step_box = QHBoxLayout()
-        h_step_box.addWidget(QLabel("h"), 1)
+        h_step_box.addWidget(QLabel("Кількість класів"), 1)
         h_step_box.addWidget(self.spin_box_number_column, 9)
+
+        # level of significance
+        level_box = QHBoxLayout()
+        level_box.addWidget(QLabel("Рівень значущості"))
+        level_box.addWidget(self.spin_box_level)
 
         # borders
         anomaly_box = QHBoxLayout()
@@ -120,6 +138,7 @@ class MainLayout(QMainWindow):
         anomaly_box.addWidget(self.spin_box_max_x, 3)
 
         vbox_func.addLayout(h_step_box)
+        vbox_func.addLayout(level_box)
         vbox_func.addLayout(anomaly_box)
         vbox_func.addWidget(self.remove_anomaly)
 

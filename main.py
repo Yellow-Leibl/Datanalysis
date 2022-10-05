@@ -10,17 +10,18 @@ from GeneralConstants import dict_edit, dict_repr, Edit
 
 
 class Window(MainLayout):
-    def __init__(self, file: str):
+    def __init__(self, file: str, is_file_name: bool = True):
         super().__init__()  # layout here
 
         self.number_sample = 0
         self.datas = SamplingDatas()
 
         if file != "":
-            self.openFile(file)
-
-    def openFileAct(self):
-        self.openFile('')
+            if is_file_name:
+                self.openFile(file)
+            else:
+                all_file = file.split('\n')
+                self.loadFromData(all_file)
 
     def openFile(self, file: str):
         file_name = file
@@ -33,28 +34,36 @@ class Window(MainLayout):
         try:
             with open(file_name, 'r') as file:
                 all_file = [i for i in file]
-
-                self.datas.append(all_file)
-                self.history_series = HistoryStask(len(self.datas))
-                self.d = self.datas[self.number_sample]
-
-                self.spin_box_number_column.blockSignals(True)
-                self.spin_box_number_column.setMaximum(len(self.d.x))
-                self.spin_box_number_column.setValue(0)
-                self.spin_box_number_column.blockSignals(False)
-
-                self.reprod_num = -1
-
-                self.changeXSeries()
+                self.loadFromData(all_file)
         except FileNotFoundError:
             print(f"\"{file_name}\" not found")
+
+    def loadFromData(self, all_file: str):
+        self.datas.append(all_file)
+        self.history_series = HistoryStask(len(self.datas))
+        self.d = self.datas[self.number_sample]
+
+        self.spin_box_number_column.blockSignals(True)
+        self.spin_box_number_column.setMaximum(len(self.d.x))
+        self.spin_box_number_column.setValue(0)
+        self.spin_box_number_column.blockSignals(False)
+
+        self.reprod_num = -1
+
+        self.changeXSeries()
 
     def saveFileAct(self):
         file_name = QFileDialog().getSaveFileName(self, "Зберегти файл",
                                                   os.getcwd(),
                                                   "Bci файли (*)")[0]
         with open(file_name, 'w') as file:
-            file.write('\n'.join([str(i) for i in self.d.x]))
+            def safe_access(lst: list, i):
+                return str(lst[i]) if len(lst) > i else ''
+
+            file.write('\n'.join(
+                [' '.join([safe_access(self.datas[j], i)
+                           for j in range(len(self.datas))])
+                 for i in range(self.datas.getMaxDepth())]))
 
     def changeXSeries(self):
         self.spin_box_min_x.setMinimum(self.d.min)
@@ -177,8 +186,8 @@ class Window(MainLayout):
             y_stat.append(sum_ser)
 
         self.emp_plot.clear()
-        self.emp_plot.plot(x_class, y_class, pen=(255, 0, 0))
-        self.emp_plot.plot(x_stat, y_stat, pen=(0, 255, 0))
+        self.emp_plot.plot(x_class, y_class, pen=newPen((255, 0, 0), 2))
+        self.emp_plot.plot(x_stat, y_stat, pen=newPen((0, 255, 0), 2))
 
     def setReproductionSeries(self):
         self.reprod_num = dict_repr[self.sender().text()]
@@ -245,10 +254,11 @@ class Window(MainLayout):
             y_low.append(i[2])
             y_emp.append(i[3])
             y_high.append(i[4])
-        self.hist_plot.plot(x, y_hist, pen=(0, 0, 255))
-        self.emp_plot.plot(x, y_low, pen=(0, 128, 128))
-        self.emp_plot.plot(x, y_emp, pen=(0, 0, 255))
-        self.emp_plot.plot(x, y_high, pen=(128, 0, 128))
+
+        self.hist_plot.plot(x, y_hist, pen=newPen((0, 0, 255), 3))
+        self.emp_plot.plot(x, y_low, pen=newPen((0, 128, 128), 2))
+        self.emp_plot.plot(x, y_emp, pen=newPen((0, 255, 255), 2))
+        self.emp_plot.plot(x, y_high, pen=newPen((128, 0, 128), 2))
 
     def setSample(self, row):
         self.number_sample = row
@@ -260,37 +270,54 @@ class Window(MainLayout):
         self.spin_box_number_column.blockSignals(False)
         self.changeXSeries()
 
-    def critsSamples(self):
+    def critsSamples(self, trust: float):
         sel = self.getSelectedRows()
         print(f"{sel}")
         if len(sel) == 1:
             P = self.datas[sel[0]].critetionAbbe()
-            if P > 0.1:
+            if P > trust:
                 self.showMessageBox("Критерій Аббе",
-                                    f"{P:.5} > 0.1\nСпостереження незалежні")
+                                    f"{P:.5} > {trust}" +
+                                    "\nСпостереження незалежні")
             else:
                 self.showMessageBox("Критерій Аббе",
-                                    f"{P:.5} < 0.1\nСпостереження залежні")
+                                    f"{P:.5} < {trust}" +
+                                    "\nСпостереження залежні")
 
         elif len(sel) == 2:
-            if self.datas.ident2Samples(sel[0], sel[1]):
-                self.showMessageBox("Вибірки ідентичні", "")
+            if self.datas.ident2Samples(sel[0], sel[1], trust):
+                self.showMessageBox("Вибірки однорідні", "")
             else:
-                self.showMessageBox("Вибірки неідентичні", "")
+                self.showMessageBox("Вибірки неоднорідні", "")
         else:
-            if self.datas.identKSamples([self.datas[i] for i in sel]):
-                self.showMessageBox("Вибірки ідентичні", "")
+            if self.datas.identKSamples([self.datas[i] for i in sel], trust):
+                self.showMessageBox("Вибірки однорідні", "")
             else:
-                self.showMessageBox("Вибірки неідентичні", "")
+                self.showMessageBox("Вибірки неоднорідні", "")
+
+    def changeTrust(self, trust: float):
+        self.d.setTrust(trust)
+        self.changeXSeries()
 
 
-def application(file: str = ''):
+def newPen(color, width):
+    return {'color': color, 'width': width}
+
+
+def applicationLoadFromFile(file: str = ''):
     app = QApplication(sys.argv)
     widget = Window(file)
     widget.show()
     sys.exit(app.exec())
 
 
+def applicationLoadFromStr(file: str = ''):
+    app = QApplication(sys.argv)
+    widget = Window(file, False)
+    widget.show()
+    sys.exit(app.exec())
+
+
 if __name__ == "__main__":
-    application("out.txt")
+    applicationLoadFromFile("data/self/ident_samples.txt")
     # application()

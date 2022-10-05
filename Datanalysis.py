@@ -20,7 +20,8 @@ NUM_DOT_REPRODUCTION = 500
 SPLIT_CHAR = ' '
 
 
-def calculateDx(x_start, x_end, n=NUM_DOT_REPRODUCTION):
+def calculateDx(x_start: float,
+                x_end: float, n=NUM_DOT_REPRODUCTION) -> float:
     while n > 1:
         if (x_end - x_start) / n > 0:
             break
@@ -33,6 +34,8 @@ class SamplingData:
         self.not_ranked_series_x = not_ranked_series_x
         self.x = not_ranked_series_x.copy()
         self.probabilityX = []
+
+        self.trust = 0.05
 
         self.h = 0.0
         self.hist_list = []
@@ -88,6 +91,9 @@ class SamplingData:
         for i in range(len(self.probabilityX)):
             self.probabilityX[i] /= number_all_observ
 
+    def setTrust(self, trust):
+        self.trust: float = trust
+
     def toCalculateCharacteristic(self):
         t1 = time()
         N = len(self.x)
@@ -110,7 +116,7 @@ class SamplingData:
             self.MED = self.x[k + 1]
         self.MAD = 1.483 * self.MED
 
-        PERCENT_USICH_SER = 0.05
+        PERCENT_USICH_SER = self.trust
         self.x_a = 0.0
         k = int(PERCENT_USICH_SER * N)
         for i in range(k + 1, N - k):
@@ -184,12 +190,12 @@ class SamplingData:
         self.inter_range = self.quant[ind75] - self.quant[ind25]
 
         if N > 60:
-            T_STUDENTA = QuantileNorm(0.05)
+            QUANT_I = QuantileNorm(1 - self.trust / 2)
         else:
-            T_STUDENTA = QuantileTStudent(0.05, N)
+            QUANT_I = QuantileTStudent(1 - self.trust / 2, N)
 
-        self.det_x_ = self.Sigma / math.sqrt(N) * T_STUDENTA
-        self.det_Sigma = self.Sigma / math.sqrt(2 * N) * T_STUDENTA
+        self.det_x_ = self.Sigma / math.sqrt(N) * QUANT_I
+        self.det_Sigma = self.Sigma / math.sqrt(2 * N) * QUANT_I
         self.det_S = 2 * self.S / (N - 1)
 
         B1 = u3 * u3 / (u2 ** 3)
@@ -201,21 +207,21 @@ class SamplingData:
         # det_A is negative
         self.det_A = math.sqrt(abs(1.0 / (4 * N) * (4 * B4 - 12 * B3 - 24 * B2
                                                     + 9 * B2 * B1 + 35 * B1 -
-                                                    36))) * T_STUDENTA
+                                                    36))) * QUANT_I
 
         self.det_A = math.sqrt(6 * (N - 2) / ((N + 1) * (N + 3)))
 
         self.det_E = math.sqrt(1.0 / N * (B6 - 4 * B4 * B2 - 8 * B3 +
                                           4 * B2 ** 3 - B2 ** 2 +
-                                          16 * B2 * B1 + 16 * B1)) * T_STUDENTA
+                                          16 * B2 * B1 + 16 * B1)) * QUANT_I
 
         self.det_c_E = math.sqrt(abs(u4 / sigma_u2 ** 4) / (29 * N)) * (
-            abs(u4 / sigma_u2 ** 4 - 1) ** 3) ** 0.25 * T_STUDENTA
+            abs(u4 / sigma_u2 ** 4 - 1) ** 3) ** 0.25 * QUANT_I
 
         self.det_W_ = self.W_ * math.sqrt((1 + 2 * self.W_ ** 2) / (2 * N)
-                                          ) * T_STUDENTA
+                                          ) * QUANT_I
 
-        self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * T_STUDENTA
+        self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * QUANT_I
 
         print(f"Characteristic calculation time = {time() - t1} sec")
 
@@ -374,7 +380,8 @@ class SamplingData:
     def toGenerateReproduction(self, f, F, DF) -> list:
         x_gen = []
 
-        def limit(x): return QuantileNorm(0.999) * math.sqrt(DF(x))
+        def limit(x):
+            return QuantileNorm(1 - self.trust / 2) * math.sqrt(DF(x))
 
         dx = calculateDx(self.x[0], self.x[-1])
         x = self.x[0]
@@ -442,7 +449,7 @@ class SamplingData:
 
     def xiXiTest(self, func_reproduction) -> bool:  # Pearson test
         hist_num = []
-
+        # TODO: hist_list - hist glist
         M = len(self.hist_list)
         N = len(self.x)
         Xi = 0.0
@@ -460,7 +467,7 @@ class SamplingData:
                 return
             Xi += (hist_num[i] - ni_o) ** 2 / ni_o
 
-        Xi2 = QuantilePearson(0.05, M - 1)
+        Xi2 = QuantilePearson(1 - self.trust, M - 1)
         if Xi < Xi2:
             return True
         else:
@@ -568,8 +575,8 @@ class SamplingData:
         info.append("")
 
         info.append(formatName("мат спод.інтерв.передбачення") +
-                    formatValue(f"{self.x_ + self.vanga_x_:.5}") +
-                    formatValue(f"{self.x_ - self.vanga_x_:.5}"))
+                    formatValue(f"{self.x_ - self.vanga_x_:.5}") +
+                    formatValue(f"{self.x_ + self.vanga_x_:.5}"))
 
         info.append("")
 
@@ -593,8 +600,6 @@ class SamplingData:
         D_q = (N - 2) / (N ** 2 - 1)
         U = (q - E_q) / D_q ** 0.5
         P = FNorm(U)
-        print("P ="
-              f"{P} > {0.05}")
         return P
 
 
@@ -628,7 +633,6 @@ class SamplingDatas:
             self.samples.append(SamplingData(vectors[i]))
             self[-1].toRanking()
             self[-1].toCalculateCharacteristic()
-            self[-1].critetionAbbe()
 
     def __len__(self) -> int:
         return len(self.samples)
@@ -652,7 +656,7 @@ class SamplingDatas:
         z = [x[i] - y[i] for i in range(N)]
         z_ = sum(z) / N
         S = sum([(zl - z_) ** 2 for zl in z]) / (N - 1)
-        t = z_ * math.sqrt(N) / S ** 0.5
+        t = z_ * N ** 0.5 / S ** 0.5
 
         print("середні залежні: t <= t_nu: "
               f"{abs(t)} <= {QuantileTStudent(1 - trust / 2, N - 2)}")
@@ -688,7 +692,7 @@ class SamplingDatas:
         else:
             f = y.S / x.S
 
-        print("дисперсії незалежні: "
+        print("дисперсії f-test: "
               f"{f} <= {QuantileFisher(1 - trust / 2, N1 - 1, N2 - 2)}")
         return f <= QuantileFisher(1 - trust / 2, N1 - 1, N2 - 2)
 
@@ -706,7 +710,7 @@ class SamplingDatas:
                                      - 1 / sum([(N(i) - 1) for i in range(k)]))
         X = B / C
 
-        print("дисперсії незалежні: "
+        print("дисперсії Бартлета: "
               f"{X} <= {QuantilePearson(1 - trust / 2, k - 1)}")
         return X <= QuantilePearson(1 - trust / 2, k - 1)
 
@@ -726,7 +730,7 @@ class SamplingDatas:
 
         F = S_M / S_B
 
-        print("дисперсії незалежні: "
+        print("однофакторно дисп аналіз, середні: "
               f"{F} <= {QuantileFisher(1 - trust / 2, k - 1, N_g - k)}")
         return F <= QuantileFisher(1 - trust / 2, k - 1, N_g - k)
 
@@ -752,8 +756,8 @@ class SamplingDatas:
         N2 = len(y)
         N = min(N1, N2)
 
-        print(f"1 - L(z) = {1 - L(z, N)} > {trust}")
-        return 1 - L(z, N) > trust
+        print(f"1 - L(z) = {1 - L(N ** 0.5 * z, N)} > {trust}")
+        return 1 - L(N ** 0.5 * z, N) > trust
 
     def critetionWilcoxon(self,
                           x: SamplingData,
@@ -925,22 +929,39 @@ class SamplingDatas:
         print(f"Q ={Q} <= {QuantilePearson(1 - trust, k - 1)}")
         return Q <= QuantilePearson(1 - trust, k - 1)
 
-    def ident2Samples(self, row1: int, row2: int) -> bool:
+    def ident2Samples(self, row1: int, row2: int, trust: float = 0.05) -> bool:
         x, y = self.samples[row1], self.samples[row2]
-        if len(x) == len(y):
-            return self.identAvrTtestDependent(x, y) \
-                and self.critetionSign(x, y)
+        if x.kolmogorovTest(x.toCreateNormalFunc()[1]) and\
+           y.kolmogorovTest(y.toCreateNormalFunc()[1]):
+            # normal
+            if len(x) == len(y):
+                return self.identDispersionBarlet([x, y], trust) \
+                        and self.identAvrTtestDependent(x, y, trust)
+            else:
+                return self.identDispersionFtest(x, y, trust) \
+                        and self.identAvrTtestIndependent(x, y, trust) \
+                        and self.critetionWilcoxon(x, y, trust) \
+                        and self.critetionUtest(x, y, trust) \
+                        and self.critetionDiffAvrRanges(x, y, trust)
         else:
-            if self.identDispersionFtest(x, y):
-                return self.identAvrTtestIndependent(x, y) \
-                    and self.critetionSmirnovKolmogorov(x, y) \
-                    and self.critetionWilcoxon(x, y) \
-                    and self.critetionUtest(x, y) \
-                    and self.critetionDiffAvrRanges(x, y)
+            # other
+            return self.critetionSmirnovKolmogorov(x, y, trust) \
+                    and self.critetionWilcoxon(x, y, trust) \
+                    and self.critetionUtest(x, y, trust) \
+                    and self.critetionDiffAvrRanges(x, y, trust) \
+                    and self.critetionSign(x, y, trust)
         return False
 
-    def identKSamples(self, samples: list):
-        if self.identDispersionBarlet(samples):
-            return self.identAvrFtest(samples) \
-                and self.critetionKruskalaUolisa(samples)
+# TODO: Add kohrena
+    def identKSamples(self, samples: list, trust: float = 0.05):
+        isNormal = True
+        for i in samples:
+            if i.kolmogorovTest(i.toCreateNormalFunc()[1]) is False:
+                isNormal = False
+                break
+        if isNormal:  # normal
+            return self.identDispersionBarlet(samples, trust) \
+                   and self.critetionKruskalaUolisa(samples, trust)
+        else:
+            return self.critetionKruskalaUolisa(samples, trust)
         return False

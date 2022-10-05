@@ -2,7 +2,7 @@ import random
 from time import time
 import numpy as np
 import math
-from main import application
+from main import applicationLoadFromStr
 
 
 def generateNormal():
@@ -24,6 +24,7 @@ def generateExp():
     sample = []
     for i in range(N):
         alpha = sum([random.random() * b for i in range(10)])
+        alpha = 25
         sample.append(str(alpha * math.log(1 / (1 - random.random()))))
     return sample
 
@@ -50,37 +51,38 @@ b = 1
 N = 1000
 
 
-def generateSample(file_name: str, number_sample: int = 1,
+def generateSample(number_sample: int = 1,
                    start: float = 0, end: float = 1,
-                   n: int = 1000, vec_n: int = 2):
+                   n: int = 1000, vec_n: int = 2) -> str:
     global a
     global b
     global N
     a = start
     b = end
     N = n
-    with open(file_name, "w") as f:
-        rozp = [[] for i in range(vec_n)]
-        for i in range(vec_n):
-            if number_sample == 1:
-                rozp[i] = generateNormal()
-            if number_sample == 2:
-                rozp[i] = generateUniform()
-            if number_sample == 3:
-                rozp[i] = generateExp()
-            if number_sample == 4:
-                rozp[i] = generateWeibulla()
-            if number_sample == 5:
-                rozp[i] = generateArcsin()
+    rozp = [[] for i in range(vec_n)]
+    for i in range(vec_n):
+        if number_sample == 1:
+            rozp[i] = generateNormal()
+        if number_sample == 2:
+            rozp[i] = generateUniform()
+        if number_sample == 3:
+            rozp[i] = generateExp()
+        if number_sample == 4:
+            rozp[i] = generateWeibulla()
+        if number_sample == 5:
+            rozp[i] = generateArcsin()
 
-        f.write('\n'.join(
-            [''.join([rozp[j][i].ljust(24) for j in range(vec_n)])
-             for i in range(N)]))
+    return '\n'.join(
+        [''.join([rozp[j][i].ljust(24) for j in range(vec_n)])
+         for i in range(N)])
 
 
 if __name__ == "__main__":
     while (True):
         t1 = time()
-        generateSample("out.txt", vec_n=3)
+        all_file = generateSample(vec_n=3, n=1000)
+        with open("out.txt", 'w') as f:
+            f.write(all_file)
         print(f"generation time={time() - t1}")
-        res = application("out.txt")
+        res = applicationLoadFromStr(all_file)
