@@ -14,26 +14,29 @@ class Edit(Enum):
     TRANSFORM = 0
     STANDARTIZATION = 1
     SLIDE = 2
-    UNDO = 3
+    DUPLICATE = 3
     DELETE_ANOMALY = 4
-    DELETE_SAMPLES = 5
+    DRAW_SAMPLES = 5
+    DELETE_SAMPLES = 6
 
 
 dict_edit = {
+    "&Клонувати":           Edit.DUPLICATE.value,
     "&Перетворити":         Edit.TRANSFORM.value,
     "&Стандартизувати":     Edit.STANDARTIZATION.value,
     "&Зсунути":             Edit.SLIDE.value,
-    "&Повернути":           Edit.UNDO.value,
     "&Видалити аномалії":   Edit.DELETE_ANOMALY.value,
-    "Видалити &розподіл":   Edit.DELETE_SAMPLES
+    "Зо&бразити розподіл":  Edit.DRAW_SAMPLES.value,
+    "Видалити &розподіл":   Edit.DELETE_SAMPLES.value,
 }
 dict_edit_shortcut = {
     "&Перетворити":         Qt.CTRL + Qt.Key_T,
     "&Стандартизувати":     Qt.CTRL + Qt.Key_S,
     "&Зсунути":             Qt.CTRL + Qt.Key_P,
-    "&Повернути":           Qt.CTRL + Qt.Key_Z,
-    "&Видалити аномалії":   Qt.CTRL + Qt.Key_D,
-    "Видалити &розподіл":   Qt.CTRL + Qt.Key_R
+    "&Клонувати":           Qt.CTRL + Qt.Key_Z,
+    "&Видалити аномалії":   Qt.CTRL + Qt.Key_A,
+    "Зо&бразити розподіл":  Qt.Key_D,
+    "Видалити &розподіл":   Qt.CTRL + Qt.Key_D
 }
 
 dict_repr = {
@@ -45,10 +48,10 @@ dict_repr = {
     "&Очистити":            5,
 }
 dict_repr_shortcut = {
-    "&Нормальний":          Qt.CTRL + Qt.Key_N,
-    "&Рівномірний":         Qt.CTRL + Qt.Key_U,
-    "&Експоненціальний":    Qt.CTRL + Qt.Key_E,
-    "&Вейбулла":            Qt.CTRL + Qt.Key_W,
-    "&Арксинус":            Qt.CTRL + Qt.Key_A,
-    "&Очистити":            Qt.CTRL + Qt.Key_C,
+    "&Нормальний":          Qt.CTRL + Qt.ALT + Qt.Key_N,
+    "&Рівномірний":         Qt.CTRL + Qt.ALT + Qt.Key_U,
+    "&Експоненціальний":    Qt.CTRL + Qt.ALT + Qt.Key_E,
+    "&Вейбулла":            Qt.CTRL + Qt.ALT + Qt.Key_W,
+    "&Арксинус":            Qt.CTRL + Qt.ALT + Qt.Key_A,
+    "&Очистити":            Qt.CTRL + Qt.ALT + Qt.Key_C,
 }

@@ -36,6 +36,8 @@ def QuantileNorm(alpha):
 
 
 def QuantileTStudent(alpha, nu):
+    if nu <= 0:
+        return 0.0
     u = QuantileNorm(alpha)
     g1 = 1 / 4 * (u ** 3 + u)
     g2 = 1 / 96 * (5 * u ** 5 + 16 * u ** 3 + 3 * u)
@@ -47,6 +49,8 @@ def QuantileTStudent(alpha, nu):
 
 
 def QuantilePearson(alpha, nu):
+    if nu <= 0:
+        return 0.0
     return nu * (1 - 2 / (9 * nu) +
                  QuantileNorm(alpha) * math.sqrt(2 / (9 * nu))) ** 3
 

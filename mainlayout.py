@@ -3,24 +3,25 @@ from PyQt5.QtWidgets import (
     QSpinBox, QDoubleSpinBox, QPushButton,
     QTableWidget, QAbstractItemView,
     QTextEdit, QTabWidget,
-    QHBoxLayout, QVBoxLayout,
+    QHBoxLayout, QVBoxLayout, QFormLayout,
     QLabel, QMessageBox)
 from PyQt5.QtCore import Qt
 from pyqtgraph import PlotWidget
 import pyqtgraph as pg
+# import pyqtgraph.opengl as _3d
 
 import platform
 
 from GeneralConstants import (
     dict_edit, dict_edit_shortcut, dict_repr, dict_repr_shortcut,
-    dict_crit, dict_crit_shortcut)
+    dict_crit, dict_crit_shortcut, Edit)
 
 
 class MainLayout(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setGeometry(150, 100, 1200, 800)
+        self.setGeometry(150, 100, 1333, 733)
         self.setWindowTitle("Первинний аналіз")
 
         # File menu
@@ -34,8 +35,17 @@ class MainLayout(QMainWindow):
         # Editing menu
         edit_menu = QMenu("&Редагувати", self)
         for k, v in dict_edit.items():
-            edit_menu.addAction(k, self.editEvent)
+            if v == Edit.DRAW_SAMPLES.value:
+                edit_menu.addAction(k, self.drawSamples)
+            elif v == Edit.DELETE_SAMPLES.value:
+                edit_menu.addAction(k, self.deleteSamples)
+            elif v == Edit.DUPLICATE.value:
+                edit_menu.addAction(k, self.duplicateSample)
+            else:
+                edit_menu.addAction(k, self.editSampleEvent)
             edit_menu.actions()[-1].setShortcut(dict_edit_shortcut[k])
+            if k == "&Видалити аномалії":
+                edit_menu.addSeparator()
         self.reprod_num = -1
 
         # Reproduction menu
@@ -51,40 +61,41 @@ class MainLayout(QMainWindow):
         for k, v in dict_crit.items():
             crit_menu.addAction(k,
                                 lambda: self.critsSamples(
-                                    self.spin_box_level.value()))
+                                    spin_box_level.value()))
             crit_menu.actions()[-1].setShortcut(dict_crit_shortcut[k])
 
         # Menu bar
-        self.menuBar = QMenuBar()
-        self.setMenuBar(self.menuBar)
-        self.menuBar.addMenu(file_menu)
-        self.menuBar.addMenu(edit_menu)
-        self.menuBar.addMenu(vidt_menu)
-        self.menuBar.addMenu(crit_menu)
+        menuBar = QMenuBar()
+        menuBar.addMenu(file_menu)
+        menuBar.addMenu(edit_menu)
+        menuBar.addMenu(vidt_menu)
+        menuBar.addMenu(crit_menu)
+        self.setMenuBar(menuBar)
 
         # Histogram chart
         self.hist_plot: PlotWidget = pg.PlotWidget(
-            title="Гістограмна оцінка")
-        self.hist_plot.setBackground((45, 45, 45))
+            title="Гістограмна оцінка",
+            labels={"left": "P", "bottom": "x"})
 
         # Empirical chart
         self.emp_plot: PlotWidget = pg.PlotWidget(
-            title="Емпірична функція розподілу")
-        self.emp_plot.setBackground((45, 45, 45))
+            title="Емпірична функція розподілу",
+            labels={"left": "P", "bottom": "x"})
 
         # spin boxes
-        self.spin_box_number_column = QSpinBox()
-        self.spin_box_number_column.setMinimum(0)
-        self.spin_box_number_column.valueChanged.connect(
-            self.numberColumnChanged)
+        self.spin_number_column = QSpinBox()
+        self.spin_number_column.setMinimum(0)
+        self.spin_number_column.valueChanged.connect(
+            lambda: self.numberColumnChanged(
+                self.spin_number_column.value()))
 
-        self.spin_box_level = QDoubleSpinBox()
-        self.spin_box_level.setDecimals(5)
-        self.spin_box_level.setMinimum(0)
-        self.spin_box_level.setMaximum(1)
-        self.spin_box_level.setValue(0.05)
-        self.spin_box_level.valueChanged.connect(
-            lambda: self.changeTrust(self.spin_box_level.value()))
+        spin_box_level = QDoubleSpinBox()
+        spin_box_level.setDecimals(5)
+        spin_box_level.setMinimum(0)
+        spin_box_level.setMaximum(1)
+        spin_box_level.setValue(0.05)
+        spin_box_level.valueChanged.connect(
+            lambda: self.changeTrust(spin_box_level.value()))
 
         self.spin_box_min_x = QDoubleSpinBox()
         self.spin_box_min_x.setDecimals(5)
@@ -98,6 +109,7 @@ class MainLayout(QMainWindow):
         self.table.cellDoubleClicked.connect(
             lambda: self.setSample(self.table.currentRow()))
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # self.table.setSelectionMode(QAbstractItemView.MultiSelection)
 
         # Protocol
@@ -116,38 +128,30 @@ class MainLayout(QMainWindow):
         tab_text_info.addTab(self.criterion_protocol, "Критерії")
         tab_text_info.addTab(self.table, "Ранжований ряд")
 
-        # box with transform func
-        widget_func = QWidget()
-        vbox_func = QVBoxLayout()
+        # grid with transform func
+        widget_func = QVBoxLayout()
+        form_widget = QFormLayout()
+        form_widget.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        widget_func.addLayout(form_widget)
 
-        # number of classes
-        h_step_box = QHBoxLayout()
-        h_step_box.addWidget(QLabel("Кількість класів"), 1)
-        h_step_box.addWidget(self.spin_box_number_column, 9)
-
-        # level of significance
-        level_box = QHBoxLayout()
-        level_box.addWidget(QLabel("Рівень значущості"))
-        level_box.addWidget(self.spin_box_level)
+        form_widget.addRow("Кількість класів:",
+                           self.spin_number_column)
+        form_widget.addRow("Рівень значущості:",
+                           spin_box_level)
 
         # borders
-        anomaly_box = QHBoxLayout()
-        anomaly_box.addWidget(QLabel("min"), 1)
-        anomaly_box.addWidget(self.spin_box_min_x, 3)
-        anomaly_box.addWidget(QLabel("max"), 1)
-        anomaly_box.addWidget(self.spin_box_max_x, 3)
-
-        vbox_func.addLayout(h_step_box)
-        vbox_func.addLayout(level_box)
-        vbox_func.addLayout(anomaly_box)
-        vbox_func.addWidget(self.remove_anomaly)
-
-        widget_func.setLayout(vbox_func)
+        borders = QHBoxLayout()
+        borders.addWidget(QLabel("min"))
+        borders.addWidget(self.spin_box_min_x)
+        borders.addWidget(QLabel("max"))
+        borders.addWidget(self.spin_box_max_x)
+        widget_func.addLayout(borders)
+        widget_func.addWidget(self.remove_anomaly)
 
         # tab and add. functionality
         info_text_box = QHBoxLayout()
         info_text_box.addWidget(tab_text_info, 3)
-        info_text_box.addWidget(widget_func, 1)
+        info_text_box.addLayout(widget_func, 1)
 
         # 2 chart box
         graphics_box = QHBoxLayout()
@@ -175,6 +179,23 @@ class MainLayout(QMainWindow):
         box.setText(text)
         box.setInformativeText(informative_text)
         box.exec()
+
+    def getNumberClasses(self) -> int:
+        return self.spin_number_column.value()
+
+    def silentChangeNumberClasses(self, n: int) -> bool:
+        self.spin_number_column.blockSignals(True)
+        self.spin_number_column.setValue(n)
+        self.spin_number_column.blockSignals(False)
+
+    def setMinMax(self, min_x, max_x):
+        self.spin_box_min_x.setMinimum(min_x)
+        self.spin_box_min_x.setMaximum(max_x)
+        self.spin_box_min_x.setValue(min_x)
+
+        self.spin_box_max_x.setMinimum(min_x)
+        self.spin_box_max_x.setMaximum(max_x)
+        self.spin_box_max_x.setValue(max_x)
 
 
 def MonoFontForSpecificOS():

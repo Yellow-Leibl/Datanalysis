@@ -1,20 +1,26 @@
+import numpy as np
 import sys
 import os
 
 from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
 
+from Datanalysis.SamplingDatas import SamplingDatas
+from Datanalysis.DoubleSampleData import DoubleSampleData
+
 from mainlayout import MainLayout
-from Datanalysis import SamplingDatas
 from historystack import HistoryStask
 from GeneralConstants import dict_edit, dict_repr, Edit
+
+import pyqtgraph as pg
 
 
 class Window(MainLayout):
     def __init__(self, file: str, is_file_name: bool = True):
         super().__init__()  # layout here
 
-        self.number_sample = 0
+        self.number_sample = [0]
         self.datas = SamplingDatas()
+        self.d_d = None
 
         if file != "":
             if is_file_name:
@@ -22,10 +28,12 @@ class Window(MainLayout):
             else:
                 all_file = file.split('\n')
                 self.loadFromData(all_file)
+        #  temp
+        self.setSample2D(0, 1)
+        self.sampleChanged()
 
     def openFile(self, file: str):
         file_name = file
-
         if file == '':
             file_name = QFileDialog().getOpenFileName(self, "Відкрити файл",
                                                       os.getcwd(),
@@ -41,16 +49,15 @@ class Window(MainLayout):
     def loadFromData(self, all_file: str):
         self.datas.append(all_file)
         self.history_series = HistoryStask(len(self.datas))
-        self.d = self.datas[self.number_sample]
 
-        self.spin_box_number_column.blockSignals(True)
-        self.spin_box_number_column.setMaximum(len(self.d.x))
-        self.spin_box_number_column.setValue(0)
-        self.spin_box_number_column.blockSignals(False)
+        if len(self.number_sample) == 1:
+            d = self.datas[self.number_sample[0]]
+            self.silentChangeNumberClasses(0)
+            self.spin_number_column.setMaximum(len(d.x))
 
         self.reprod_num = -1
 
-        self.changeXSeries()
+        self.sampleChanged()
 
     def saveFileAct(self):
         file_name = QFileDialog().getSaveFileName(self, "Зберегти файл",
@@ -61,49 +68,61 @@ class Window(MainLayout):
                 return str(lst[i]) if len(lst) > i else ''
 
             file.write('\n'.join(
-                [' '.join([safe_access(self.datas[j], i)
+                [' '.join([safe_access(self.datas[j].raw_x, i)
                            for j in range(len(self.datas))])
                  for i in range(self.datas.getMaxDepth())]))
 
-    def changeXSeries(self):
-        self.spin_box_min_x.setMinimum(self.d.min)
-        self.spin_box_min_x.setMaximum(self.d.max)
-        self.spin_box_min_x.setValue(self.d.min)
+    def sampleChanged(self):
+        if len(self.number_sample) == 1:
+            d = self.datas[self.number_sample[0]]
+            self.setMinMax(d.min, d.max)
 
-        self.spin_box_max_x.setMinimum(self.d.min)
-        self.spin_box_max_x.setMaximum(self.d.max)
-        self.spin_box_max_x.setValue(self.d.max)
-
-        self.updateGraphics(self.spin_box_number_column.value())
+        self.updateGraphics(self.getNumberClasses())
         self.writeTable()
         self.writeProtocol()
 
-    def editEvent(self):
+    def editSampleEvent(self):
         act = Edit(dict_edit[self.sender().text()])
 
-        if act != Edit.UNDO:
-            self.history_series.push(self.number_sample, self.d.x.copy())
-        else:
-            if self.history_series.len(self.number_sample) == 0:
-                return
-            self.d.setSeries(self.history_series.pop(self.number_sample))
-
+        d = self.datas[self.number_sample[0]]
         if act == Edit.TRANSFORM:
-            self.d.toTransform()
+            d.toLogarithmus10()
         elif act == Edit.STANDARTIZATION:
-            self.d.toStandardization()
+            d.toStandardization()
         elif act == Edit.SLIDE:
-            self.d.toSlide()
+            d.toSlide()
         elif act == Edit.DELETE_ANOMALY:
-            if not self.d.autoRemoveAnomaly():
+            if not self.autoRemoveAnomaly():
                 return
-        elif act == Edit.DELETE_SAMPLES:
-            self.deleteSamples()
-        self.changeXSeries()
+        self.sampleChanged()
+
+    def duplicateSample(self):
+        sel = self.getSelectedRows()
+        for i in sel:
+            self.datas.appendSample(self.datas[i].copy())
+        self.writeTable()
 
     def removeAnomaly(self):
-        self.d.removeAnomaly(self.spin_box_min_x.value(),
-                             self.spin_box_max_x.value())
+        if len(self.number_sample) == 1:
+            self.datas[self.number_sample[0]].remove(
+                self.spin_box_min_x.value(),
+                self.spin_box_max_x.value())
+            self.sampleChanged()
+
+    def autoRemoveAnomaly(self) -> bool:
+        if len(self.number_sample) == 1:
+            return self.datas[self.number_sample[0]].autoRemoveAnomaly()
+        elif len(self.number_sample) == 2:
+            hist_data = self.d_d.get_histogram_data(self.getNumberClasses())
+            return self.d_d.autoRemoveAnomaly(hist_data)
+
+    def drawSamples(self):
+        sel = self.getSelectedRows()
+        if len(sel) == 1:
+            self.setSample(sel[0])
+        elif len(sel) == 2:
+            self.setSample2D(sel[0], sel[1])
+        self.sampleChanged()
 
     def deleteSamples(self):
         sel = self.getSelectedRows()
@@ -111,6 +130,18 @@ class Window(MainLayout):
         for i in sel:
             self.datas.pop(i - p)
             p += 1
+        self.writeTable()
+
+    def setReproductionSeries(self):
+        self.reprod_num = dict_repr[self.sender().text()]
+        self.updateGraphics(self.getNumberClasses())
+
+    def changeTrust(self, trust: float):
+        if len(self.number_sample) == 1:
+            self.datas[self.number_sample[0]].setTrust(trust)
+        elif len(self.number_sample) == 2:
+            self.d_d.setTrust(trust)
+        self.sampleChanged()
 
     def writeTable(self):
         self.table.clear()
@@ -122,26 +153,81 @@ class Window(MainLayout):
                                    i,
                                    QTableWidgetItem(f"{self.datas[s][i]:.5}"))
 
-    def numberColumnChanged(self):
-        if self.d is None:
-            return
-        self.updateGraphics(self.spin_box_number_column.value())
+    def numberColumnChanged(self, value: int):
+        self.updateGraphics(value)
         self.writeProtocol()
 
     def writeProtocol(self):
-        self.protocol.setText(self.d.getProtocol())
+        if len(self.number_sample) == 1:
+            self.protocol.setText(
+                self.datas[self.number_sample[0]].getProtocol())
+        else:
+            self.protocol.setText(self.d_d.getProtocol())
 
     def writeCritetion(self, text):
         self.criterion_protocol.setText(text)
 
+    def setSample(self, row: int):
+        self.number_sample = [row]
+        self.silentChangeNumberClasses(0)
+        self.spin_number_column.setMaximum(len(self.datas[row].x))
+
+    def setSample2D(self, row1: int, row2: int):
+        self.number_sample = [row1, row2]
+        self.d_d = DoubleSampleData(self.datas[row1], self.datas[row2])
+        self.d_d.toCalculateCharacteristic()
+        self.silentChangeNumberClasses(0)
+        self.spin_number_column.setMaximum(len(self.datas[row1].x))
+
     def updateGraphics(self, number_column: int = 0):
-        hist_data = self.d.get_histogram_data(number_column)
-        self.drawHistogram(hist_data, self.d.min, self.d.h)
-        self.drawEmpFunc(hist_data, self.d.min, self.d.h)
-        self.drawReproductionSeries()
-        self.spin_box_number_column.blockSignals(True)
-        self.spin_box_number_column.setValue(len(hist_data))
-        self.spin_box_number_column.blockSignals(False)
+        if len(self.number_sample) == 1:
+            d = self.datas[self.number_sample[0]]
+            hist_data = d.get_histogram_data(number_column)
+            h = abs(d.max - d.min) / len(hist_data)
+            self.silentChangeNumberClasses(len(hist_data))
+
+            self.drawHistogram(hist_data, d.min, h)
+            self.drawEmpFunc(hist_data, d.min, h)
+            self.drawReproductionSeries()
+        elif len(self.number_sample) == 2:
+            hist_data = self.d_d.get_histogram_data(number_column)
+            self.silentChangeNumberClasses(len(hist_data))
+
+            self.drawHistogram2D(hist_data)
+            if self.d_d.xiXiTest(hist_data):
+                self.writeCritetion(
+                    "Відтворення двовимірного розподілу адекватне")
+            else:
+                self.writeCritetion(
+                    "Відтворення двовимірного розподілу неадекватне")
+
+    def drawHistogram2D(self, hist_data: list):
+        x = self.d_d.x.raw_x
+        y = self.d_d.y.raw_x
+        if len(x) != len(y):
+            return
+
+        h = np.array(hist_data)
+        histogram_image = pg.ImageItem()
+        histogram_image.setImage(h)
+        pg.setConfigOption('imageAxisOrder', 'row-major')
+        start_x = min(x)
+        start_y = min(y)
+        w = max(x) - start_x
+        h = max(y) - start_y
+        histogram_image.setRect(start_x, start_y, w, h)
+
+        self.hist_plot.clear()
+        self.hist_plot.addItem(histogram_image)
+        # points
+        self.hist_plot.plot(x, y, symbolBrush=(255, 0, 0, 175),
+                            symbolPen=(0, 0, 0, 200), symbolSize=7,
+                            pen=None)
+
+        f = self.d_d.toCreateLineFunc()
+        x = [self.d_d.x.min, self.d_d.x.max]
+        y = [f(i) for i in x]
+        self.hist_plot.plot(x, y, pen=newPen((128, 0, 255), 3))
 
     def drawHistogram(self, hist_data: list,
                       x_min: float, h: float):
@@ -177,33 +263,31 @@ class Window(MainLayout):
             y_class.append(col_height + i)
             col_height += i
 
+        d = self.datas[self.number_sample[0]]
         x_stat = []
         y_stat = []
         sum_ser = 0.0
-        for i in range(len(self.d.probabilityX)):
-            sum_ser += self.d.probabilityX[i]
-            x_stat.append(self.d.x[i])
+        for i in range(len(d.probabilityX)):
+            sum_ser += d.probabilityX[i]
+            x_stat.append(d.x[i])
             y_stat.append(sum_ser)
 
         self.emp_plot.clear()
         self.emp_plot.plot(x_class, y_class, pen=newPen((255, 0, 0), 2))
         self.emp_plot.plot(x_stat, y_stat, pen=newPen((0, 255, 0), 2))
 
-    def setReproductionSeries(self):
-        self.reprod_num = dict_repr[self.sender().text()]
-        self.updateGraphics(self.spin_box_number_column.value())
-
     def toCreateReproductionFunc(self, func_num):
+        d = self.datas[self.number_sample[0]]
         if func_num == 0:
-            f, F, DF = self.d.toCreateNormalFunc()
+            f, F, DF = d.toCreateNormalFunc()
         elif func_num == 1:
-            f, F, DF = self.d.toCreateUniformFunc()
+            f, F, DF = d.toCreateUniformFunc()
         elif func_num == 2:
-            f, F, DF = self.d.toCreateExponentialFunc()
+            f, F, DF = d.toCreateExponentialFunc()
         elif func_num == 3:
-            f, F, DF = self.d.toCreateWeibullFunc()
+            f, F, DF = d.toCreateWeibullFunc()
         elif func_num == 4:
-            f, F, DF = self.d.toCreateArcsinFunc()
+            f, F, DF = d.toCreateArcsinFunc()
         else:
             return None, None, None
 
@@ -211,10 +295,12 @@ class Window(MainLayout):
 
     def drawReproductionSeries(self):
         x_gen = []
+        d = self.datas[self.number_sample[0]]
         try:
             f, F, DF = self.toCreateReproductionFunc(self.reprod_num)
             if f is not None:
-                x_gen = self.d.toGenerateReproduction(f, F, DF)
+                h = abs(d.max - d.min) / self.getNumberClasses()
+                x_gen = d.toGenerateReproduction(f, F, DF, h)
         except ValueError:
             print("Value error")
         except OverflowError:
@@ -225,7 +311,7 @@ class Window(MainLayout):
             return
 
         criterion_text = '\n'
-        if self.d.kolmogorovTest(F):
+        if d.kolmogorovTest(F):
             criterion_text += "Відтворення адекватне за критерієм" + \
                 " згоди Колмогорова\n"
         else:
@@ -233,7 +319,9 @@ class Window(MainLayout):
                 " згоди Колмогорова\n"
 
         try:
-            xi_test_result = self.d.xiXiTest(F)
+            xi_test_result = d.xiXiTest(
+                F,
+                d.get_histogram_data(self.spin_number_column.value()))
         except ZeroDivisionError:
             xi_test_result = False
 
@@ -260,16 +348,6 @@ class Window(MainLayout):
         self.emp_plot.plot(x, y_emp, pen=newPen((0, 255, 255), 2))
         self.emp_plot.plot(x, y_high, pen=newPen((128, 0, 128), 2))
 
-    def setSample(self, row):
-        self.number_sample = row
-        self.d = self.datas[self.number_sample]
-
-        self.spin_box_number_column.blockSignals(True)
-        self.spin_box_number_column.setMaximum(len(self.d.x))
-        self.spin_box_number_column.setValue(0)
-        self.spin_box_number_column.blockSignals(False)
-        self.changeXSeries()
-
     def critsSamples(self, trust: float):
         sel = self.getSelectedRows()
         print(f"{sel}")
@@ -295,10 +373,6 @@ class Window(MainLayout):
             else:
                 self.showMessageBox("Вибірки неоднорідні", "")
 
-    def changeTrust(self, trust: float):
-        self.d.setTrust(trust)
-        self.changeXSeries()
-
 
 def newPen(color, width):
     return {'color': color, 'width': width}
@@ -319,5 +393,5 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    applicationLoadFromFile("data/self/ident_samples.txt")
-    # application()
+    applicationLoadFromFile("data/self/line.txt")
+    # applicationLoadFromFile("data/self/norm5n.txt")
