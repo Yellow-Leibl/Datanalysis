@@ -110,7 +110,7 @@ def generateSample(number_sample: int = 1,
 if __name__ == "__main__":
     while (True):
         t1 = time()
-        all_file = generateSample(number_sample=7)
+        all_file = generateSample(number_sample=8, vec_n=5)
         # with open("norm5n.txt", 'w') as f:
         #     f.write(all_file)
         print(f"generation time={time() - t1}")

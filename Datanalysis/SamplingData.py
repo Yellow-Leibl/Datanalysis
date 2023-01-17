@@ -48,6 +48,22 @@ def toMakeRange(x):  # (xl, rx)
     return x
 
 
+def MED(r):
+    N = len(r)
+    if N == 1:
+        med = r[0]
+    elif N == 2:
+        med = (r[0] + r[1]) / 2
+    else:
+        k = N // 2
+        if 2 * k == N:
+            med = (r[k] + r[k + 1]) / 2
+        else:
+            med = r[k + 1]
+
+    return med
+
+
 class SamplingData:
     def __init__(self, not_ranked_series_x: list, trust: float = 0.05):
         self.raw_x = not_ranked_series_x.copy()
@@ -137,14 +153,7 @@ class SamplingData:
         for i in range(N):
             self.x_ += self.x[i] * self.probabilityX[i]
 
-        if N == 2:
-            self.MED = (self.x[0] + self.x[1]) / 2
-        else:
-            k = N // 2
-            if 2 * k == N:
-                self.MED = (self.x[k] + self.x[k + 1]) / 2
-            else:
-                self.MED = self.x[k + 1]
+        self.MED = MED(self.x)
         self.MAD = 1.483 * self.MED
 
         PERCENT_USICH_SER = self.trust
@@ -154,16 +163,12 @@ class SamplingData:
             self.x_a += self.x[i]
         self.x_a /= N - 2 * k
 
-        # xl = []
-        # for i in range(N):
-        #     for j in range(i, N - 1):
-        #         xl.append(0.5 * (self.x[i] * self.x[j]))
+        xl = []
+        for i in range(N):
+            for j in range(i, N - 1):
+                xl.append(0.5 * (self.x[i] * self.x[j]))
 
-        # k_walsh = len(xl) // 2
-        # if 2 * k_walsh == len(xl):
-        #     self.MED_Walsh = (xl[k] + xl[k + 1]) / 2
-        # else:
-        #     self.MED_Walsh = xl[k + 1]
+        self.MED_Walsh = MED(xl)
 
         u2 = 0.0
         u3 = 0.0

@@ -14,7 +14,8 @@ import platform
 
 from GeneralConstants import (
     dict_edit, dict_edit_shortcut, dict_repr, dict_repr_shortcut,
-    dict_crit, dict_crit_shortcut, Edit)
+    dict_crit, dict_crit_shortcut, dict_regr, dict_regr_shortcut,
+    Edit, Critetion)
 
 
 class MainLayout(QMainWindow):
@@ -22,55 +23,7 @@ class MainLayout(QMainWindow):
         super().__init__()
 
         self.setGeometry(150, 100, 1333, 733)
-        self.setWindowTitle("Первинний аналіз")
-
-        # File menu
-        file_menu = QMenu("&Файл", self)
-        file_menu.addAction("&Відкрити", lambda: self.openFile(''))
-        file_menu.actions()[0].setShortcut(Qt.CTRL + Qt.Key_O)
-        file_menu.addAction("&Зберегти", self.saveFileAct)
-        file_menu.addAction("В&ийти", exit)
-        file_menu.actions()[-1].setShortcut(Qt.CTRL + Qt.Key_Q)
-
-        # Editing menu
-        edit_menu = QMenu("&Редагувати", self)
-        for k, v in dict_edit.items():
-            if v == Edit.DRAW_SAMPLES.value:
-                edit_menu.addAction(k, self.drawSamples)
-            elif v == Edit.DELETE_SAMPLES.value:
-                edit_menu.addAction(k, self.deleteSamples)
-            elif v == Edit.DUPLICATE.value:
-                edit_menu.addAction(k, self.duplicateSample)
-            else:
-                edit_menu.addAction(k, self.editSampleEvent)
-            edit_menu.actions()[-1].setShortcut(dict_edit_shortcut[k])
-            if k == "&Видалити аномалії":
-                edit_menu.addSeparator()
-        self.reprod_num = -1
-
-        # Reproduction menu
-        vidt_menu = QMenu("&Відтворити", self)
-        for k, v in dict_repr.items():
-            if k == "&Очистити":
-                vidt_menu.addSeparator()
-            vidt_menu.addAction(k, self.setReproductionSeries)
-            vidt_menu.actions()[-1].setShortcut(dict_repr_shortcut[k])
-
-        # Critetion menu
-        crit_menu = QMenu("&Критерії", self)
-        for k, v in dict_crit.items():
-            crit_menu.addAction(k,
-                                lambda: self.critsSamples(
-                                    spin_box_level.value()))
-            crit_menu.actions()[-1].setShortcut(dict_crit_shortcut[k])
-
-        # Menu bar
-        menuBar = QMenuBar()
-        menuBar.addMenu(file_menu)
-        menuBar.addMenu(edit_menu)
-        menuBar.addMenu(vidt_menu)
-        menuBar.addMenu(crit_menu)
-        self.setMenuBar(menuBar)
+        self.setWindowTitle("Аналіз даних")
 
         # Histogram chart
         self.hist_plot: PlotWidget = pg.PlotWidget(
@@ -83,26 +36,26 @@ class MainLayout(QMainWindow):
             labels={"left": "P", "bottom": "x"})
 
         # spin boxes
-        self.spin_number_column = QSpinBox()
-        self.spin_number_column.setMinimum(0)
-        self.spin_number_column.valueChanged.connect(
+        self.__spin_number_column = QSpinBox()
+        self.__spin_number_column.setMinimum(0)
+        self.__spin_number_column.valueChanged.connect(
             lambda: self.numberColumnChanged(
-                self.spin_number_column.value()))
+                self.__spin_number_column.value()))
 
-        spin_box_level = QDoubleSpinBox()
-        spin_box_level.setDecimals(5)
-        spin_box_level.setMinimum(0)
-        spin_box_level.setMaximum(1)
-        spin_box_level.setValue(0.05)
-        spin_box_level.valueChanged.connect(
-            lambda: self.changeTrust(spin_box_level.value()))
+        self.__spin_box_level = QDoubleSpinBox()
+        self.__spin_box_level.setDecimals(5)
+        self.__spin_box_level.setMinimum(0)
+        self.__spin_box_level.setMaximum(1)
+        self.__spin_box_level.setValue(0.05)
+        self.__spin_box_level.valueChanged.connect(
+            lambda: self.changeTrust(self.__spin_box_level.value()))
 
-        self.spin_box_min_x = QDoubleSpinBox()
-        self.spin_box_min_x.setDecimals(5)
-        self.spin_box_max_x = QDoubleSpinBox()
-        self.spin_box_max_x.setDecimals(5)
-        self.remove_anomaly = QPushButton("Видалити аномалії")
-        self.remove_anomaly.clicked.connect(self.removeAnomaly)
+        self.__spin_box_min_x = QDoubleSpinBox()
+        self.__spin_box_min_x.setDecimals(5)
+        self.__spin_box_max_x = QDoubleSpinBox()
+        self.__spin_box_max_x.setDecimals(5)
+        self.__remove_anomaly = QPushButton("Видалити аномалії")
+        self.__remove_anomaly.clicked.connect(self.removeAnomaly)
 
         # Samples table
         self.table = QTableWidget()
@@ -135,18 +88,20 @@ class MainLayout(QMainWindow):
         widget_func.addLayout(form_widget)
 
         form_widget.addRow("Кількість класів:",
-                           self.spin_number_column)
+                           self.__spin_number_column)
         form_widget.addRow("Рівень значущості:",
-                           spin_box_level)
+                           self.__spin_box_level)
+
+        self.setMenuBar(self.createMenuBar1d())
 
         # borders
         borders = QHBoxLayout()
         borders.addWidget(QLabel("min"))
-        borders.addWidget(self.spin_box_min_x)
+        borders.addWidget(self.__spin_box_min_x)
         borders.addWidget(QLabel("max"))
-        borders.addWidget(self.spin_box_max_x)
+        borders.addWidget(self.__spin_box_max_x)
         widget_func.addLayout(borders)
-        widget_func.addWidget(self.remove_anomaly)
+        widget_func.addWidget(self.__remove_anomaly)
 
         # tab and add. functionality
         info_text_box = QHBoxLayout()
@@ -166,6 +121,69 @@ class MainLayout(QMainWindow):
         widget.setLayout(main_vbox)
         self.setCentralWidget(widget)
 
+    def createMenuBar1d(self):
+        # File menu
+        file_menu = QMenu("&Файл", self)
+        file_menu.addAction("&Відкрити", lambda: self.openFile(''))
+        file_menu.actions()[0].setShortcut(Qt.CTRL + Qt.Key_O)
+        file_menu.addAction("&Зберегти", self.saveFileAct)
+        file_menu.addAction("В&ийти", exit)
+        file_menu.actions()[-1].setShortcut(Qt.CTRL + Qt.Key_Q)
+
+        # Editing menu
+        edit_menu = QMenu("&Редагувати", self)
+        for k, v in dict_edit.items():
+            if v == Edit.DRAW_SAMPLES.value:
+                edit_menu.addAction(k, self.drawSamples)
+            elif v == Edit.DELETE_SAMPLES.value:
+                edit_menu.addAction(k, self.deleteSamples)
+            elif v == Edit.DUPLICATE.value:
+                edit_menu.addAction(k, self.duplicateSample)
+            else:
+                edit_menu.addAction(k, self.editSampleEvent)
+            edit_menu.actions()[-1].setShortcut(dict_edit_shortcut[k])
+            if k == "&Видалити аномалії":
+                edit_menu.addSeparator()
+        self.reprod_num = -1
+
+        # Reproduction menu
+        vidt_menu = QMenu("&Відтворити", self)
+        for k, v in dict_repr.items():
+            if k == "&Очистити":
+                vidt_menu.addSeparator()
+            vidt_menu.addAction(k, self.setReproductionSeries)
+            vidt_menu.actions()[-1].setShortcut(dict_repr_shortcut[k])
+
+        # Regression menu
+        regr_menu = QMenu("&Регресія", self)
+        for k, v in dict_regr.items():
+            if k == "&Очистити":
+                regr_menu.addSeparator()
+            regr_menu.addAction(k, self.setReproductionSeries)
+            regr_menu.actions()[-1].setShortcut(dict_regr_shortcut[k])
+
+        # Critetion menu
+        crit_menu = QMenu("&Критерії", self)
+        for k, v in dict_crit.items():
+            if v == Critetion.HOMOGENEITY_INDEPENDENCE:
+                crit_menu.addAction(k, lambda: self.homogeneityAndIndependence(
+                    self.__spin_box_level.value()))
+            if v == Critetion.LINEAR_REGRESSION_MODELS:
+                crit_menu.addAction(k, lambda: self.linearModelsCrit(
+                    self.__spin_box_level.value()))
+            crit_menu.actions()[-1].setShortcut(dict_crit_shortcut[k])
+        menuBar = QMenuBar()
+        menuBar.addMenu(file_menu)
+        menuBar.addMenu(edit_menu)
+        menuBar.addMenu(vidt_menu)
+        menuBar.addMenu(regr_menu)
+        menuBar.addMenu(crit_menu)
+        return menuBar
+
+    def getMinMax(self):
+        return (self.__spin_box_min_x.value(),
+                self.__spin_box_max_x.value())
+
     def getSelectedRows(self) -> list:
         ranges = self.table.selectedRanges()
         sel_rows = []
@@ -181,21 +199,24 @@ class MainLayout(QMainWindow):
         box.exec()
 
     def getNumberClasses(self) -> int:
-        return self.spin_number_column.value()
+        return self.__spin_number_column.value()
 
     def silentChangeNumberClasses(self, n: int) -> bool:
-        self.spin_number_column.blockSignals(True)
-        self.spin_number_column.setValue(n)
-        self.spin_number_column.blockSignals(False)
+        self.__spin_number_column.blockSignals(True)
+        self.__spin_number_column.setValue(n)
+        self.__spin_number_column.blockSignals(False)
+
+    def setMaximumColumnNumber(self, n: int):
+        self.__spin_number_column.setMaximum(n)
 
     def setMinMax(self, min_x, max_x):
-        self.spin_box_min_x.setMinimum(min_x)
-        self.spin_box_min_x.setMaximum(max_x)
-        self.spin_box_min_x.setValue(min_x)
+        self.__spin_box_min_x.setMinimum(min_x)
+        self.__spin_box_min_x.setMaximum(max_x)
+        self.__spin_box_min_x.setValue(min_x)
 
-        self.spin_box_max_x.setMinimum(min_x)
-        self.spin_box_max_x.setMaximum(max_x)
-        self.spin_box_max_x.setValue(max_x)
+        self.__spin_box_max_x.setMinimum(min_x)
+        self.__spin_box_max_x.setMaximum(max_x)
+        self.__spin_box_max_x.setValue(max_x)
 
 
 def MonoFontForSpecificOS():

@@ -1,4 +1,5 @@
-from Datanalysis.SamplingData import SamplingData, toMakeRange
+from Datanalysis.SamplingData import (
+    SamplingData, toMakeRange, calc_reproduction_dx)
 from Datanalysis.DoubleSampleData import DoubleSampleData
 import math
 from functions import (
@@ -43,10 +44,15 @@ class SamplingDatas:
     def __getitem__(self, i: int) -> SamplingData:
         return self.samples[i]
 
-    def getMaxDepth(self) -> int:
+    def getMaxDepthRangeData(self) -> int:
         if len(self.samples) == 0:
             return 0
         return max([len(i.x) for i in self.samples])
+
+    def getMaxDepthRawData(self) -> int:
+        if len(self.samples) == 0:
+            return 0
+        return max([len(i.getRaw()) for i in self.samples])
 
     def identAvrTtestDependent(self,
                                x: SamplingData,
@@ -144,7 +150,7 @@ class SamplingDatas:
         min_xl = min(x[0], y[0])
         max_xl = max(x[-1], y[-1])
         xl = min_xl
-        dx = SamplingData.calc_reproduction_dx(min_xl, max_xl)
+        dx = calc_reproduction_dx(min_xl, max_xl)
         xl += dx
         z = abs(F(xl) - G(xl))
         while xl <= max_xl:
@@ -156,7 +162,7 @@ class SamplingDatas:
         N2 = len(y)
         N = min(N1, N2)
 
-        print(f"1 - L(z) = {1 - L(N ** 0.5 * z, N)} > {trust}")
+        print(f"Колмогорова: 1 - L(z) = {1 - L(N ** 0.5 * z, N)} > {trust}")
         return 1 - L(N ** 0.5 * z, N) > trust
 
     def critetionWilcoxon(self,
@@ -298,9 +304,9 @@ class SamplingDatas:
 
     def critetionKohrena(self, samples, trust: float = 0.05) -> bool:
         k = len(samples)
-        N = len(samples[0])
-        def u(i): return sum([samples[j][i] for j in range(k)])
-        def T(j): return sum(samples[j].x)
+        N = len(samples[0].getRaw())
+        def u(i): return sum([samples[j].getRaw()[i] for j in range(k)])
+        def T(j): return sum(samples[j].getRaw())
         T_ = sum([T(j) for j in range(k)]) / k
         Q = k * (k - 1) * sum([(T(j) - T_) ** 2 for j in range(k)]) / (
             k * sum([u(i) for i in range(N)]) -
@@ -332,8 +338,9 @@ class SamplingDatas:
                     and self.critetionSign(x, y, trust)
         return False
 
-# TODO: Add kohrena
     def identKSamples(self, samples: list, trust: float = 0.05):
+        if len(samples[0]) == 2:
+            return self.critetionKohrena(samples, trust)
         isNormal = True
         for i in samples:
             if i.kolmogorovTest(i.toCreateNormalFunc()[1]) is False:
@@ -344,6 +351,67 @@ class SamplingDatas:
                    and self.critetionKruskalaUolisa(samples, trust)
         else:
             return self.critetionKruskalaUolisa(samples, trust)
+        return False
+
+    def ident2ModelsLine(self, samples: list, trust: float = 0.05):
+        d_samples = [DoubleSampleData(samples[i * 2], samples[i * 2 + 1])
+                     for i in range(len(samples) // 2)]
+        [i.toCalculateCharacteristic() for i in d_samples]
+
+        y1 = d_samples[0]
+        y2 = d_samples[1]
+        y1.toCreateLinearRegressionMethodTeila()
+        y2.toCreateLinearRegressionMethodTeila()
+
+        N1 = len(d_samples[0])
+        N2 = len(d_samples[1])
+        S1 = y1.sigma_eps ** 2
+        S2 = y2.sigma_eps ** 2
+        sigma_x1_2 = y1.x.Sigma ** 2
+        sigma_x2_2 = y2.x.Sigma ** 2
+        b1 = y1.line_b
+        b2 = y2.line_b
+        x1_ = y1.x.x_
+        x2_ = y2.x.x_
+        y1_ = y1.y.x_
+        y2_ = y2.y.x_
+        quant_t = QuantileTStudent(1 - trust / 2, N1 + N2 - 4)
+        S = (((N1 - 2) * S1 + (N2 - 2) * S2) / (N1 + N2 - 4)) ** 0.5
+        b0 = (y1_ - y2_) / (x1_ - x2_)
+
+        if S1 > S2:
+            f = S1 / S2
+        else:
+            f = S2 / S1
+
+        if f <= QuantileFisher(1 - trust, N1 - 2, N2 - 2):
+            t = (b1 - b2) / (
+                S * (1 / ((N1 - 1) * sigma_x1_2) +
+                     1 / ((N2 - 1) * sigma_x2_2)) ** 0.5)
+            if abs(t) <= quant_t:
+                b = ((N1 - 1) * sigma_x1_2 * b1 + (N2 - 1) * sigma_x2_2 * b2
+                     ) / ((N1 - 1) * sigma_x1_2 ** 2 + (N2 - 1) * sigma_x2_2)
+
+                S0 = S ** 2 * (
+                    1 / ((N1 - 1) * S1 + (N2 - 1) * S2) +
+                    1 / (x1_ - x2_) ** 2 * (1 / N1 + 1 / N2))
+                t = (b - b0) / S0
+                return abs(t) <= quant_t
+        else:
+            t = (b1 - b2) / (
+                S * (S1 / (N1 * sigma_x1_2) + S2 / (N2 * sigma_x2_2)) ** 0.5)
+            C0 = S1 / (N1 * sigma_x1_2) / (
+                S1 / (N1 * sigma_x1_2) + S2 / (N2 * sigma_x2_2))
+            nu = math.round((C0 ** 2 / (N1 - 2) + (1 - C0) ** 2 / (N2 - 2)) ** -1)
+            if t <= QuantileTStudent(1 - trust / 2, nu):
+                b = (b1 * N1 * sigma_x1_2 / S1 + b2 * N2 * sigma_x2_2 / S2) / (
+                    N1 * sigma_x1_2 / S1 + N2 * sigma_x2_2 / S2)
+                S10 = (N2 * S1 + N1 * S2) / (
+                    N1 * N2 * (x1_ - x2_) ** 2) + (S1 * S2) / (
+                        N1 * sigma_x1_2 * S2 + N2 * sigma_x2_2 * S1)
+                u = (b - b0) / S10
+                if u <= QuantileNorm(1 - trust / 2):
+                    return "Випадкова різниця регресій"
         return False
 
     def corelationRelation(self, samples: list, trust: float = 0.05):

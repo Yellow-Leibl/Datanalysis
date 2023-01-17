@@ -8,8 +8,7 @@ from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
 
 from mainlayout import MainLayout
-from historystack import HistoryStask
-from GeneralConstants import dict_edit, dict_repr, Edit
+from GeneralConstants import dict_edit, dict_repr, dict_regr, Edit
 
 import pyqtgraph as pg
 
@@ -18,9 +17,10 @@ class Window(MainLayout):
     def __init__(self, file: str, is_file_name: bool = True):
         super().__init__()  # layout here
 
-        self.number_sample = [0]
+        self.number_sample = [0, 1]
         self.datas = SamplingDatas()
         self.d_d = None
+        self.d_d_number = [-1, -1]
 
         if file != "":
             if is_file_name:
@@ -28,9 +28,6 @@ class Window(MainLayout):
             else:
                 all_file = file.split('\n')
                 self.loadFromData(all_file)
-        #  temp
-        self.setSample2D(0, 1)
-        self.sampleChanged()
 
     def openFile(self, file: str):
         file_name = file
@@ -48,12 +45,6 @@ class Window(MainLayout):
 
     def loadFromData(self, all_file: str):
         self.datas.append(all_file)
-        self.history_series = HistoryStask(len(self.datas))
-
-        if len(self.number_sample) == 1:
-            d = self.datas[self.number_sample[0]]
-            self.silentChangeNumberClasses(0)
-            self.spin_number_column.setMaximum(len(d.x))
 
         self.reprod_num = -1
 
@@ -68,15 +59,11 @@ class Window(MainLayout):
                 return str(lst[i]) if len(lst) > i else ''
 
             file.write('\n'.join(
-                [' '.join([safe_access(self.datas[j].raw_x, i)
+                [' '.join([safe_access(self.datas[j].getRaw(), i)
                            for j in range(len(self.datas))])
-                 for i in range(self.datas.getMaxDepth())]))
+                 for i in range(self.datas.getMaxDepthRawData())]))
 
     def sampleChanged(self):
-        if len(self.number_sample) == 1:
-            d = self.datas[self.number_sample[0]]
-            self.setMinMax(d.min, d.max)
-
         self.updateGraphics(self.getNumberClasses())
         self.writeTable()
         self.writeProtocol()
@@ -104,9 +91,8 @@ class Window(MainLayout):
 
     def removeAnomaly(self):
         if len(self.number_sample) == 1:
-            self.datas[self.number_sample[0]].remove(
-                self.spin_box_min_x.value(),
-                self.spin_box_max_x.value())
+            minmax = self.getMinMax()
+            self.datas[self.number_sample[0]].remove(minmax[0], minmax[1])
             self.sampleChanged()
 
     def autoRemoveAnomaly(self) -> bool:
@@ -119,8 +105,10 @@ class Window(MainLayout):
     def drawSamples(self):
         sel = self.getSelectedRows()
         if len(sel) == 1:
+            self.reprod_num = -1
             self.setSample(sel[0])
         elif len(sel) == 2:
+            self.reprod_num = -1
             self.setSample2D(sel[0], sel[1])
         self.sampleChanged()
 
@@ -132,8 +120,17 @@ class Window(MainLayout):
             p += 1
         self.writeTable()
 
+    def is1d(self) -> bool:
+        return len(self.number_sample) == 1
+
+    def is2d(self) -> bool:
+        return len(self.number_sample) == 2
+
     def setReproductionSeries(self):
-        self.reprod_num = dict_repr[self.sender().text()]
+        if self.is1d():
+            self.reprod_num = dict_repr[self.sender().text()]
+        else:
+            self.reprod_num = dict_regr[self.sender().text()]
         self.updateGraphics(self.getNumberClasses())
 
     def changeTrust(self, trust: float):
@@ -145,7 +142,7 @@ class Window(MainLayout):
 
     def writeTable(self):
         self.table.clear()
-        self.table.setColumnCount(self.datas.getMaxDepth())
+        self.table.setColumnCount(self.datas.getMaxDepthRangeData())
         self.table.setRowCount(len(self.datas))
         for s in range(len(self.datas)):
             for i, e in enumerate(self.datas[s].x):
@@ -170,18 +167,19 @@ class Window(MainLayout):
     def setSample(self, row: int):
         self.number_sample = [row]
         self.silentChangeNumberClasses(0)
-        self.spin_number_column.setMaximum(len(self.datas[row].x))
+        self.setMaximumColumnNumber(len(self.datas[row].x))
 
     def setSample2D(self, row1: int, row2: int):
         self.number_sample = [row1, row2]
         self.d_d = DoubleSampleData(self.datas[row1], self.datas[row2])
         self.d_d.toCalculateCharacteristic()
         self.silentChangeNumberClasses(0)
-        self.spin_number_column.setMaximum(len(self.datas[row1].x))
+        self.setMaximumColumnNumber(len(self.datas[row1].x))
 
     def updateGraphics(self, number_column: int = 0):
         if len(self.number_sample) == 1:
             d = self.datas[self.number_sample[0]]
+            self.setMinMax(d.min, d.max)
             hist_data = d.get_histogram_data(number_column)
             h = abs(d.max - d.min) / len(hist_data)
             self.silentChangeNumberClasses(len(hist_data))
@@ -190,16 +188,26 @@ class Window(MainLayout):
             self.drawEmpFunc(hist_data, d.min, h)
             self.drawReproductionSeries()
         elif len(self.number_sample) == 2:
+            if self.d_d_number[0] != self.number_sample[0] or\
+               self.d_d_number[1] != self.number_sample[1]:
+                self.d_d_number = self.number_sample
+                x = self.datas[self.number_sample[0]]
+                y = self.datas[self.number_sample[1]]
+                self.d_d = DoubleSampleData(x, y)
+                self.d_d.toCalculateCharacteristic()
             hist_data = self.d_d.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(hist_data))
 
             self.drawHistogram2D(hist_data)
-            if self.d_d.xiXiTest(hist_data):
+            self.drawReproductionSeries2D()
+            self.writeProtocol()
+            isNormal, crits = self.d_d.xiXiTest(hist_data)
+            if isNormal:
                 self.writeCritetion(
-                    "Відтворення двовимірного розподілу адекватне")
+                    f"Відтворення двовимірного розподілу адекватне: {crits}")
             else:
                 self.writeCritetion(
-                    "Відтворення двовимірного розподілу неадекватне")
+                    f"Відтворення двовимірного розподілу неадекватне: {crits}")
 
     def drawHistogram2D(self, hist_data: list):
         x = self.d_d.x.raw_x
@@ -223,11 +231,6 @@ class Window(MainLayout):
         self.hist_plot.plot(x, y, symbolBrush=(255, 0, 0, 175),
                             symbolPen=(0, 0, 0, 200), symbolSize=7,
                             pen=None)
-
-        f = self.d_d.toCreateLineFunc()
-        x = [self.d_d.x.min, self.d_d.x.max]
-        y = [f(i) for i in x]
-        self.hist_plot.plot(x, y, pen=newPen((128, 0, 255), 3))
 
     def drawHistogram(self, hist_data: list,
                       x_min: float, h: float):
@@ -276,8 +279,7 @@ class Window(MainLayout):
         self.emp_plot.plot(x_class, y_class, pen=newPen((255, 0, 0), 2))
         self.emp_plot.plot(x_stat, y_stat, pen=newPen((0, 255, 0), 2))
 
-    def toCreateReproductionFunc(self, func_num):
-        d = self.datas[self.number_sample[0]]
+    def toCreateReproductionFunc(self, d, func_num):
         if func_num == 0:
             f, F, DF = d.toCreateNormalFunc()
         elif func_num == 1:
@@ -293,11 +295,21 @@ class Window(MainLayout):
 
         return f, F, DF
 
+    def toCreateReproductionFunc2D(self, d_d, func_num):
+        if func_num == 0:
+            less_f, f, more_f = d_d.toCreateLinearRegressionMNK()
+        elif func_num == 1:
+            less_f, f, more_f = d_d.toCreateLinearRegressionMethodTeila()
+        else:
+            return None, None, None
+
+        return less_f, f, more_f
+
     def drawReproductionSeries(self):
         x_gen = []
         d = self.datas[self.number_sample[0]]
         try:
-            f, F, DF = self.toCreateReproductionFunc(self.reprod_num)
+            f, F, DF = self.toCreateReproductionFunc(d, self.reprod_num)
             if f is not None:
                 h = abs(d.max - d.min) / self.getNumberClasses()
                 x_gen = d.toGenerateReproduction(f, F, DF, h)
@@ -321,7 +333,7 @@ class Window(MainLayout):
         try:
             xi_test_result = d.xiXiTest(
                 F,
-                d.get_histogram_data(self.spin_number_column.value()))
+                d.get_histogram_data(self.getNumberClasses()))
         except ZeroDivisionError:
             xi_test_result = False
 
@@ -348,18 +360,57 @@ class Window(MainLayout):
         self.emp_plot.plot(x, y_emp, pen=newPen((0, 255, 255), 2))
         self.emp_plot.plot(x, y_high, pen=newPen((128, 0, 128), 2))
 
-    def critsSamples(self, trust: float):
+    def drawReproductionSeries2D(self):
+        x_gen = []
+        lf, f, mf = self.toCreateReproductionFunc2D(self.d_d, self.reprod_num)
+        if f is not None:
+            x_gen = self.d_d.toGenerateReproduction(lf, f, mf)
+
+        if len(x_gen) == 0:
+            self.writeCritetion('')
+            return
+
+        x = []
+        y_low = []
+        y = []
+        y_high = []
+        for i in x_gen:
+            x.append(i[0])
+            y_low.append(i[1])
+            y.append(i[2])
+            y_high.append(i[3])
+
+        self.hist_plot.plot(x, y_low, pen=newPen((0, 128, 128), 2))
+        self.hist_plot.plot(x, y, pen=newPen((128, 0, 255), 3))
+        self.hist_plot.plot(x, y_high, pen=newPen((128, 0, 128), 2))
+
+    def linearModelsCrit(self, trust: float):
         sel = self.getSelectedRows()
-        print(f"{sel}")
+        if len(sel) == 4:
+            res = self.datas.ident2ModelsLine(
+                [self.datas[i] for i in sel], trust)
+            title = "Лінійна регресія"
+            descr = "Моделі регресійних прямих\n" + \
+                f"({sel[0]}, {sel[1]}) і ({sel[2]}, {sel[3]})"
+            if type(res) == bool:
+                if res:
+                    self.showMessageBox(title, descr + " - ідентичні")
+                else:
+                    self.showMessageBox(title, descr + " - неідентичні")
+            elif type(res) == str:
+                self.showMessageBox(title, descr +
+                                    " - мають випадкову різницю регресій")
+
+    def homogeneityAndIndependence(self, trust: float):
+        sel = self.getSelectedRows()
         if len(sel) == 1:
             P = self.datas[sel[0]].critetionAbbe()
+            title = "Критерій Аббе"
             if P > trust:
-                self.showMessageBox("Критерій Аббе",
-                                    f"{P:.5} > {trust}" +
+                self.showMessageBox(title, f"{P:.5} > {trust}" +
                                     "\nСпостереження незалежні")
             else:
-                self.showMessageBox("Критерій Аббе",
-                                    f"{P:.5} < {trust}" +
+                self.showMessageBox(title, f"{P:.5} < {trust}" +
                                     "\nСпостереження залежні")
 
         elif len(sel) == 2:

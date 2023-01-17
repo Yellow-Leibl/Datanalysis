@@ -1,12 +1,20 @@
 from PyQt5.QtCore import Qt
 from enum import Enum
 
+
+class Critetion(Enum):
+    HOMOGENEITY_INDEPENDENCE = 0,
+    LINEAR_REGRESSION_MODELS = 1
+
+
 dict_crit = {
-    "Перевірка однорідності/незалежності":   0
+    "Перевірка однорідності/незалежності":  Critetion.HOMOGENEITY_INDEPENDENCE,
+    "Порівняння лінійних регресій":         Critetion.LINEAR_REGRESSION_MODELS
 }
 
 dict_crit_shortcut = {
-    "Перевірка однорідності/незалежності":   Qt.CTRL + Qt.Key_I
+    "Перевірка однорідності/незалежності":  Qt.CTRL + Qt.Key_I,
+    "Порівняння лінійних регресій":         Qt.CTRL + Qt.Key_E
 }
 
 
@@ -53,5 +61,17 @@ dict_repr_shortcut = {
     "&Експоненціальний":    Qt.CTRL + Qt.ALT + Qt.Key_E,
     "&Вейбулла":            Qt.CTRL + Qt.ALT + Qt.Key_W,
     "&Арксинус":            Qt.CTRL + Qt.ALT + Qt.Key_A,
+    "&Очистити":            Qt.CTRL + Qt.ALT + Qt.Key_C,
+}
+
+dict_regr = {
+    "&Лінійна МНК":         0,
+    "Лінійна Метод Тейла":  1,
+    "&Очистити":            2,
+}
+
+dict_regr_shortcut = {
+    "&Лінійна МНК":         Qt.CTRL + Qt.ALT + Qt.Key_M,
+    "Лінійна Метод Тейла":  Qt.CTRL + Qt.ALT + Qt.Key_T,
     "&Очистити":            Qt.CTRL + Qt.ALT + Qt.Key_C,
 }

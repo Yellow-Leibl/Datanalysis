@@ -4,7 +4,7 @@ import numpy as np
 
 import functions as func
 from Datanalysis.SamplingData import (SamplingData, formRow3V, formRow4V,
-                                      toMakeRange, calc_reproduction_dx)
+                                      toMakeRange, calc_reproduction_dx, MED)
 
 
 def printHistogram(hist, N):
@@ -16,7 +16,7 @@ def printHistogram(hist, N):
 class DoubleSampleData(SamplingData):
     def __init__(self, x: SamplingData, y: SamplingData, trust: float = 0.05):
         if len(x.getRaw()) != len(y.getRaw()):
-            raise Exception()
+            raise Exception('X and Y are independet samples')
         self.x = x
         self.y = y
 
@@ -47,13 +47,13 @@ class DoubleSampleData(SamplingData):
         self.coeficientOfCorrelation()
         self.rangeCorrelation()
         self.coefficientsOfCombinationsOfTables()
+        self.linearCorrelationParametrs()
 
-    def coeficientOfCorrelation(self):
+    def generateMas3Dot3(self, k):
+        y = []
         N = len(self.x.getRaw())
-        k = SamplingData.calculateM(N)
         dx = calc_reproduction_dx(self.x.min, self.x.max, k)
         def x(i): return self.x.min + (i - 0.5) * dx
-        y = []
         xy = [(self.x.getRaw()[i], self.y.getRaw()[i]) for i in range(N)]
         for i in range(1, k + 1):
             yi = []
@@ -64,7 +64,12 @@ class DoubleSampleData(SamplingData):
                     xy.pop(j - rm_i)
                     rm_i += 1
             y.append(yi)
+        return y
 
+    def coeficientOfCorrelation(self):
+        N = len(self.x.getRaw())
+        k = N // 2
+        y = self.generateMas3Dot3(k)
         def m(i): return len(y[i])
         def _y_(i): return sum(y[i]) / m(i) if m(i) != 0 else 0
         y_ = self.y.x_
@@ -283,6 +288,12 @@ class DoubleSampleData(SamplingData):
         sigma_teta_k = ((4 * N + 10) / (9 * (N ** 2 - N))) ** 0.5
         self.det_teta_k = func.QuantileNorm(1 - self.trust / 2) * sigma_teta_k
 
+    def linearCorrelationParametrs(self):
+        N = len(self.x.getRaw())
+        self.sigma_eps = self.y.Sigma * (
+            (1 - self.r ** 2) * (N - 1) / (N - 2)) ** 0.5
+        self.line_f_signif = self.sigma_eps ** 2 / self.y.Sigma ** 2
+
     def getProtocol(self) -> str:
         info = []
         info.append("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
@@ -344,6 +355,12 @@ class DoubleSampleData(SamplingData):
         info.append(formRow3V("Індекс сполучень", "",
                               f"{self.ind_Fi:.5}", ""))
 
+        info.append(formRow3V("Коефіцієнт зв’язку Юла Q", "",
+                              f"{self.ind_Q:.5}", ""))
+
+        info.append(formRow3V("Коефіцієнт зв’язку Юла Y", "",
+                              f"{self.ind_Y:.5}", ""))
+
         info.append("")
 
         N = len(self.x)
@@ -359,10 +376,12 @@ class DoubleSampleData(SamplingData):
                       f"{abs(self.po_signif_t):.5}",
                       "<=",
                       f"{func.QuantileTStudent(1 - self.trust, nu):.5}"))
-
-        f_po = func.QuantileFisher(1 - self.trust,
-                                   self.po_k - 1,
-                                   N - self.po_k)
+        try:
+            f_po = func.QuantileFisher(1 - self.trust,
+                                       self.po_k - 1,
+                                       N - self.po_k)
+        except:
+            f_po = 0.0
         info.append(
             formRow3V("Значимість коефіцієнта p, f-test",
                       f"{self.po_signif_f:.5}",
@@ -400,6 +419,30 @@ class DoubleSampleData(SamplingData):
                       f"{abs(self.teta_b_signif):.5}",
                       "<=",
                       f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
+
+        if hasattr(self, "line_a"):
+            info.append("\nРегресія")
+            info.append("-" * 16)
+            info.append("Параметри лінійної регресії: a + b * x")
+            info.append(
+                formRow3V("Параметр a",
+                          f"{self.line_a - self.det_line_a:.5}",
+                          f"{self.line_a:.5}",
+                          f"{self.line_a + self.det_line_a:.5}"))
+            info.append(
+                formRow3V("Параметр b",
+                          f"{self.line_b - self.det_line_b:.5}",
+                          f"{self.line_b:.5}",
+                          f"{self.line_b + self.det_line_b:.5}"))
+
+            info.append("")
+
+            f = func.QuantileFisher(1 - self.trust, N - 1, N - 3)
+            info.append(
+                formRow3V("Адекватность відтвореної моделі регресії",
+                          f"{self.line_f_signif:.5}",
+                          "<=",
+                          f"{f:.5}"))
 
         return "\n".join(info)
 
@@ -506,7 +549,7 @@ class DoubleSampleData(SamplingData):
               f"{X} <= {func.QuantilePearson(1 - trust / 2, k - 1)}")
         return X <= func.QuantilePearson(1 - trust / 2, k - 1)
 
-    def toCreateLineFunc(self):
+    def toCreateLinearRegressionMNK(self):
         if not (self.x.isNormal() and self.y.isNormal() and
                 self.identDispersionBarlet([self.x, self.y], self.trust) and
                 self.x.critetionAbbe() and self.y.critetionAbbe()):
@@ -516,8 +559,125 @@ class DoubleSampleData(SamplingData):
         b = self.r * self.y.Sigma / self.x.Sigma
         a = self.y.x_ - b * self.x.x_
 
+        self.line_a = a
+        self.line_b = b
+        self.accuracyParameterAB()
+
         def f(x): return a + b * x
-        return f
+
+        return self.linearTrustIntervals(f)
+
+    def toCreateLinearRegressionMethodTeila(self):
+        if not (self.x.isNormal() and self.y.isNormal() and
+                self.identDispersionBarlet([self.x, self.y], self.trust) and
+                self.x.critetionAbbe() and self.y.critetionAbbe()):
+            print("The initial conditions arent correct for linear regression")
+            return
+
+        x = self.x.x
+        y = self.y.x
+
+        N = len(self.x.getRaw())
+        b_l = []
+        for i in range(N):
+            for j in range(i + 1, N):
+                b_l.append((y[j] - y[i]) / (x[j] - x[i]))
+        b = MED(b_l)
+
+        a_l = []
+        for i in range(N):
+            a_l.append(y[i] - b * x[i])
+        a = MED(a_l)
+
+        self.line_a = a
+        self.line_b = b
+        self.accuracyParameterAB()
+
+        def f(x): return a + b * x
+
+        return self.linearTrustIntervals(f)
+
+    def linearTrustIntervals(self, f):
+        N = len(self.x.getRaw())
+
+        def S_y_(x): return (self.sigma_eps ** 2 / N +
+                             self.line_b_S ** 2 * (x - self.x.x_) ** 2) ** 0.5
+        t = func.QuantileTStudent(1 - self.trust / 2, N - 2)
+
+        def less_f(x): return f(x) - t * S_y_(x)
+
+        def more_f(x): return f(x) + t * S_y_(x)
+        return less_f, f, more_f
+
+    def linearTolerantIntervals(self, f):
+        N = len(self.x.getRaw())
+        sigma_eps = self.y.Sigma * (
+            (1 - self.r ** 2) * (N - 1) / (N - 2)) ** 0.5
+
+        def less_f(x): return f(x) - func.QuantileTStudent(
+            1 - self.trust / 2, N - 2) * sigma_eps
+
+        def more_f(x): return f(x) + func.QuantileTStudent(
+            1 - self.trust / 2, N - 2) * sigma_eps
+        return less_f, f, more_f
+
+    def coefficientOfDetermination(self, f):
+        S_zal = 0
+        N = len(self.x.getRaw())
+        x = self.x.getRaw()
+        y = self.y.getRaw()
+        for i in range(N):
+            S_zal += (y[i] - f(x[i])) ** 2
+        S_zal /= N - 2
+
+        self.R_2 = (1 - S_zal / self.y.Sigma) * 100
+        print(f"{self.R_2} {self.r * 100}")
+
+    def accuracyParameterAB(self):
+        N = len(self.x.getRaw())
+        x = self.x.getRaw()
+        y = self.y.getRaw()
+        a = self.line_a
+        b = self.line_b
+        def f(x): return a + b * x
+
+        S_zal = 0
+        for i in range(N):
+            S_zal += (y[i] - f(x[i])) ** 2
+        S_zal /= N - 2
+
+        S_a = S_zal ** 0.5 * (1 / N + self.x.x_ ** 2 /
+                              (self.x.S * (N - 1))) ** 0.5
+        self.line_b_S = S_zal ** 0.5 / (self.x.S * (N - 1) ** 0.5)
+        t_a = a / S_a
+        t_b = b / self.line_b_S
+        t_stud = func.QuantileTStudent(1 - self.trust / 2, N - 2)
+
+        if not (abs(t_a) > t_stud or abs(t_b) > t_stud):
+            return
+
+        self.det_line_a = t_stud * S_a
+        self.det_line_b = t_stud * self.line_b_S
+
+    def toGenerateReproduction(self, lf, f, mf) -> list:
+        x_gen = []
+
+        dx = calc_reproduction_dx(self.x.min, self.x.max)
+        x = self.x.min
+        while x < self.x.max:
+            y = f(x)
+            if y is not None:
+                x_gen.append((x, lf(x), f(x), mf(x)))
+            x += dx
+
+        if len(x_gen) > 0 and x_gen[-1][1] != self.x[-1]:
+            y = f(self.x[-1])
+            x = self.x[-1]
+            if y is not None:
+                # (x, low limit y, y, high limit y)
+                x_gen.append((x, lf(x), f(x), mf(x)))
+
+        return x_gen
 
     def xiXiTest(self, hist_data: list) -> bool:
         f = self.toCreateNormalFunc()
@@ -535,7 +695,7 @@ class DoubleSampleData(SamplingData):
                 if p(i, j) != 0:
                     x_2 += (hist_data[i][j] / N - p(i, j)) ** 2 / p(i, j)
 
-        print(f"x_2={x_2} <="
-              f"{func.QuantilePearson(self.trust, column_number ** 2 - 2)}")
+        quant = func.QuantilePearson(1 - self.trust, column_number ** 2 - 2)
+        values = f"x_2={x_2:.5} <= {quant:.5}"
         return x_2 <= func.QuantilePearson(
-            1 - self.trust, column_number ** 2 - 2)
+            1 - self.trust, column_number ** 2 - 2), values
