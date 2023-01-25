@@ -402,7 +402,8 @@ class SamplingDatas:
                 S * (S1 / (N1 * sigma_x1_2) + S2 / (N2 * sigma_x2_2)) ** 0.5)
             C0 = S1 / (N1 * sigma_x1_2) / (
                 S1 / (N1 * sigma_x1_2) + S2 / (N2 * sigma_x2_2))
-            nu = math.round((C0 ** 2 / (N1 - 2) + (1 - C0) ** 2 / (N2 - 2)) ** -1)
+            nu = math.round((C0 ** 2 / (
+                N1 - 2) + (1 - C0) ** 2 / (N2 - 2)) ** -1)
             if t <= QuantileTStudent(1 - trust / 2, nu):
                 b = (b1 * N1 * sigma_x1_2 / S1 + b2 * N2 * sigma_x2_2 / S2) / (
                     N1 * sigma_x1_2 / S1 + N2 * sigma_x2_2 / S2)

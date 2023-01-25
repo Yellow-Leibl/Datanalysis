@@ -297,13 +297,21 @@ class Window(MainLayout):
 
     def toCreateReproductionFunc2D(self, d_d, func_num):
         if func_num == 0:
-            less_f, f, more_f = d_d.toCreateLinearRegressionMNK()
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateLinearRegressionMNK()
         elif func_num == 1:
-            less_f, f, more_f = d_d.toCreateLinearRegressionMethodTeila()
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateLinearRegressionMethodTeila()
+        elif func_num == 2:
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateParabolicRegression()
+        elif func_num == 3:
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateKvazi8()
         else:
-            return None, None, None
+            return None, None, None, None, None, None, None
 
-        return less_f, f, more_f
+        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
 
     def drawReproductionSeries(self):
         x_gen = []
@@ -362,27 +370,38 @@ class Window(MainLayout):
 
     def drawReproductionSeries2D(self):
         x_gen = []
-        lf, f, mf = self.toCreateReproductionFunc2D(self.d_d, self.reprod_num)
+        tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+            self.toCreateReproductionFunc2D(self.d_d, self.reprod_num)
         if f is not None:
-            x_gen = self.d_d.toGenerateReproduction(lf, f, mf)
+            x_gen = self.d_d.toGenerateReproduction(f)
 
         if len(x_gen) == 0:
             self.writeCritetion('')
             return
 
-        x = []
-        y_low = []
+        y_tl_lf = []
+        y_tl_mf = []
+        y_tr_lf = []
+        y_tr_mf = []
+        y_tr_f_lf = []
+        y_tr_f_mf = []
         y = []
-        y_high = []
-        for i in x_gen:
-            x.append(i[0])
-            y_low.append(i[1])
-            y.append(i[2])
-            y_high.append(i[3])
+        for x in x_gen:
+            y_tl_lf.append(tl_lf(x))
+            y_tl_mf.append(tl_mf(x))
+            y_tr_lf.append(tr_lf(x))
+            y_tr_mf.append(tr_mf(x))
+            y_tr_f_lf.append(tr_f_lf(x))
+            y_tr_f_mf.append(tr_f_mf(x))
+            y.append(f(x))
 
-        self.hist_plot.plot(x, y_low, pen=newPen((0, 128, 128), 2))
-        self.hist_plot.plot(x, y, pen=newPen((128, 0, 255), 3))
-        self.hist_plot.plot(x, y_high, pen=newPen((128, 0, 128), 2))
+        self.hist_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
+        self.hist_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
+        self.hist_plot.plot(x_gen, y_tr_lf, pen=newPen((0, 128, 255), 3))
+        self.hist_plot.plot(x_gen, y_tr_mf, pen=newPen((0, 128, 255), 3))
+        self.hist_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
+        self.hist_plot.plot(x_gen, y_tr_f_mf, pen=newPen((128, 255, 128), 3))
+        self.hist_plot.plot(x_gen, y, pen=newPen((255, 0, 255), 3))
 
     def linearModelsCrit(self, trust: float):
         sel = self.getSelectedRows()
@@ -444,5 +463,5 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    applicationLoadFromFile("data/self/line.txt")
+    applicationLoadFromFile("data/self/kvaz_8.txt")
     # applicationLoadFromFile("data/self/norm5n.txt")

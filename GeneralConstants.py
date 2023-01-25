@@ -65,13 +65,17 @@ dict_repr_shortcut = {
 }
 
 dict_regr = {
-    "&Лінійна МНК":         0,
-    "Лінійна Метод Тейла":  1,
-    "&Очистити":            2,
+    "Лінійна &МНК":         0,
+    "Лінійна Метод &Тейла": 1,
+    "&Парабола":            2,
+    "y = a * exp(b * x)":   3,
+    "&Очистити":            4,
 }
 
 dict_regr_shortcut = {
-    "&Лінійна МНК":         Qt.CTRL + Qt.ALT + Qt.Key_M,
-    "Лінійна Метод Тейла":  Qt.CTRL + Qt.ALT + Qt.Key_T,
+    "Лінійна &МНК":         Qt.CTRL + Qt.ALT + Qt.Key_M,
+    "Лінійна Метод &Тейла": Qt.CTRL + Qt.ALT + Qt.Key_T,
+    "&Парабола":            Qt.CTRL + Qt.ALT + Qt.Key_P,
+    "y = a * exp(b * x)":   Qt.CTRL + Qt.ALT + Qt.Key_K,
     "&Очистити":            Qt.CTRL + Qt.ALT + Qt.Key_C,
 }

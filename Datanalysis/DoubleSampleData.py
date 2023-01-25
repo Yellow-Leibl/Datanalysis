@@ -30,7 +30,7 @@ class DoubleSampleData(SamplingData):
     def toCalculateCharacteristic(self):
         self.x_ = (self.x.x_, self.y.x_)
 
-        N = len(self.x.getRaw())
+        N = len(self)
         xy_ = sum([self.x.raw_x[i] * self.y.raw_x[i]
                    for i in range(len(self.x.raw_x))]) / N
 
@@ -51,7 +51,7 @@ class DoubleSampleData(SamplingData):
 
     def generateMas3Dot3(self, k):
         y = []
-        N = len(self.x.getRaw())
+        N = len(self)
         dx = calc_reproduction_dx(self.x.min, self.x.max, k)
         def x(i): return self.x.min + (i - 0.5) * dx
         xy = [(self.x.getRaw()[i], self.y.getRaw()[i]) for i in range(N)]
@@ -67,7 +67,7 @@ class DoubleSampleData(SamplingData):
         return y
 
     def coeficientOfCorrelation(self):
-        N = len(self.x.getRaw())
+        N = len(self)
         k = N // 2
         y = self.generateMas3Dot3(k)
         def m(i): return len(y[i])
@@ -203,7 +203,7 @@ class DoubleSampleData(SamplingData):
                   f"{func.QuantileTStudent(1 - self.trust, n_g * m_g - 2)}")
 
     def rangeCorrelation(self):
-        N = len(self.x.getRaw())
+        N = len(self)
         x = [[i, 0] for i in self.x.getRaw()]
         y = [[i, 0] for i in self.y.getRaw()]
         x.sort()
@@ -270,8 +270,11 @@ class DoubleSampleData(SamplingData):
         #                (1 / 6 * N * (N ** 2 - 1) - 2 * B)) ** 0.5
         # print(f"Sperman={sperman}")
 
-        self.teta_c_signif = self.teta_c * (N - 2) ** 0.5 / (
-            1 - self.teta_c ** 2) ** 0.5
+        try:
+            self.teta_c_signif = self.teta_c * (N - 2) ** 0.5 / (
+                1 - self.teta_c ** 2) ** 0.5
+        except:
+            self.teta_c_signif = 0.0
         print(f"{self.teta_c_signif} <= "
               f"{func.QuantileTStudent(1 - self.trust, N - 2)}")
 
@@ -289,7 +292,7 @@ class DoubleSampleData(SamplingData):
         self.det_teta_k = func.QuantileNorm(1 - self.trust / 2) * sigma_teta_k
 
     def linearCorrelationParametrs(self):
-        N = len(self.x.getRaw())
+        N = len(self)
         self.sigma_eps = self.y.Sigma * (
             (1 - self.r ** 2) * (N - 1) / (N - 2)) ** 0.5
         self.line_f_signif = self.sigma_eps ** 2 / self.y.Sigma ** 2
@@ -421,9 +424,9 @@ class DoubleSampleData(SamplingData):
                       f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
 
         if hasattr(self, "line_a"):
-            info.append("\nРегресія")
+            info.append("")
+            info.append("Параметри лінійної регресії: a + bx")
             info.append("-" * 16)
-            info.append("Параметри лінійної регресії: a + b * x")
             info.append(
                 formRow3V("Параметр a",
                           f"{self.line_a - self.det_line_a:.5}",
@@ -439,10 +442,60 @@ class DoubleSampleData(SamplingData):
 
             f = func.QuantileFisher(1 - self.trust, N - 1, N - 3)
             info.append(
-                formRow3V("Адекватность відтвореної моделі регресії",
+                formRow3V("Адекватність відтвореної моделі регресії",
                           f"{self.line_f_signif:.5}",
                           "<=",
                           f"{f:.5}"))
+
+        if hasattr(self, "parab_a"):
+            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+            info.append("")
+            info.append("Параметри параболічної регресії: a + bx + cx^2")
+            info.append("-" * 16)
+
+            info.append(
+                formRow3V("Параметр a",
+                          f"{self.parab_a - self.det_parab_a:.5}",
+                          f"{self.parab_a:.5}",
+                          f"{self.parab_a + self.det_parab_a:.5}"))
+            info.append(
+                formRow3V("Параметр b",
+                          f"{self.parab_b - self.det_parab_b:.5}",
+                          f"{self.parab_b:.5}",
+                          f"{self.parab_b + self.det_parab_b:.5}"))
+            info.append(
+                formRow3V("Параметр c",
+                          f"{self.parab_c - self.det_parab_c:.5}",
+                          f"{self.parab_c:.5}",
+                          f"{self.parab_c + self.det_parab_c:.5}"))
+
+            info.append("")
+            info.append(formRow3V("Значущість параметра a",
+                                  f"{self.parab_a_t:.5}", "<=",
+                                  f"{t:.5}"))
+            info.append(formRow3V("Значущість параметра b",
+                                  f"{self.parab_b_t:.5}", "<=",
+                                  f"{t:.5}"))
+            info.append(formRow3V("Значущість параметра c",
+                                  f"{self.parab_c_t:.5}", "<=",
+                                  f"{t:.5}"))
+
+        if hasattr(self, "kvaz_a"):
+            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+            info.append("")
+            info.append("Параметри квазілійнійної регресії: a * exp(bx)")
+            info.append("-" * 16)
+
+            info.append(
+                formRow3V("Параметр a",
+                          f"{self.kvaz_a - self.det_kvaz_a:.5}",
+                          f"{self.kvaz_a:.5}",
+                          f"{self.kvaz_a + self.det_kvaz_a:.5}"))
+            info.append(
+                formRow3V("Параметр b",
+                          f"{self.kvaz_b - self.det_kvaz_b:.5}",
+                          f"{self.kvaz_b:.5}",
+                          f"{self.kvaz_b + self.det_kvaz_b:.5}"))
 
         return "\n".join(info)
 
@@ -456,7 +509,7 @@ class DoubleSampleData(SamplingData):
         self.probability_table = [[0 for x in range(column_number)]
                                   for y in range(column_number)]
 
-        N = len(self.x.getRaw())
+        N = len(self)
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number
 
@@ -486,7 +539,7 @@ class DoubleSampleData(SamplingData):
         self.y.setSeries(self.y.raw_x)
 
     def fastRemove(self, x, y, w, h):
-        N = len(self.x.getRaw())
+        N = len(self)
         del_ind = []
         for i in range(N):
             if (x <= self.x.raw_x[i] <= x + w) and\
@@ -500,7 +553,7 @@ class DoubleSampleData(SamplingData):
     def autoRemoveAnomaly(self, hist_data):
         is_item_del = False
 
-        N = len(self.x.getRaw())
+        N = len(self)
         column_number = len(hist_data)
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number
@@ -549,35 +602,44 @@ class DoubleSampleData(SamplingData):
               f"{X} <= {func.QuantilePearson(1 - trust / 2, k - 1)}")
         return X <= func.QuantilePearson(1 - trust / 2, k - 1)
 
+# line regression
+    def initialConditionLine(self) -> bool:
+        if not (self.x.isNormal() and self.y.isNormal()):
+            print("Початкова умова 1 лінійного"
+                  " регресійного аналізу не виконується")
+            if not (self.identDispersionBarlet([self.x, self.y], self.trust) and
+                    self.x.critetionAbbe() and self.y.critetionAbbe()):
+                print("The initial conditions arent correct for linear regression")
+                return False
+
     def toCreateLinearRegressionMNK(self):
-        if not (self.x.isNormal() and self.y.isNormal() and
-                self.identDispersionBarlet([self.x, self.y], self.trust) and
-                self.x.critetionAbbe() and self.y.critetionAbbe()):
-            print("The initial conditions arent correct for linear regression")
-            return
 
         b = self.r * self.y.Sigma / self.x.Sigma
         a = self.y.x_ - b * self.x.x_
 
         self.line_a = a
         self.line_b = b
-        self.accuracyParameterAB()
+        self.accuracyLineParameters(a, b)
 
         def f(x): return a + b * x
 
-        return self.linearTrustIntervals(f)
+        tl_lf, tl_mf = self.linearTolerantIntervals(f)
+        tr_lf, tr_mf, tr_f_lf, tr_f_mf = self.linearTrustIntervals(f)
+
+        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
 
     def toCreateLinearRegressionMethodTeila(self):
         if not (self.x.isNormal() and self.y.isNormal() and
                 self.identDispersionBarlet([self.x, self.y], self.trust) and
-                self.x.critetionAbbe() and self.y.critetionAbbe()):
+                self.x.critetionAbbe() > self.trust and
+                self.y.critetionAbbe() > self.trust):
             print("The initial conditions arent correct for linear regression")
             return
 
         x = self.x.x
         y = self.y.x
 
-        N = len(self.x.getRaw())
+        N = len(self)
         b_l = []
         for i in range(N):
             for j in range(i + 1, N):
@@ -591,26 +653,39 @@ class DoubleSampleData(SamplingData):
 
         self.line_a = a
         self.line_b = b
-        self.accuracyParameterAB()
+        self.accuracyLineParameters(a, b)
 
         def f(x): return a + b * x
 
-        return self.linearTrustIntervals(f)
+        tl_lf, tl_mf = self.linearTolerantIntervals(f)
+        tr_lf, tr_mf, tr_f_lf, tr_f_mf = self.linearTrustIntervals(f)
 
-    def linearTrustIntervals(self, f):
-        N = len(self.x.getRaw())
+        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
 
-        def S_y_(x): return (self.sigma_eps ** 2 / N +
-                             self.line_b_S ** 2 * (x - self.x.x_) ** 2) ** 0.5
-        t = func.QuantileTStudent(1 - self.trust / 2, N - 2)
+    def accuracyLineParameters(self, a, b):
+        N = len(self)
+        x = self.x.getRaw()
+        y = self.y.getRaw()
+        def f(x): return a + b * x
 
-        def less_f(x): return f(x) - t * S_y_(x)
+        S_zal = sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
+                    ) / (N - 2)
 
-        def more_f(x): return f(x) + t * S_y_(x)
-        return less_f, f, more_f
+        S_a = S_zal ** 0.5 * (1 / N + self.x.x_ ** 2 /
+                              (self.x.S * (N - 1))) ** 0.5
+        S_b = S_zal ** 0.5 / (self.x.S * (N - 1) ** 0.5)
+        t_a = a / S_a
+        t_b = b / S_b
+        t_stud = func.QuantileTStudent(1 - self.trust / 2, N - 2)
+
+        if not (abs(t_a) > t_stud or abs(t_b) > t_stud):
+            return
+
+        self.det_line_a = t_stud * S_a
+        self.det_line_b = t_stud * S_b
 
     def linearTolerantIntervals(self, f):
-        N = len(self.x.getRaw())
+        N = len(self)
         sigma_eps = self.y.Sigma * (
             (1 - self.r ** 2) * (N - 1) / (N - 2)) ** 0.5
 
@@ -619,11 +694,243 @@ class DoubleSampleData(SamplingData):
 
         def more_f(x): return f(x) + func.QuantileTStudent(
             1 - self.trust / 2, N - 2) * sigma_eps
-        return less_f, f, more_f
+        return less_f, more_f
+
+    def linearTrustIntervals(self, f):
+        N = len(self)
+        xl = self.x.getRaw()
+        y = self.y.getRaw()
+        x_ = self.x.x_
+
+        S_zal = sum([(y[i] - f(xl[i])) ** 2 for i in range(N)]
+                    ) / (N - 2)
+        S_b = S_zal ** 0.5 / (self.x.S * (N - 1) ** 0.5)
+        def S_y_(x): return (self.sigma_eps ** 2 / N +
+                             S_b ** 2 * (x - self.x.x_) ** 2) ** 0.5
+        t = func.QuantileTStudent(1 - self.trust / 2, N - 2)
+
+        def tr_lf(x): return f(x) - t * S_y_(x)
+
+        def tr_mf(x): return f(x) + t * S_y_(x)
+
+        def S_y_x0(x): return (self.sigma_eps ** 2 * (
+            1 + 1 / N) + S_b ** 2 * (x - x_)) ** 0.5
+
+        def tr_f_lf(x): return f(x) - t * S_y_x0(x)
+
+        def tr_f_mf(x): return f(x) + t * S_y_x0(x)
+
+        return tr_lf, tr_mf, tr_f_lf, tr_f_mf
+
+# parabolic regression
+    def toCreateParabolicRegression(self):
+        x_ = self.x.x_
+        y_ = self.y.x_
+        xl = self.x.getRaw()
+        y = self.y.getRaw()
+        N = len(self)
+        a = y_
+        b = sum([(xl[i] - x_) * y[i] for i in range(N)]) / sum(
+            [(xl[i] - x_) ** 2 for i in range(N)])
+
+        def phi1(x): return x - x_
+
+        def phi2(x): return x ** 2 - sum(
+            [xl[i] ** 3 - x_ * xl[i] ** 2 for i in range(N)]) / (
+            sum([xl[i] ** 2 for i in range(N)]) - N * x_ ** 2) * (x - x_)
+
+        c = sum([phi2(xl[i]) * y[i] for i in range(N)]) / sum(
+            [phi2(xl[i]) ** 2 for i in range(N)])
+
+        self.parab_a = a
+        self.parab_b = b
+        self.parab_c = c
+
+        def f(x): return a + b * x + c * x ** 2
+
+        self.accuracyParabolaParameters(a, b, c)
+
+        tl_lf, tl_mf = self.parabolaTolerantIntervals(f)
+        tr_lf, tr_mf, tr_f_lf, tr_f_mf = \
+            self.parabolaTrustIntervals(f, phi1, phi2)
+
+        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
+
+    def accuracyParabolaParameters(self, a, b, c):
+        N = len(self)
+        xl = self.x.getRaw()
+        y = self.y.getRaw()
+        x_ = self.x.x_
+        a = self.parab_a
+        b = self.parab_b
+        c = self.parab_c
+        sigma_x = self.x.Sigma
+
+        def phi2(x): return x ** 2 - sum(
+            [xl[i] ** 3 - x_ * xl[i] ** 2 for i in range(N)]) / (
+            sum([xl[i] ** 2 for i in range(N)]) - N * x_ ** 2) * (x - x_)
+
+        def f(x): return a + b * x + c * x ** 2
+
+        S_zal = (sum([(y[i] - f(xl[i])) ** 2 for i in range(N)]
+                     ) / (N - 2)) ** 0.5
+        self.parab_a_t = abs(a / S_zal * N ** 0.5)
+        self.parab_b_t = abs(b * sigma_x / S_zal * N ** 0.5)
+        self.parab_c_t = abs(c / S_zal *
+                             sum([phi2(xl[i]) ** 2 for i in range(N)]) ** 0.5)
+        t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+
+        S_a = S_zal / N ** 0.5
+        S_b = S_zal / (sigma_x * N ** 0.5)
+        S_c = S_zal / (N * sum([phi2(xl[i]) ** 2 for i in range(N)])) ** 0.5
+        self.det_parab_a = t * S_a
+        self.det_parab_b = t * S_b
+        self.det_parab_c = t * S_c
+
+    def parabolaTolerantIntervals(self, f):
+        N = len(self)
+        t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+        x = self.x.getRaw()
+        y = self.y.getRaw()
+        S_zal = (sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
+                     ) / (N - 2)) ** 0.5
+
+        def less_f(x): return f(x) - t * S_zal
+
+        def more_f(x): return f(x) + t * S_zal
+        return less_f, more_f
+
+    def parabolaTrustIntervals(self, f, phi1, phi2):
+        N = len(self)
+        t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+        x = self.x.getRaw()
+        y = self.y.getRaw()
+        sigma_x = self.x.Sigma
+        S_zal = (sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
+                     ) / (N - 2)) ** 0.5
+        t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+
+        phi2_2 = sum([phi2(x[i]) ** 2 for i in range(N)])
+
+        def S_y_x(x): return S_zal / N ** 0.5 * (
+            1 + phi1(x) ** 2 / sigma_x ** 2 +
+            phi2(x) ** 2 / phi2_2) ** 0.5
+
+        def tr_lf(x): return f(x) - t * S_y_x(x)
+
+        def tr_mf(x): return f(x) + t * S_y_x(x)
+
+        def S_y_x0(x): return S_zal / N ** 0.5 * (
+            N + 1 + phi1(x) ** 2 / sigma_x ** 2 +
+            phi2(x) ** 2 / phi2_2) ** 0.5
+
+        def tr_f_lf(x): return f(x) - t * S_y_x0(x)
+
+        def tr_f_mf(x): return f(x) + t * S_y_x0(x)
+
+        return tr_lf, tr_mf, tr_f_lf, tr_f_mf
+
+# y = a * exp(b * x)
+
+    def toCreateKvazi8(self):
+        N = len(self)
+        x = self.x.getRaw()
+        y = self.y.getRaw()
+        def phi(i): return x[i]
+        def kappa(i): return math.log(y[i])
+        def lambda_(i): return y[i] ** 2
+
+        phi_ = sum([phi(i) * lambda_(i) for i in range(N)]
+                   ) / sum([lambda_(i) for i in range(N)])
+
+        kappa_ = sum([kappa(i) * lambda_(i) for i in range(N)]
+                     ) / sum([lambda_(i) for i in range(N)])
+
+        phi_2 = sum([phi(i) ** 2 * lambda_(i) for i in range(N)]
+                    ) / sum([lambda_(i) for i in range(N)])
+
+        phi_kappa = sum(
+            [phi(i) * kappa(i) * lambda_(i) for i in range(N)]
+            ) / sum([lambda_(i) for i in range(N)])
+
+        B = (phi_kappa - phi_ * kappa_) / (phi_2 - phi_ ** 2)
+        A = kappa_ - B * phi_
+
+        self.kvaz_a = math.exp(A)
+        self.kvaz_b = B
+
+        def f(x): return math.exp(A) * math.exp(x * B)
+
+        self.accuracyKvaziParameters(A, B)
+
+        tl_lf, tl_mf = self.kvaziTolerantIntervals(f)
+        tr_lf, tr_mf, tr_f_lf, tr_f_mf = self.kvaziTrustIntervals(f)
+
+        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
+
+    def accuracyKvaziParameters(self, A, B):
+        N = len(self)
+        x = self.x.getRaw()
+        y = [math.log(yi) for yi in self.y.getRaw()]
+        def f(x): return A * math.exp(x * B)
+
+        S_zal = sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
+                    ) / (N - 2)
+
+        S_a = S_zal ** 0.5 * (1 / N + self.x.x_ ** 2 /
+                              (self.x.S * (N - 1))) ** 0.5
+        S_b = S_zal ** 0.5 / (self.x.S * (N - 1) ** 0.5)
+        t_a = A / S_a
+        t_b = B / S_b
+        t_stud = func.QuantileTStudent(1 - self.trust / 2, N - 2)
+
+        # if not (abs(t_a) > t_stud or abs(t_b) > t_stud):
+        #     return
+
+        self.det_kvaz_a = t_stud * S_a
+        self.det_kvaz_b = t_stud * S_b
+
+    def kvaziTolerantIntervals(self, f):
+        N = len(self)
+        sigma_eps = math.log(self.y.Sigma) * (
+            (1 - self.r ** 2) * (N - 1) / (N - 2)) ** 0.5
+
+        def less_f(x): return f(x) - func.QuantileTStudent(
+            1 - self.trust / 2, N - 2) * sigma_eps
+
+        def more_f(x): return f(x) + func.QuantileTStudent(
+            1 - self.trust / 2, N - 2) * sigma_eps
+        return less_f, more_f
+
+    def kvaziTrustIntervals(self, f):
+        N = len(self)
+        xl = self.x.getRaw()
+        y = [math.log(yi) for yi in self.y.getRaw()]
+        x_ = self.x.x_
+
+        S_zal = sum([(y[i] - f(xl[i])) ** 2 for i in range(N)]
+                    ) / (N - 2)
+        S_b = S_zal ** 0.5 / (self.x.S * (N - 1) ** 0.5)
+        def S_y_(x): return (self.sigma_eps ** 2 / N +
+                             S_b ** 2 * (x - self.x.x_) ** 2) ** 0.5
+        t = func.QuantileTStudent(1 - self.trust / 2, N - 2)
+
+        def tr_lf(x): return f(x) - t * S_y_(x)
+
+        def tr_mf(x): return f(x) + t * S_y_(x)
+
+        def S_y_x0(x): return (self.sigma_eps ** 2 * (
+            1 + 1 / N) + S_b ** 2 * (x - x_)) ** 0.5
+
+        def tr_f_lf(x): return f(x) - t * S_y_x0(x)
+
+        def tr_f_mf(x): return f(x) + t * S_y_x0(x)
+
+        return tr_lf, tr_mf, tr_f_lf, tr_f_mf
 
     def coefficientOfDetermination(self, f):
         S_zal = 0
-        N = len(self.x.getRaw())
+        N = len(self)
         x = self.x.getRaw()
         y = self.y.getRaw()
         for i in range(N):
@@ -633,56 +940,26 @@ class DoubleSampleData(SamplingData):
         self.R_2 = (1 - S_zal / self.y.Sigma) * 100
         print(f"{self.R_2} {self.r * 100}")
 
-    def accuracyParameterAB(self):
-        N = len(self.x.getRaw())
-        x = self.x.getRaw()
-        y = self.y.getRaw()
-        a = self.line_a
-        b = self.line_b
-        def f(x): return a + b * x
-
-        S_zal = 0
-        for i in range(N):
-            S_zal += (y[i] - f(x[i])) ** 2
-        S_zal /= N - 2
-
-        S_a = S_zal ** 0.5 * (1 / N + self.x.x_ ** 2 /
-                              (self.x.S * (N - 1))) ** 0.5
-        self.line_b_S = S_zal ** 0.5 / (self.x.S * (N - 1) ** 0.5)
-        t_a = a / S_a
-        t_b = b / self.line_b_S
-        t_stud = func.QuantileTStudent(1 - self.trust / 2, N - 2)
-
-        if not (abs(t_a) > t_stud or abs(t_b) > t_stud):
-            return
-
-        self.det_line_a = t_stud * S_a
-        self.det_line_b = t_stud * self.line_b_S
-
-    def toGenerateReproduction(self, lf, f, mf) -> list:
+    def toGenerateReproduction(self, f) -> list:
         x_gen = []
-
         dx = calc_reproduction_dx(self.x.min, self.x.max)
         x = self.x.min
         while x < self.x.max:
-            y = f(x)
-            if y is not None:
-                x_gen.append((x, lf(x), f(x), mf(x)))
+            if f(x) is not None:
+                x_gen.append(x)
             x += dx
 
-        if len(x_gen) > 0 and x_gen[-1][1] != self.x[-1]:
-            y = f(self.x[-1])
+        if len(x_gen) > 0 and x_gen[-1] != self.x[-1]:
             x = self.x[-1]
-            if y is not None:
-                # (x, low limit y, y, high limit y)
-                x_gen.append((x, lf(x), f(x), mf(x)))
+            if f(x) is not None:
+                x_gen.append(x)
 
         return x_gen
 
     def xiXiTest(self, hist_data: list) -> bool:
         f = self.toCreateNormalFunc()
         x_2 = 0
-        N = len(self.x.getRaw())
+        N = len(self)
         column_number = len(hist_data)
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number

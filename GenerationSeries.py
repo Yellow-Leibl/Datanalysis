@@ -6,7 +6,11 @@ from main import applicationLoadFromStr
 from Datanalysis.SamplingData import SamplingData
 
 
-def setCharacteristicForSample(sample, m, sigma) -> list:
+def generateNormal(m=0, sigma=1, N: int = 1000):
+    sample = []
+    for i in range(N):
+        sample.append(sum([r.random() for i in range(10)]))
+
     x = SamplingData(sample)
     x.toRanking()
     x.toCalculateCharacteristic()
@@ -15,17 +19,10 @@ def setCharacteristicForSample(sample, m, sigma) -> list:
     return x.getRaw()
 
 
-def generateNormal(m=0, sigma=1, N: int = 1000):
+def generateUniform(N: int = 1000):
     sample = []
     for i in range(N):
-        sample.append(sum([r.random() for i in range(10)]))
-    return setCharacteristicForSample(sample, m, sigma)
-
-
-def generateUniform(a, b, N: int = 1000):
-    sample = []
-    for i in range(N):
-        sample.append(r.randint(a, b))
+        sample.append(r.random())
     return sample
 
 
@@ -62,10 +59,16 @@ def binaryData(N: int = 1000):
     return x.getRaw()
 
 
-def generateLine(N: int = 1000):
-    x = generateNormal(N=N)
-    e = generateNormal(N=N)
-    y = [x[i] + e[i] * 0.3 for i in range(N)]
+def generateLine(m1: float = 0, m2: float = 0,
+                 sigma1: float = 1, sigma2: float = 1,
+                 r_x_y: float = 0.5, N: int = 1000):
+    z1 = generateNormal(N=N)
+    z2 = generateNormal(N=N)
+
+    x = [m1 + sigma1 * z1[i] for i in range(N)]
+    y = [m2 + sigma2 * (z2[i] * (1 - r_x_y ** 2) ** 0.5 + z1[i] * r_x_y)
+         for i in range(N)]
+
     return x, y
 
 
@@ -73,6 +76,12 @@ def generateParable(N: int = 1000):
     x = generateNormal(N=N)
     e = generateNormal(N=N)
     y = [x[i] ** 2 + e[i] * 0.3 for i in range(N)]
+    return x, y
+
+
+def generateExp2D(a, b, N: int = 1000):
+    x = generateUniform(N=N)
+    y = [a * (math.exp(b * xi + r.random()) + r.random()) for xi in x]
     return x, y
 
 
@@ -84,7 +93,7 @@ def generateSample(number_sample: int = 1,
         if number_sample == 1:
             rozp.append(generateNormal(a, b, n))
         if number_sample == 2:
-            rozp.append(generateUniform(a, b, n))
+            rozp.append(generateUniform(n))
         if number_sample == 3:
             rozp.append(generateExp(a, n))
         if number_sample == 4:
@@ -94,11 +103,15 @@ def generateSample(number_sample: int = 1,
         if number_sample == 6:
             rozp.append(binaryData(n))
         if number_sample == 7:
-            x, y = generateLine(n)
+            x, y = generateLine(N=n, m2=4)
             rozp.append(x)
             rozp.append(y)
         if number_sample == 8:
             x, y = generateParable(n)
+            rozp.append(x)
+            rozp.append(y)
+        if number_sample == 9:
+            x, y = generateExp2D(1, 5, n)
             rozp.append(x)
             rozp.append(y)
 
@@ -110,7 +123,7 @@ def generateSample(number_sample: int = 1,
 if __name__ == "__main__":
     while (True):
         t1 = time()
-        all_file = generateSample(number_sample=8, vec_n=5)
+        all_file = generateSample(number_sample=9, vec_n=1)
         # with open("norm5n.txt", 'w') as f:
         #     f.write(all_file)
         print(f"generation time={time() - t1}")
