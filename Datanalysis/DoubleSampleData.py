@@ -19,9 +19,7 @@ class DoubleSampleData(SamplingData):
             raise Exception('X and Y are independet samples')
         self.x = x
         self.y = y
-
         self.trust = trust
-
         self.probability_table = []
 
     def __len__(self):
@@ -45,7 +43,10 @@ class DoubleSampleData(SamplingData):
                                        ) * (1 - self.r ** 2) / (N - 1) ** 0.5
 
         self.coeficientOfCorrelation()
-        self.rangeCorrelation()
+        try:
+            self.rangeCorrelation()
+        except ZeroDivisionError:
+            print('Error in range correlation')
         self.coefficientsOfCombinationsOfTables()
         self.linearCorrelationParametrs()
 
@@ -203,6 +204,13 @@ class DoubleSampleData(SamplingData):
                   f"{func.QuantileTStudent(1 - self.trust, n_g * m_g - 2)}")
 
     def rangeCorrelation(self):
+        self.teta_c = 0.0
+        self.det_teta_c = 0.0
+        self.teta_c_signif = 0.0
+        self.teta_k = 0.0
+        self.teta_k_signif = 0.0
+        self.det_teta_k = 0.0
+
         N = len(self)
         x = [[i, 0] for i in self.x.getRaw()]
         y = [[i, 0] for i in self.y.getRaw()]
@@ -270,13 +278,8 @@ class DoubleSampleData(SamplingData):
         #                (1 / 6 * N * (N ** 2 - 1) - 2 * B)) ** 0.5
         # print(f"Sperman={sperman}")
 
-        try:
-            self.teta_c_signif = self.teta_c * (N - 2) ** 0.5 / (
-                1 - self.teta_c ** 2) ** 0.5
-        except:
-            self.teta_c_signif = 0.0
-        print(f"{self.teta_c_signif} <= "
-              f"{func.QuantileTStudent(1 - self.trust, N - 2)}")
+        self.teta_c_signif = self.teta_c * (N - 2) ** 0.5 / (
+            1 - self.teta_c ** 2) ** 0.5
 
         sigma_teta_c = ((1 - self.teta_c ** 2) / (N - 2)) ** 0.5
         self.det_teta_c = func.QuantileTStudent(1 - self.trust / 2, N - 2
@@ -607,8 +610,8 @@ class DoubleSampleData(SamplingData):
         if not (self.x.isNormal() and self.y.isNormal()):
             print("Початкова умова 1 лінійного"
                   " регресійного аналізу не виконується")
-            if not (self.identDispersionBarlet([self.x, self.y], self.trust) and
-                    self.x.critetionAbbe() and self.y.critetionAbbe()):
+            if not (self.identDispersionBarlet([self.x, self.y], self.trust)
+                    and self.x.critetionAbbe() and self.y.critetionAbbe()):
                 print("The initial conditions arent correct for linear regression")
                 return False
 
@@ -640,15 +643,15 @@ class DoubleSampleData(SamplingData):
         y = self.y.x
 
         N = len(self)
-        b_l = []
+        b_l = [0] * (N * (N - 1) / 2)
+        ll = 0
         for i in range(N):
             for j in range(i + 1, N):
-                b_l.append((y[j] - y[i]) / (x[j] - x[i]))
+                b_l[ll] = (y[j] - y[i]) / (x[j] - x[i])
+                ll += 1
         b = MED(b_l)
 
-        a_l = []
-        for i in range(N):
-            a_l.append(y[i] - b * x[i])
+        a_l = [y[i] - b * x[i] for i in range(N)]
         a = MED(a_l)
 
         self.line_a = a
@@ -735,20 +738,23 @@ class DoubleSampleData(SamplingData):
 
         def phi1(x): return x - x_
 
-        def phi2(x): return x ** 2 - sum(
-            [xl[i] ** 3 - x_ * xl[i] ** 2 for i in range(N)]) / (
-            sum([xl[i] ** 2 for i in range(N)]) - N * x_ ** 2) * (x - x_)
+        phi2_k = sum([xl[i] ** 3 - x_ * xl[i] ** 2 for i in range(N)]
+                     ) / (sum([xl[i] ** 2 for i in range(N)]) - N * x_ ** 2)
+
+        x_2 = sum([xl[i] ** 2 for i in range(N)]) / N
+
+        def phi2(x): return x ** 2 - phi2_k * (x - x_) - x_2
 
         c = sum([phi2(xl[i]) * y[i] for i in range(N)]) / sum(
             [phi2(xl[i]) ** 2 for i in range(N)])
-
+        pisa = phi2(5)
         self.parab_a = a
         self.parab_b = b
         self.parab_c = c
 
-        def f(x): return a + b * x + c * x ** 2
+        def f(x): return a + b * phi1(x) + c * phi2(x)
 
-        self.accuracyParabolaParameters(a, b, c)
+        self.accuracyParabolaParameters(a, b, c, phi2)
 
         tl_lf, tl_mf = self.parabolaTolerantIntervals(f)
         tr_lf, tr_mf, tr_f_lf, tr_f_mf = \
@@ -756,24 +762,19 @@ class DoubleSampleData(SamplingData):
 
         return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
 
-    def accuracyParabolaParameters(self, a, b, c):
+    def accuracyParabolaParameters(self, a, b, c, phi2):
         N = len(self)
         xl = self.x.getRaw()
         y = self.y.getRaw()
-        x_ = self.x.x_
         a = self.parab_a
         b = self.parab_b
         c = self.parab_c
         sigma_x = self.x.Sigma
 
-        def phi2(x): return x ** 2 - sum(
-            [xl[i] ** 3 - x_ * xl[i] ** 2 for i in range(N)]) / (
-            sum([xl[i] ** 2 for i in range(N)]) - N * x_ ** 2) * (x - x_)
-
         def f(x): return a + b * x + c * x ** 2
 
-        S_zal = (sum([(y[i] - f(xl[i])) ** 2 for i in range(N)]
-                     ) / (N - 2)) ** 0.5
+        S_zal = (sum([(y[i] - f(xl[i])) ** 2 for i in range(N)])
+                 / (N - 2)) ** 0.5
         self.parab_a_t = abs(a / S_zal * N ** 0.5)
         self.parab_b_t = abs(b * sigma_x / S_zal * N ** 0.5)
         self.parab_c_t = abs(c / S_zal *

@@ -6,7 +6,6 @@ from PyQt5.QtWidgets import (
     QHBoxLayout, QVBoxLayout, QFormLayout,
     QLabel, QMessageBox)
 from PyQt5.QtCore import Qt
-from pyqtgraph import PlotWidget
 import pyqtgraph as pg
 # import pyqtgraph.opengl as _3d
 
@@ -25,15 +24,12 @@ class MainLayout(QMainWindow):
         self.setGeometry(150, 100, 1333, 733)
         self.setWindowTitle("Аналіз даних")
 
-        # Histogram chart
-        self.hist_plot: PlotWidget = pg.PlotWidget(
-            title="Гістограмна оцінка",
-            labels={"left": "P", "bottom": "x"})
+        # PyQtGraph global configuration
+        pg.setConfigOption('imageAxisOrder', 'row-major')
 
-        # Empirical chart
-        self.emp_plot: PlotWidget = pg.PlotWidget(
-            title="Емпірична функція розподілу",
-            labels={"left": "P", "bottom": "x"})
+        # 2 chart box
+        self.layout_widget = pg.GraphicsLayoutWidget()
+        self.createPlotLayout(2)
 
         # spin boxes
         self.__spin_number_column = QSpinBox()
@@ -60,7 +56,7 @@ class MainLayout(QMainWindow):
         # Samples table
         self.table = QTableWidget()
         self.table.cellDoubleClicked.connect(
-            lambda: self.setSample(self.table.currentRow()))
+            lambda: self.drawSamples())
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # self.table.setSelectionMode(QAbstractItemView.MultiSelection)
@@ -108,18 +104,28 @@ class MainLayout(QMainWindow):
         info_text_box.addWidget(tab_text_info, 3)
         info_text_box.addLayout(widget_func, 1)
 
-        # 2 chart box
-        graphics_box = QHBoxLayout()
-        graphics_box.addWidget(self.hist_plot)
-        graphics_box.addWidget(self.emp_plot)
-
         main_vbox = QVBoxLayout()
-        main_vbox.addLayout(graphics_box, 3)
+        main_vbox.addWidget(self.layout_widget, 3)
         main_vbox.addLayout(info_text_box, 1)
 
         widget = QWidget()
         widget.setLayout(main_vbox)
         self.setCentralWidget(widget)
+
+    def createPlotLayout(self, n: int):
+        graphics = pg.GraphicsLayout()
+        if n == 1:
+            self.hist_plot = graphics.addPlot(
+                title="Гістограмна оцінка",
+                labels={"left": "P", "bottom": "x"})
+            self.emp_plot = graphics.addPlot(
+                title="Емпірична функція розподілу",
+                labels={"left": "P", "bottom": "x"})
+        elif n == 2:
+            self.hist_plot = graphics.addPlot()
+        elif n == 3:
+            pass
+        self.layout_widget.setCentralWidget(graphics)
 
     def createMenuBar1d(self):
         # File menu

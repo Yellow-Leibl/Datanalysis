@@ -15,7 +15,7 @@ def splitAndRemoveEmpty(s: str) -> list:
 
 
 def readVectors(text: str) -> list:
-    split_float_data = [[float(j) for j in splitAndRemoveEmpty(i)]
+    split_float_data = [[float(j.replace(',', '.')) for j in splitAndRemoveEmpty(i)]
                         for i in text]
     return [[vector[i] for vector in split_float_data]
             for i in range(len(split_float_data[0]))]

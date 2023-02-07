@@ -149,10 +149,6 @@ class SamplingData:
         self.min = self.x[0]
         self.max = self.x[N - 1]
 
-        self.x_ = 0.0
-        for i in range(N):
-            self.x_ += self.x[i] * self.probabilityX[i]
-
         self.MED = MED(self.x)
         self.MAD = 1.483 * self.MED
 
@@ -163,13 +159,20 @@ class SamplingData:
             self.x_a += self.x[i]
         self.x_a /= N - 2 * k
 
-        xl = []
+        xl = [0] * (N * (N - 1) // 2)
+        ll = 0
         for i in range(N):
             for j in range(i, N - 1):
-                xl.append(0.5 * (self.x[i] * self.x[j]))
+                xl[ll] = 0.5 * (self.x[i] * self.x[j])
+                ll += 1
 
         self.MED_Walsh = MED(xl)
 
+        self.x_ = 0.0
+        for i in range(N):
+            self.x_ += self.x[i] * self.probabilityX[i]
+
+        nu2 = 0.0
         u2 = 0.0
         u3 = 0.0
         u4 = 0.0
@@ -177,6 +180,7 @@ class SamplingData:
         u6 = 0.0
         u8 = 0.0
         for i in range(N):
+            nu2 += self.x[i] ** 2 * self.probabilityX[i]
             u2 += (self.x[i] - self.x_) ** 2 * self.probabilityX[i]
             u3 += (self.x[i] - self.x_) ** 3 * self.probabilityX[i]
             u4 += (self.x[i] - self.x_) ** 4 * self.probabilityX[i]
@@ -185,6 +189,8 @@ class SamplingData:
             u8 += (self.x[i] - self.x_) ** 8 * self.probabilityX[i]
 
         # u2 -= self.x_ ** 2
+        self.S_slide = nu2 - self.x_ ** 2
+        self.Sigma_slide = self.S_slide ** 0.5
         self.u2 = u2
         self.u3 = u3
         sigma_u2 = math.sqrt(u2)
@@ -215,22 +221,19 @@ class SamplingData:
         ip = 0.0
         self.quant = []
         p = 0.0
-        self.step_quant = 0.025
+        step_quant = 0.025
         # 0.025     0.05    0.075   0.1     0.125
         # 0.15      0.175   0.2     0.225   0.25
-        # 0.275     0.3     0.325   0.35    0.375
-        # 0.4       0.425   0.45    0.475   0.5
-        # 0.525     0.55    0.575   0.6     0.675
-        # 0.7       0.725   0.75    0.775   0.8
+        # ...       ...     ...     ...     ...
         # 0.825     0.85    0.875   0.9     0.925
         # 0.95      0.975   1.000
         for i in range(N):
             p += self.probabilityX[i]
-            while ip + self.step_quant < p:
-                ip += self.step_quant
+            while ip + step_quant < p:
+                ip += step_quant
                 self.quant.append(self.x[i])
-        ind75 = math.floor(0.75 / self.step_quant) - 1
-        ind25 = math.floor(0.25 / self.step_quant) - 1
+        ind75 = math.floor(0.75 / step_quant) - 1
+        ind25 = math.floor(0.25 / step_quant) - 1
         self.inter_range = self.quant[ind75] - self.quant[ind25]
 
         if N > 60:
@@ -652,7 +655,8 @@ class SamplingData:
         info.append("Квантилі\n" + "-" * VL_SMBLS * 2 + "\n" +
                     formatValue("Ймовірність") + formatValue("X"))
         for i in range(len(self.quant)):
-            info.append(formatValue(f"{self.step_quant * (i + 1):.3}") +
+            step_quant = 1 / len(self.quant)
+            info.append(formatValue(f"{step_quant * (i + 1):.3}") +
                         formatValue(f"{self.quant[i]:.5}"))
 
         return "\n".join(info)

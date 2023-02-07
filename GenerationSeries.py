@@ -72,10 +72,13 @@ def generateLine(m1: float = 0, m2: float = 0,
     return x, y
 
 
-def generateParable(N: int = 1000):
-    x = generateNormal(N=N)
+def generateParable(r: float = 0.01, N: int = 1000):
+    x = generateUniform(N=N)
+    xx = SamplingData(x)
+    xx.toSlide(-0.5)
+    x = xx.getRaw()
     e = generateNormal(N=N)
-    y = [x[i] ** 2 + e[i] * 0.3 for i in range(N)]
+    y = [x[i] ** 2 + r * e[i] - 0.5 for i in range(N)]
     return x, y
 
 
@@ -107,7 +110,7 @@ def generateSample(number_sample: int = 1,
             rozp.append(x)
             rozp.append(y)
         if number_sample == 8:
-            x, y = generateParable(n)
+            x, y = generateParable(N=n)
             rozp.append(x)
             rozp.append(y)
         if number_sample == 9:
@@ -123,7 +126,7 @@ def generateSample(number_sample: int = 1,
 if __name__ == "__main__":
     while (True):
         t1 = time()
-        all_file = generateSample(number_sample=9, vec_n=1)
+        all_file = generateSample(number_sample=8, vec_n=1)
         # with open("norm5n.txt", 'w') as f:
         #     f.write(all_file)
         print(f"generation time={time() - t1}")

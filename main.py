@@ -6,7 +6,6 @@ from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
 
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
-
 from mainlayout import MainLayout
 from GeneralConstants import dict_edit, dict_repr, dict_regr, Edit
 
@@ -18,9 +17,10 @@ class Window(MainLayout):
         super().__init__()  # layout here
 
         self.number_sample = [0, 1]
+        self.createPlotLayout(len(self.number_sample))
         self.datas = SamplingDatas()
         self.d_d = None
-        self.d_d_number = [-1, -1]
+        self.d_d_cache = [-1, -1]
 
         if file != "":
             if is_file_name:
@@ -104,12 +104,14 @@ class Window(MainLayout):
 
     def drawSamples(self):
         sel = self.getSelectedRows()
-        if len(sel) == 1:
-            self.reprod_num = -1
-            self.setSample(sel[0])
-        elif len(sel) == 2:
-            self.reprod_num = -1
-            self.setSample2D(sel[0], sel[1])
+        if not (0 < len(sel) < 3):
+            return
+        self.createPlotLayout(len(sel))
+        self.number_sample = sel
+        self.d_d_cache = None
+        self.reprod_num = -1
+        self.silentChangeNumberClasses(0)
+        self.setMaximumColumnNumber(len(self.datas[sel[0]].x))
         self.sampleChanged()
 
     def deleteSamples(self):
@@ -132,6 +134,7 @@ class Window(MainLayout):
         else:
             self.reprod_num = dict_regr[self.sender().text()]
         self.updateGraphics(self.getNumberClasses())
+        self.writeProtocol()
 
     def changeTrust(self, trust: float):
         if len(self.number_sample) == 1:
@@ -155,7 +158,7 @@ class Window(MainLayout):
         self.writeProtocol()
 
     def writeProtocol(self):
-        if len(self.number_sample) == 1:
+        if self.is1d():
             self.protocol.setText(
                 self.datas[self.number_sample[0]].getProtocol())
         else:
@@ -164,33 +167,19 @@ class Window(MainLayout):
     def writeCritetion(self, text):
         self.criterion_protocol.setText(text)
 
-    def setSample(self, row: int):
-        self.number_sample = [row]
-        self.silentChangeNumberClasses(0)
-        self.setMaximumColumnNumber(len(self.datas[row].x))
-
-    def setSample2D(self, row1: int, row2: int):
-        self.number_sample = [row1, row2]
-        self.d_d = DoubleSampleData(self.datas[row1], self.datas[row2])
-        self.d_d.toCalculateCharacteristic()
-        self.silentChangeNumberClasses(0)
-        self.setMaximumColumnNumber(len(self.datas[row1].x))
-
     def updateGraphics(self, number_column: int = 0):
-        if len(self.number_sample) == 1:
+        if self.is1d():
             d = self.datas[self.number_sample[0]]
             self.setMinMax(d.min, d.max)
             hist_data = d.get_histogram_data(number_column)
             h = abs(d.max - d.min) / len(hist_data)
             self.silentChangeNumberClasses(len(hist_data))
-
             self.drawHistogram(hist_data, d.min, h)
             self.drawEmpFunc(hist_data, d.min, h)
             self.drawReproductionSeries()
-        elif len(self.number_sample) == 2:
-            if self.d_d_number[0] != self.number_sample[0] or\
-               self.d_d_number[1] != self.number_sample[1]:
-                self.d_d_number = self.number_sample
+        elif self.is2d():
+            if self.d_d_cache != self.number_sample:
+                self.d_d_cache = self.number_sample
                 x = self.datas[self.number_sample[0]]
                 y = self.datas[self.number_sample[1]]
                 self.d_d = DoubleSampleData(x, y)
@@ -200,7 +189,6 @@ class Window(MainLayout):
 
             self.drawHistogram2D(hist_data)
             self.drawReproductionSeries2D()
-            self.writeProtocol()
             isNormal, crits = self.d_d.xiXiTest(hist_data)
             if isNormal:
                 self.writeCritetion(
@@ -210,25 +198,25 @@ class Window(MainLayout):
                     f"Відтворення двовимірного розподілу неадекватне: {crits}")
 
     def drawHistogram2D(self, hist_data: list):
-        x = self.d_d.x.raw_x
-        y = self.d_d.y.raw_x
+        x = self.d_d.x
+        y = self.d_d.y
         if len(x) != len(y):
             return
 
         h = np.array(hist_data)
         histogram_image = pg.ImageItem()
         histogram_image.setImage(h)
-        pg.setConfigOption('imageAxisOrder', 'row-major')
-        start_x = min(x)
-        start_y = min(y)
-        w = max(x) - start_x
-        h = max(y) - start_y
+        start_x = x.min
+        start_y = y.min
+        w = x.max - start_x
+        h = y.max - start_y
         histogram_image.setRect(start_x, start_y, w, h)
 
         self.hist_plot.clear()
         self.hist_plot.addItem(histogram_image)
         # points
-        self.hist_plot.plot(x, y, symbolBrush=(255, 0, 0, 175),
+        self.hist_plot.plot(x.getRaw(), y.getRaw(),
+                            symbolBrush=(255, 0, 0, 175),
                             symbolPen=(0, 0, 0, 200), symbolSize=7,
                             pen=None)
 
@@ -463,5 +451,5 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    applicationLoadFromFile("data/self/kvaz_8.txt")
+    applicationLoadFromFile("data/self/parabula500 a2 b-2 c0,3 e0,5.txt")
     # applicationLoadFromFile("data/self/norm5n.txt")
