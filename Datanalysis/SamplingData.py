@@ -1,5 +1,4 @@
 import math
-from time import time
 from functions import (
     QuantileNorm, QuantileTStudent, QuantilePearson,
     FNorm, fNorm, fNorm_d_m, fNorm_d_sigma,
@@ -141,7 +140,6 @@ class SamplingData:
         self.trust: float = trust
 
     def toCalculateCharacteristic(self):
-        t1 = time()
         N = len(self.x)
 
         self.Sigma = 0.0  # stand_dev
@@ -269,8 +267,6 @@ class SamplingData:
                                           ) * QUANT_I
 
         self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * QUANT_I
-
-        print(f"Characteristic calculation time = {time() - t1} sec")
 
     def setSeries(self, not_ranked_series_x: list):
         self.x = not_ranked_series_x.copy()
@@ -464,35 +460,33 @@ class SamplingData:
                                       a_ ** 4 / (8 * N))
         return f, F, DF
 
-    def toGenerateReproduction(self, f, F, DF, h) -> list:
+    def toGenerateReproduction(self, f) -> list:
         x_gen = []
-
-        def limit(x):
-            return QuantileNorm(1 - self.trust / 2) * math.sqrt(DF(x))
-
-        dx = calc_reproduction_dx(self.x[0], self.x[-1])
-        x = self.x[0]
-        while x < self.x[-1]:
-            y = f(x)
-            if y is not None:
-                x_gen.append((x, f(x)))
+        dx = calc_reproduction_dx(self.min, self.max)
+        x = self.min
+        while x < self.max:
+            if f(x) is not None:
+                x_gen.append(x)
             x += dx
 
-        if len(x_gen) > 0 and x_gen[-1][1] != self.x[-1]:
-            y = f(self.x[-1])
-            if y is not None:
-                # (x, y)
-                x_gen.append((self.x[-1], y))
-
-        for i in range(len(x_gen)):
-            # (x, dest y, low limit y, func y, high limit y)
-            x = x_gen[i][0]
-            y_f = x_gen[i][1]
-            y_F = F(x)
-            dy = limit(x)
-            x_gen[i] = (x, y_f * h, (y_F - dy), y_F, (y_F + dy))
+        if len(x_gen) > 0 and x_gen[-1] != self.max:
+            x = self.max
+            if f(x) is not None:
+                x_gen.append(x)
 
         return x_gen
+
+    def toCreateTrustIntervals(self, f, F, DF, h):
+        u = QuantileNorm(1 - self.trust / 2)
+
+        def limit(x):
+            return u * math.sqrt(DF(x))
+
+        def hist_f(x): return f(x) * h
+        def lw_limit_F(x): return F(x) - limit(x)
+        def hg_limit_F(x): return F(x) + limit(x)
+
+        return hist_f, lw_limit_F, F, hg_limit_F
 
     def isNormal(self):
         return self.kolmogorovTest(self.toCreateNormalFunc()[1])
@@ -541,7 +535,7 @@ class SamplingData:
                  hist_list: list) -> bool:  # Pearson test
         hist_num = []
         M = len(hist_list)
-        h = abs(self[-1] - self[0]) / M
+        h = abs(self.max - self.min) / M
         N = len(self.x)
         Xi = 0.0
         xi = self.min
@@ -571,7 +565,7 @@ class SamplingData:
             M = number_of_column
         elif number_of_column <= len(self.x):
             M = SamplingData.calculateM(n)
-        h = abs(self[-1] - self[0]) / M
+        h = abs(self.max - self.min) / M
         hist_list = []
         j = 0
         begin_j = self[0]
@@ -583,83 +577,85 @@ class SamplingData:
         return hist_list
 
     def getProtocol(self) -> str:
-        info = []
-        info.append("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
-        info.append(formatName('Характеристика') +
-                    formatValue('INF') + formatValue('Значення') +
-                    formatValue('SUP') + formatValue('SKV') + "\n")
+        info_protocol = []
 
-        info.append(formatName("Сер арифметичне") +
-                    formatValue(f"{self.x_-self.det_x_:.5}") +
-                    formatValue(f"{self.x_:.5}") +
-                    formatValue(f"{self.x_+self.det_x_:.5}") +
-                    formatValue(f"{self.det_x_:.5}"))
+        def add(text): info_protocol.append(text)
+        add("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
+        add(formatName('Характеристика') +
+            formatValue('INF') + formatValue('Значення') +
+            formatValue('SUP') + formatValue('SKV') + "\n")
 
-        info.append(formatName("Дисперсія") +
-                    formatValue(f"{self.S - self.det_S:.5}") +
-                    formatValue(f"{self.S:.5}") +
-                    formatValue(f"{self.S + self.det_S:.5}") +
-                    formatValue(f"{self.det_S:.5}"))
+        add(formatName("Сер арифметичне") +
+            formatValue(f"{self.x_-self.det_x_:.5}") +
+            formatValue(f"{self.x_:.5}") +
+            formatValue(f"{self.x_+self.det_x_:.5}") +
+            formatValue(f"{self.det_x_:.5}"))
 
-        info.append(formatName("Сер квадратичне") +
-                    formatValue(f"{self.Sigma - self.det_Sigma:.5}") +
-                    formatValue(f"{self.Sigma:.5}") +
-                    formatValue(f"{self.Sigma + self.det_Sigma:.5}") +
-                    formatValue(f"{self.det_Sigma:.5}"))
+        add(formatName("Дисперсія") +
+            formatValue(f"{self.S - self.det_S:.5}") +
+            formatValue(f"{self.S:.5}") +
+            formatValue(f"{self.S + self.det_S:.5}") +
+            formatValue(f"{self.det_S:.5}"))
 
-        info.append(formatName("Коеф. асиметрії") +
-                    formatValue(f"{self.A - self.det_A:.5}") +
-                    formatValue(f"{self.A:.5}") +
-                    formatValue(f"{self.A + self.det_A:.5}") +
-                    formatValue(f"{self.det_A:.5}"))
+        add(formatName("Сер квадратичне") +
+            formatValue(f"{self.Sigma - self.det_Sigma:.5}") +
+            formatValue(f"{self.Sigma:.5}") +
+            formatValue(f"{self.Sigma + self.det_Sigma:.5}") +
+            formatValue(f"{self.det_Sigma:.5}"))
 
-        info.append(formatName("коеф. ексцесу") +
-                    formatValue(f"{self.E - self.det_E:.5}") +
-                    formatValue(f"{self.E:.5}") +
-                    formatValue(f"{self.E + self.det_E:.5}") +
-                    formatValue(f"{self.det_E:.5}"))
+        add(formatName("Коеф. асиметрії") +
+            formatValue(f"{self.A - self.det_A:.5}") +
+            formatValue(f"{self.A:.5}") +
+            formatValue(f"{self.A + self.det_A:.5}") +
+            formatValue(f"{self.det_A:.5}"))
 
-        info.append(formatName("коеф. контрексцесу") +
-                    formatValue(f"{self.c_E - self.det_c_E:.5}") +
-                    formatValue(f"{self.c_E:.5}") +
-                    formatValue(f"{self.c_E + self.det_c_E:.5}") +
-                    formatValue(f"{self.det_c_E:.5}"))
+        add(formatName("коеф. ексцесу") +
+            formatValue(f"{self.E - self.det_E:.5}") +
+            formatValue(f"{self.E:.5}") +
+            formatValue(f"{self.E + self.det_E:.5}") +
+            formatValue(f"{self.det_E:.5}"))
 
-        info.append(formatName("коеф. варіації Пірсона") +
-                    formatValue(f"{self.W_ - self.det_W_:.5}") +
-                    formatValue(f"{self.W_:.5}") +
-                    formatValue(f"{self.W_ + self.det_W_:.5}") +
-                    formatValue(f"{self.det_W_:.5}"))
+        add(formatName("коеф. контрексцесу") +
+            formatValue(f"{self.c_E - self.det_c_E:.5}") +
+            formatValue(f"{self.c_E:.5}") +
+            formatValue(f"{self.c_E + self.det_c_E:.5}") +
+            formatValue(f"{self.det_c_E:.5}"))
 
-        info.append("")
+        add(formatName("коеф. варіації Пірсона") +
+            formatValue(f"{self.W_ - self.det_W_:.5}") +
+            formatValue(f"{self.W_:.5}") +
+            formatValue(f"{self.W_ + self.det_W_:.5}") +
+            formatValue(f"{self.det_W_:.5}"))
 
-        info.append(formatName("MED") + formatValue(f"{self.MED:.5}"))
-        info.append(formatName("усіченне середнє") +
-                    formatValue(f"{self.x_a:.5}"))
-        info.append(formatName("MED Уолша") +
-                    formatValue(f"{self.MED_Walsh:.5}"))
-        info.append(formatName("MAD") + formatValue(f"{self.MAD:.5}"))
-        info.append(formatName("непарам. коеф. варіацій") +
-                    formatValue(f"{self.Wp:.5}"))
-        info.append(formatName("коеф. інтер. розмаху") +
-                    formatValue(f"{self.inter_range:.5}"))
+        add("")
 
-        info.append("")
+        add(formatName("MED") + formatValue(f"{self.MED:.5}"))
+        add(formatName("усіченне середнє") +
+            formatValue(f"{self.x_a:.5}"))
+        add(formatName("MED Уолша") +
+            formatValue(f"{self.MED_Walsh:.5}"))
+        add(formatName("MAD") + formatValue(f"{self.MAD:.5}"))
+        add(formatName("непарам. коеф. варіацій") +
+            formatValue(f"{self.Wp:.5}"))
+        add(formatName("коеф. інтер. розмаху") +
+            formatValue(f"{self.inter_range:.5}"))
 
-        info.append(formatName("мат спод.інтерв.передбачення") +
-                    formatValue(f"{self.x_ - self.vanga_x_:.5}") +
-                    formatValue(f"{self.x_ + self.vanga_x_:.5}"))
+        add("")
 
-        info.append("")
+        add(formatName("мат спод.інтерв.передбачення") +
+            formatValue(f"{self.x_ - self.vanga_x_:.5}") +
+            formatValue(f"{self.x_ + self.vanga_x_:.5}"))
 
-        info.append("Квантилі\n" + "-" * VL_SMBLS * 2 + "\n" +
-                    formatValue("Ймовірність") + formatValue("X"))
+        add("")
+
+        add("Квантилі\n" + "-" * VL_SMBLS * 2 + "\n" +
+            formatValue("Ймовірність") + formatValue("X"))
         for i in range(len(self.quant)):
             step_quant = 1 / len(self.quant)
-            info.append(formatValue(f"{step_quant * (i + 1):.3}") +
-                        formatValue(f"{self.quant[i]:.5}"))
+            add(formatValue(f"{step_quant * (i + 1):.3}") +
+                formatValue(f"{self.quant[i]:.5}"))
 
-        return "\n".join(info)
+        return "\n".join(info_protocol)
 
     def critetionAbbe(self) -> float:
         N = len(self.raw_x)

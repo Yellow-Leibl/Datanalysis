@@ -7,7 +7,8 @@ from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from mainlayout import MainLayout
-from GeneralConstants import dict_edit, dict_repr, dict_regr, Edit
+from GeneralConstants import (dict_edit, dict_reproduction,
+                              dict_regression, Edit)
 
 import pyqtgraph as pg
 
@@ -90,15 +91,15 @@ class Window(MainLayout):
         self.writeTable()
 
     def removeAnomaly(self):
-        if len(self.number_sample) == 1:
+        if self.is1d():
             minmax = self.getMinMax()
             self.datas[self.number_sample[0]].remove(minmax[0], minmax[1])
             self.sampleChanged()
 
     def autoRemoveAnomaly(self) -> bool:
-        if len(self.number_sample) == 1:
+        if self.is1d():
             return self.datas[self.number_sample[0]].autoRemoveAnomaly()
-        elif len(self.number_sample) == 2:
+        elif self.is2d():
             hist_data = self.d_d.get_histogram_data(self.getNumberClasses())
             return self.d_d.autoRemoveAnomaly(hist_data)
 
@@ -130,16 +131,16 @@ class Window(MainLayout):
 
     def setReproductionSeries(self):
         if self.is1d():
-            self.reprod_num = dict_repr[self.sender().text()]
+            self.reprod_num = dict_reproduction[self.sender().text()]
         else:
-            self.reprod_num = dict_regr[self.sender().text()]
+            self.reprod_num = dict_regression[self.sender().text()]
         self.updateGraphics(self.getNumberClasses())
         self.writeProtocol()
 
     def changeTrust(self, trust: float):
-        if len(self.number_sample) == 1:
+        if self.is1d():
             self.datas[self.number_sample[0]].setTrust(trust)
-        elif len(self.number_sample) == 2:
+        elif self.is2d():
             self.d_d.setTrust(trust)
         self.sampleChanged()
 
@@ -161,7 +162,7 @@ class Window(MainLayout):
         if self.is1d():
             self.protocol.setText(
                 self.datas[self.number_sample[0]].getProtocol())
-        else:
+        elif self.is2d():
             self.protocol.setText(self.d_d.getProtocol())
 
     def writeCritetion(self, text):
@@ -212,10 +213,10 @@ class Window(MainLayout):
         h = y.max - start_y
         histogram_image.setRect(start_x, start_y, w, h)
 
-        self.hist_plot.clear()
-        self.hist_plot.addItem(histogram_image)
+        self.cor_plot.clear()
+        self.cor_plot.addItem(histogram_image)
         # points
-        self.hist_plot.plot(x.getRaw(), y.getRaw(),
+        self.cor_plot.plot(x.getRaw(), y.getRaw(),
                             symbolBrush=(255, 0, 0, 175),
                             symbolPen=(0, 0, 0, 200), symbolSize=7,
                             pen=None)
@@ -279,45 +280,12 @@ class Window(MainLayout):
         elif func_num == 4:
             f, F, DF = d.toCreateArcsinFunc()
         else:
-            return None, None, None
+            return None, None, None, None
 
-        return f, F, DF
+        h = abs(d.max - d.min) / self.getNumberClasses()
+        return d.toCreateTrustIntervals(f, F, DF, h)
 
-    def toCreateReproductionFunc2D(self, d_d, func_num):
-        if func_num == 0:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateLinearRegressionMNK()
-        elif func_num == 1:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateLinearRegressionMethodTeila()
-        elif func_num == 2:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateParabolicRegression()
-        elif func_num == 3:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateKvazi8()
-        else:
-            return None, None, None, None, None, None, None
-
-        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
-
-    def drawReproductionSeries(self):
-        x_gen = []
-        d = self.datas[self.number_sample[0]]
-        try:
-            f, F, DF = self.toCreateReproductionFunc(d, self.reprod_num)
-            if f is not None:
-                h = abs(d.max - d.min) / self.getNumberClasses()
-                x_gen = d.toGenerateReproduction(f, F, DF, h)
-        except ValueError:
-            print("Value error")
-        except OverflowError:
-            print("Overflow error")
-
-        if len(x_gen) == 0:
-            self.writeCritetion('')
-            return
-
+    def writeCritetion1DSample(self, d, F):
         criterion_text = '\n'
         if d.kolmogorovTest(F):
             criterion_text += "Відтворення адекватне за критерієм" + \
@@ -339,22 +307,52 @@ class Window(MainLayout):
             criterion_text += "Відтворення неадекватне за критерієм Пірсона\n"
         self.writeCritetion(criterion_text)
 
-        x = []
+    def drawReproductionSeries(self):
+        x_gen = []
+        d = self.datas[self.number_sample[0]]
+        f, lF, F, hF = self.toCreateReproductionFunc(d, self.reprod_num)
+        if f is None:
+            return
+        x_gen = d.toGenerateReproduction(f)
+
+        if len(x_gen) == 0:
+            self.writeCritetion('')
+            return
+        else:
+            self.writeCritetion1DSample(d, F)
+
         y_hist = []
         y_low = []
         y_emp = []
         y_high = []
-        for i in x_gen:
-            x.append(i[0])
-            y_hist.append(i[1])
-            y_low.append(i[2])
-            y_emp.append(i[3])
-            y_high.append(i[4])
+        for x in x_gen:
+            y_hist.append(f(x))
+            y_low.append(lF(x))
+            y_emp.append(F(x))
+            y_high.append(hF(x))
 
-        self.hist_plot.plot(x, y_hist, pen=newPen((0, 0, 255), 3))
-        self.emp_plot.plot(x, y_low, pen=newPen((0, 128, 128), 2))
-        self.emp_plot.plot(x, y_emp, pen=newPen((0, 255, 255), 2))
-        self.emp_plot.plot(x, y_high, pen=newPen((128, 0, 128), 2))
+        self.hist_plot.plot(x_gen, y_hist, pen=newPen((0, 0, 255), 3))
+        self.emp_plot.plot(x_gen, y_low, pen=newPen((0, 128, 128), 2))
+        self.emp_plot.plot(x_gen, y_emp, pen=newPen((0, 255, 255), 2))
+        self.emp_plot.plot(x_gen, y_high, pen=newPen((128, 0, 128), 2))
+
+    def toCreateReproductionFunc2D(self, d_d, func_num):
+        if func_num == 0:
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateLinearRegressionMNK()
+        elif func_num == 1:
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateLinearRegressionMethodTeila()
+        elif func_num == 2:
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateParabolicRegression()
+        elif func_num == 3:
+            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+                d_d.toCreateKvazi8()
+        else:
+            return None, None, None, None, None, None, None
+
+        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
 
     def drawReproductionSeries2D(self):
         x_gen = []
@@ -383,13 +381,13 @@ class Window(MainLayout):
             y_tr_f_mf.append(tr_f_mf(x))
             y.append(f(x))
 
-        self.hist_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
-        self.hist_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
-        self.hist_plot.plot(x_gen, y_tr_lf, pen=newPen((0, 128, 255), 3))
-        self.hist_plot.plot(x_gen, y_tr_mf, pen=newPen((0, 128, 255), 3))
-        self.hist_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
-        self.hist_plot.plot(x_gen, y_tr_f_mf, pen=newPen((128, 255, 128), 3))
-        self.hist_plot.plot(x_gen, y, pen=newPen((255, 0, 255), 3))
+        self.cor_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
+        self.cor_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
+        self.cor_plot.plot(x_gen, y_tr_lf, pen=newPen((0, 128, 255), 3))
+        self.cor_plot.plot(x_gen, y_tr_mf, pen=newPen((0, 128, 255), 3))
+        self.cor_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
+        self.cor_plot.plot(x_gen, y_tr_f_mf, pen=newPen((128, 255, 128), 3))
+        self.cor_plot.plot(x_gen, y, pen=newPen((255, 0, 255), 3))
 
     def linearModelsCrit(self, trust: float):
         sel = self.getSelectedRows()
@@ -451,5 +449,5 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    applicationLoadFromFile("data/self/parabula500 a2 b-2 c0,3 e0,5.txt")
+    applicationLoadFromFile("data/self/parable.txt")
     # applicationLoadFromFile("data/self/norm5n.txt")

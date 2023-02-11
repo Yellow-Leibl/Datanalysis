@@ -300,208 +300,6 @@ class DoubleSampleData(SamplingData):
             (1 - self.r ** 2) * (N - 1) / (N - 2)) ** 0.5
         self.line_f_signif = self.sigma_eps ** 2 / self.y.Sigma ** 2
 
-    def getProtocol(self) -> str:
-        info = []
-        info.append("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
-        info.append(formRow4V('Характеристика',
-                              'INF', 'Значення', 'SUP', 'SKV') + "\n")
-
-        info.append(formRow4V("Сер арифметичне X",
-                              f"{self.x.x_-self.x.det_x_:.5}",
-                              f"{self.x.x_:.5}",
-                              f"{self.x.x_+self.x.det_x_:.5}",
-                              f"{self.x.det_x_:.5}"))
-
-        info.append(formRow4V("Сер арифметичне Y",
-                              f"{self.y.x_-self.y.det_x_:.5}",
-                              f"{self.y.x_:.5}",
-                              f"{self.y.x_+self.y.det_x_:.5}",
-                              f"{self.y.det_x_:.5}"))
-
-        info.append("")
-
-        info.append(formRow4V("Коефіціент кореляції",
-                              f"{self.r_det_v - self.det_r:.5}",
-                              f"{self.r:.5}",
-                              f"{self.r_det_v + self.det_r:.5}",
-                              f"{self.det_r:.5}"))
-
-        info.append(formRow4V("Коеф кореляційного відношення p",
-                              f"{self.det_less_po:.5}",
-                              f"{self.po_2:.5}",
-                              f"{self.det_more_po:.5}", ""))
-
-        info.append("")
-
-        info.append(formRow4V("Ранговий коеф кореляції Спірмена",
-                              f"{self.teta_c - self.det_teta_c:.5}",
-                              f"{self.teta_c:.5}",
-                              f"{self.teta_c + self.det_teta_c:.5}",
-                              f"{self.det_teta_c:.5}"))
-
-        info.append(formRow4V("Ранговий коефіцієнт Кендалла",
-                              f"{self.teta_k - self.det_teta_k:.5}",
-                              f"{self.teta_k:.5}",
-                              f"{self.teta_k + self.det_teta_k:.5}",
-                              f"{self.det_teta_k:.5}"))
-
-        info.append(formRow4V("Коефіцієнт сполучень Пірсона",
-                              "", f"{self.C_Pearson:.5}", "", ""))
-
-        info.append(formRow4V("Міра звʼязку Кендалла",
-                              f"{self.teta_b - self.det_teta_b:.5}",
-                              f"{self.teta_b:.5}",
-                              f"{self.teta_b + self.det_teta_b:.5}",
-                              f"{self.det_teta_b:.5}"))
-
-        info.append("")
-
-        info.append(formRow3V("Індекс Фехнера", "",
-                              f"{self.ind_F:.5}", ""))
-        info.append(formRow3V("Індекс сполучень", "",
-                              f"{self.ind_Fi:.5}", ""))
-
-        info.append(formRow3V("Коефіцієнт зв’язку Юла Q", "",
-                              f"{self.ind_Q:.5}", ""))
-
-        info.append(formRow3V("Коефіцієнт зв’язку Юла Y", "",
-                              f"{self.ind_Y:.5}", ""))
-
-        info.append("")
-
-        N = len(self.x)
-        nu = N - 2
-        alpha = 1 - self.trust
-        info.append(
-            formRow3V("Значимість коефіцієнта кореліції",
-                      f"{self.r_signif:.5}",
-                      "<=",
-                      f"{func.QuantileTStudent(alpha, nu):.5}"))
-        info.append(
-            formRow3V("Значимість коефіцієнта p, t-test",
-                      f"{abs(self.po_signif_t):.5}",
-                      "<=",
-                      f"{func.QuantileTStudent(1 - self.trust, nu):.5}"))
-        try:
-            f_po = func.QuantileFisher(1 - self.trust,
-                                       self.po_k - 1,
-                                       N - self.po_k)
-        except:
-            f_po = 0.0
-        info.append(
-            formRow3V("Значимість коефіцієнта p, f-test",
-                      f"{self.po_signif_f:.5}",
-                      "<=",
-                      f"{f_po:.5}"))
-        info.append(formRow3V("Значимість коефіцієнта Фі",
-                              f"{self.ind_F_signif:.5}",
-                              ">=",
-                              f"{func.QuantilePearson(1 - self.trust, 1):.5}"))
-        info.append(formRow3V("Значимість коефіцієнта Юла Q",
-                              f"{abs(self.ind_Q_signif):.5}",
-                              "<=",
-                              f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
-        info.append(formRow3V("Значимість коефіцієнта Юла Y",
-                              f"{abs(self.ind_Y_signif):.5}",
-                              "<=",
-                              f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
-        info.append(
-            formRow3V("Значимість коефіцієнта Спірмена",
-                      f"{abs(self.teta_c_signif):.5}",
-                      "<=",
-                      f"{func.QuantileTStudent(1 - self.trust / 2, nu):.5}"))
-        info.append(
-            formRow3V("Значим рангового коеф Кендалла",
-                      f"{abs(self.teta_k_signif):.5}",
-                      "<=",
-                      f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
-        info.append(
-            formRow3V("Значимість коефіцієнта Пірсона",
-                      f"{self.C_Pearson_signif:.5}",
-                      "<=",
-                      f"{func.QuantilePearson(1 - self.trust, 10):.5}"))
-        info.append(
-            formRow3V("Значимість коеф Кендалла",
-                      f"{abs(self.teta_b_signif):.5}",
-                      "<=",
-                      f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
-
-        if hasattr(self, "line_a"):
-            info.append("")
-            info.append("Параметри лінійної регресії: a + bx")
-            info.append("-" * 16)
-            info.append(
-                formRow3V("Параметр a",
-                          f"{self.line_a - self.det_line_a:.5}",
-                          f"{self.line_a:.5}",
-                          f"{self.line_a + self.det_line_a:.5}"))
-            info.append(
-                formRow3V("Параметр b",
-                          f"{self.line_b - self.det_line_b:.5}",
-                          f"{self.line_b:.5}",
-                          f"{self.line_b + self.det_line_b:.5}"))
-
-            info.append("")
-
-            f = func.QuantileFisher(1 - self.trust, N - 1, N - 3)
-            info.append(
-                formRow3V("Адекватність відтвореної моделі регресії",
-                          f"{self.line_f_signif:.5}",
-                          "<=",
-                          f"{f:.5}"))
-
-        if hasattr(self, "parab_a"):
-            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
-            info.append("")
-            info.append("Параметри параболічної регресії: a + bx + cx^2")
-            info.append("-" * 16)
-
-            info.append(
-                formRow3V("Параметр a",
-                          f"{self.parab_a - self.det_parab_a:.5}",
-                          f"{self.parab_a:.5}",
-                          f"{self.parab_a + self.det_parab_a:.5}"))
-            info.append(
-                formRow3V("Параметр b",
-                          f"{self.parab_b - self.det_parab_b:.5}",
-                          f"{self.parab_b:.5}",
-                          f"{self.parab_b + self.det_parab_b:.5}"))
-            info.append(
-                formRow3V("Параметр c",
-                          f"{self.parab_c - self.det_parab_c:.5}",
-                          f"{self.parab_c:.5}",
-                          f"{self.parab_c + self.det_parab_c:.5}"))
-
-            info.append("")
-            info.append(formRow3V("Значущість параметра a",
-                                  f"{self.parab_a_t:.5}", "<=",
-                                  f"{t:.5}"))
-            info.append(formRow3V("Значущість параметра b",
-                                  f"{self.parab_b_t:.5}", "<=",
-                                  f"{t:.5}"))
-            info.append(formRow3V("Значущість параметра c",
-                                  f"{self.parab_c_t:.5}", "<=",
-                                  f"{t:.5}"))
-
-        if hasattr(self, "kvaz_a"):
-            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
-            info.append("")
-            info.append("Параметри квазілійнійної регресії: a * exp(bx)")
-            info.append("-" * 16)
-
-            info.append(
-                formRow3V("Параметр a",
-                          f"{self.kvaz_a - self.det_kvaz_a:.5}",
-                          f"{self.kvaz_a:.5}",
-                          f"{self.kvaz_a + self.det_kvaz_a:.5}"))
-            info.append(
-                formRow3V("Параметр b",
-                          f"{self.kvaz_b - self.det_kvaz_b:.5}",
-                          f"{self.kvaz_b:.5}",
-                          f"{self.kvaz_b + self.det_kvaz_b:.5}"))
-
-        return "\n".join(info)
-
     def setTrust(self, trust: float):
         self.trust = trust
 
@@ -747,7 +545,7 @@ class DoubleSampleData(SamplingData):
 
         c = sum([phi2(xl[i]) * y[i] for i in range(N)]) / sum(
             [phi2(xl[i]) ** 2 for i in range(N)])
-        pisa = phi2(5)
+
         self.parab_a = a
         self.parab_b = b
         self.parab_c = c
@@ -950,8 +748,8 @@ class DoubleSampleData(SamplingData):
                 x_gen.append(x)
             x += dx
 
-        if len(x_gen) > 0 and x_gen[-1] != self.x[-1]:
-            x = self.x[-1]
+        if len(x_gen) > 0 and x_gen[-1] != self.x.max:
+            x = self.x.max
             if f(x) is not None:
                 x_gen.append(x)
 
@@ -977,3 +775,207 @@ class DoubleSampleData(SamplingData):
         values = f"x_2={x_2:.5} <= {quant:.5}"
         return x_2 <= func.QuantilePearson(
             1 - self.trust, column_number ** 2 - 2), values
+
+    def getProtocol(self) -> str:
+        info_protocol = []
+
+        def addIn(text): info_protocol.append(text)
+        addIn("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
+        addIn(formRow4V('Характеристика',
+                        'INF', 'Значення', 'SUP', 'SKV') + "\n")
+
+        addIn(formRow4V("Сер арифметичне X",
+                        f"{self.x.x_-self.x.det_x_:.5}",
+                        f"{self.x.x_:.5}",
+                        f"{self.x.x_+self.x.det_x_:.5}",
+                        f"{self.x.det_x_:.5}"))
+
+        addIn(formRow4V("Сер арифметичне Y",
+                        f"{self.y.x_-self.y.det_x_:.5}",
+                        f"{self.y.x_:.5}",
+                        f"{self.y.x_+self.y.det_x_:.5}",
+                        f"{self.y.det_x_:.5}"))
+
+        addIn("")
+
+        addIn(formRow4V("Коефіціент кореляції",
+                        f"{self.r_det_v - self.det_r:.5}",
+                        f"{self.r:.5}",
+                        f"{self.r_det_v + self.det_r:.5}",
+                        f"{self.det_r:.5}"))
+
+        addIn(formRow4V("Коеф кореляційного відношення p",
+                        f"{self.det_less_po:.5}",
+                        f"{self.po_2:.5}",
+                        f"{self.det_more_po:.5}", ""))
+
+        addIn("")
+
+        addIn(formRow4V("Ранговий коеф кореляції Спірмена",
+                        f"{self.teta_c - self.det_teta_c:.5}",
+                        f"{self.teta_c:.5}",
+                        f"{self.teta_c + self.det_teta_c:.5}",
+                        f"{self.det_teta_c:.5}"))
+
+        addIn(formRow4V("Ранговий коефіцієнт Кендалла",
+                        f"{self.teta_k - self.det_teta_k:.5}",
+                        f"{self.teta_k:.5}",
+                        f"{self.teta_k + self.det_teta_k:.5}",
+                        f"{self.det_teta_k:.5}"))
+
+        addIn(formRow4V("Коефіцієнт сполучень Пірсона",
+                        "", f"{self.C_Pearson:.5}", "", ""))
+
+        addIn(formRow4V("Міра звʼязку Кендалла",
+                        f"{self.teta_b - self.det_teta_b:.5}",
+                        f"{self.teta_b:.5}",
+                        f"{self.teta_b + self.det_teta_b:.5}",
+                        f"{self.det_teta_b:.5}"))
+
+        addIn("")
+
+        addIn(formRow3V("Індекс Фехнера", "",
+                        f"{self.ind_F:.5}", ""))
+        addIn(formRow3V("Індекс сполучень", "",
+                        f"{self.ind_Fi:.5}", ""))
+
+        addIn(formRow3V("Коефіцієнт зв’язку Юла Q", "",
+                        f"{self.ind_Q:.5}", ""))
+
+        addIn(formRow3V("Коефіцієнт зв’язку Юла Y", "",
+                        f"{self.ind_Y:.5}", ""))
+
+        addIn("")
+
+        N = len(self.x)
+        nu = N - 2
+        alpha = 1 - self.trust
+        addIn(
+            formRow3V("Значимість коефіцієнта кореліції",
+                      f"{self.r_signif:.5}",
+                      "<=",
+                      f"{func.QuantileTStudent(alpha, nu):.5}"))
+        addIn(
+            formRow3V("Значимість коефіцієнта p, t-test",
+                      f"{abs(self.po_signif_t):.5}",
+                      "<=",
+                      f"{func.QuantileTStudent(1 - self.trust, nu):.5}"))
+        try:
+            f_po = func.QuantileFisher(1 - self.trust,
+                                       self.po_k - 1,
+                                       N - self.po_k)
+        except:
+            f_po = 0.0
+        addIn(
+            formRow3V("Значимість коефіцієнта p, f-test",
+                      f"{self.po_signif_f:.5}",
+                      "<=",
+                      f"{f_po:.5}"))
+        addIn(formRow3V("Значимість коефіцієнта Фі",
+                        f"{self.ind_F_signif:.5}",
+                        ">=",
+                        f"{func.QuantilePearson(1 - self.trust, 1):.5}"))
+        addIn(formRow3V("Значимість коефіцієнта Юла Q",
+                        f"{abs(self.ind_Q_signif):.5}",
+                        "<=",
+                        f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
+        addIn(formRow3V("Значимість коефіцієнта Юла Y",
+                        f"{abs(self.ind_Y_signif):.5}",
+                        "<=",
+                        f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
+        addIn(
+            formRow3V("Значимість коефіцієнта Спірмена",
+                      f"{abs(self.teta_c_signif):.5}",
+                      "<=",
+                      f"{func.QuantileTStudent(1 - self.trust / 2, nu):.5}"))
+        addIn(
+            formRow3V("Значим рангового коеф Кендалла",
+                      f"{abs(self.teta_k_signif):.5}",
+                      "<=",
+                      f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
+        addIn(
+            formRow3V("Значимість коефіцієнта Пірсона",
+                      f"{self.C_Pearson_signif:.5}",
+                      "<=",
+                      f"{func.QuantilePearson(1 - self.trust, 10):.5}"))
+        addIn(
+            formRow3V("Значимість коеф Кендалла",
+                      f"{abs(self.teta_b_signif):.5}",
+                      "<=",
+                      f"{func.QuantileNorm(1 - self.trust / 2):.5}"))
+
+        if hasattr(self, "line_a"):
+            addIn("")
+            addIn("Параметри лінійної регресії: a + bx")
+            addIn("-" * 16)
+            addIn(
+                formRow3V("Параметр a",
+                          f"{self.line_a - self.det_line_a:.5}",
+                          f"{self.line_a:.5}",
+                          f"{self.line_a + self.det_line_a:.5}"))
+            addIn(
+                formRow3V("Параметр b",
+                          f"{self.line_b - self.det_line_b:.5}",
+                          f"{self.line_b:.5}",
+                          f"{self.line_b + self.det_line_b:.5}"))
+
+            addIn("")
+
+            f = func.QuantileFisher(1 - self.trust, N - 1, N - 3)
+            addIn(
+                formRow3V("Адекватність відтвореної моделі регресії",
+                          f"{self.line_f_signif:.5}",
+                          "<=",
+                          f"{f:.5}"))
+
+        if hasattr(self, "parab_a"):
+            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+            addIn("")
+            addIn("Параметри параболічної регресії: a + bx + cx^2")
+            addIn("-" * 16)
+
+            addIn(
+                formRow3V("Параметр a",
+                          f"{self.parab_a - self.det_parab_a:.5}",
+                          f"{self.parab_a:.5}",
+                          f"{self.parab_a + self.det_parab_a:.5}"))
+            addIn(
+                formRow3V("Параметр b",
+                          f"{self.parab_b - self.det_parab_b:.5}",
+                          f"{self.parab_b:.5}",
+                          f"{self.parab_b + self.det_parab_b:.5}"))
+            addIn(
+                formRow3V("Параметр c",
+                          f"{self.parab_c - self.det_parab_c:.5}",
+                          f"{self.parab_c:.5}",
+                          f"{self.parab_c + self.det_parab_c:.5}"))
+
+            addIn("")
+            addIn(formRow3V("Значущість параметра a",
+                            f"{self.parab_a_t:.5}", "<=",
+                            f"{t:.5}"))
+            addIn(formRow3V("Значущість параметра b",
+                            f"{self.parab_b_t:.5}", "<=",
+                            f"{t:.5}"))
+            addIn(formRow3V("Значущість параметра c",
+                            f"{self.parab_c_t:.5}", "<=",
+                            f"{t:.5}"))
+
+        if hasattr(self, "kvaz_a"):
+            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
+            addIn("")
+            addIn("Параметри квазілійнійної регресії: a * exp(bx)")
+            addIn("-" * 16)
+
+            addIn(
+                formRow3V("Параметр a",
+                          f"{self.kvaz_a - self.det_kvaz_a:.5}",
+                          f"{self.kvaz_a:.5}",
+                          f"{self.kvaz_a + self.det_kvaz_a:.5}"))
+            addIn(
+                formRow3V("Параметр b",
+                          f"{self.kvaz_b - self.det_kvaz_b:.5}",
+                          f"{self.kvaz_b:.5}",
+                          f"{self.kvaz_b + self.det_kvaz_b:.5}"))
+
+        return "\n".join(info_protocol)

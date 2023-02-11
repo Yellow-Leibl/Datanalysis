@@ -47,7 +47,7 @@ dict_edit_shortcut = {
     "Видалити &розподіл":   Qt.CTRL + Qt.Key_D
 }
 
-dict_repr = {
+dict_reproduction = {
     "&Нормальний":          0,
     "&Рівномірний":         1,
     "&Експоненціальний":    2,
@@ -64,7 +64,7 @@ dict_repr_shortcut = {
     "&Очистити":            Qt.CTRL + Qt.ALT + Qt.Key_C,
 }
 
-dict_regr = {
+dict_regression = {
     "Лінійна &МНК":         0,
     "Лінійна Метод &Тейла": 1,
     "&Парабола":            2,

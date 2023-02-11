@@ -7,13 +7,12 @@ from PyQt5.QtWidgets import (
     QLabel, QMessageBox)
 from PyQt5.QtCore import Qt
 import pyqtgraph as pg
-# import pyqtgraph.opengl as _3d
 
 import platform
 
 from GeneralConstants import (
-    dict_edit, dict_edit_shortcut, dict_repr, dict_repr_shortcut,
-    dict_crit, dict_crit_shortcut, dict_regr, dict_regr_shortcut,
+    dict_edit, dict_edit_shortcut, dict_reproduction, dict_repr_shortcut,
+    dict_crit, dict_crit_shortcut, dict_regression, dict_regr_shortcut,
     Edit, Critetion)
 
 
@@ -122,7 +121,9 @@ class MainLayout(QMainWindow):
                 title="Емпірична функція розподілу",
                 labels={"left": "P", "bottom": "x"})
         elif n == 2:
-            self.hist_plot = graphics.addPlot()
+            self.cor_plot = graphics.addPlot(
+                title="Корреляційне поле",
+                labels={"left": "Y", "bottom": "X"})
         elif n == 3:
             pass
         self.layout_widget.setCentralWidget(graphics)
@@ -154,7 +155,7 @@ class MainLayout(QMainWindow):
 
         # Reproduction menu
         vidt_menu = QMenu("&Відтворити", self)
-        for k, v in dict_repr.items():
+        for k, v in dict_reproduction.items():
             if k == "&Очистити":
                 vidt_menu.addSeparator()
             vidt_menu.addAction(k, self.setReproductionSeries)
@@ -162,7 +163,7 @@ class MainLayout(QMainWindow):
 
         # Regression menu
         regr_menu = QMenu("&Регресія", self)
-        for k, v in dict_regr.items():
+        for k, v in dict_regression.items():
             if k == "&Очистити":
                 regr_menu.addSeparator()
             regr_menu.addAction(k, self.setReproductionSeries)

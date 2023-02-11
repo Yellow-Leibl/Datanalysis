@@ -5,6 +5,7 @@ import math
 from functions import (
     QuantileNorm, QuantileTStudent, QuantilePearson, QuantileFisher,
     L)
+from time import time
 
 SPLIT_CHAR = ' '
 
@@ -15,7 +16,8 @@ def splitAndRemoveEmpty(s: str) -> list:
 
 
 def readVectors(text: str) -> list:
-    split_float_data = [[float(j.replace(',', '.')) for j in splitAndRemoveEmpty(i)]
+    def strToFloat(x: str): return float(x.replace(',', '.'))
+    split_float_data = [[strToFloat(j) for j in splitAndRemoveEmpty(i)]
                         for i in text]
     return [[vector[i] for vector in split_float_data]
             for i in range(len(split_float_data[0]))]
@@ -29,11 +31,17 @@ class SamplingDatas:
         self.samples.append(s)
 
     def append(self, not_ranked_series_str: str):
+        t1 = time()
         vectors = readVectors(not_ranked_series_str)
+
+        def rankAndCalc(s: SamplingData):
+            s.toRanking()
+            s.toCalculateCharacteristic()
         for i, v in enumerate(vectors):
-            self.samples.append(SamplingData(vectors[i]))
-            self[-1].toRanking()
-            self[-1].toCalculateCharacteristic()
+            s = SamplingData(vectors[i])
+            rankAndCalc(s)
+            self.samples.append(s)
+        print(f"Reading vector time = {time() - t1} sec")
 
     def __len__(self) -> int:
         return len(self.samples)
@@ -147,8 +155,8 @@ class SamplingDatas:
         f, F, DF = x.toCreateNormalFunc()
         g, G, DG = y.toCreateNormalFunc()
 
-        min_xl = min(x[0], y[0])
-        max_xl = max(x[-1], y[-1])
+        min_xl = min(x.min, y.min)
+        max_xl = max(x.max, y.max)
         xl = min_xl
         dx = calc_reproduction_dx(min_xl, max_xl)
         xl += dx
