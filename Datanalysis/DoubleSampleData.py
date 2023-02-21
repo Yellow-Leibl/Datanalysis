@@ -20,7 +20,7 @@ class DoubleSampleData(SamplingData):
         self.x = x
         self.y = y
         self.trust = trust
-        self.probability_table = []
+        self.probability_table: list[float] = []
 
     def __len__(self):
         return len(self.x.getRaw())
@@ -307,7 +307,7 @@ class DoubleSampleData(SamplingData):
         if column_number <= 0:
             column_number = SamplingData.calculateM(len(self.x))
 
-        self.probability_table = [[0 for x in range(column_number)]
+        self.probability_table = [[0.0 for x in range(column_number)]
                                   for y in range(column_number)]
 
         N = len(self)
@@ -410,8 +410,10 @@ class DoubleSampleData(SamplingData):
                   " регресійного аналізу не виконується")
             if not (self.identDispersionBarlet([self.x, self.y], self.trust)
                     and self.x.critetionAbbe() and self.y.critetionAbbe()):
-                print("The initial conditions arent correct for linear regression")
+                print("The initial conditions "
+                      "arent correct for linear regression")
                 return False
+        return True
 
     def toCreateLinearRegressionMNK(self):
 
@@ -437,8 +439,8 @@ class DoubleSampleData(SamplingData):
             print("The initial conditions arent correct for linear regression")
             return
 
-        x = self.x.x
-        y = self.y.x
+        x = self.x._x
+        y = self.y._x
 
         N = len(self)
         b_l = [0] * (N * (N - 1) / 2)
@@ -755,9 +757,9 @@ class DoubleSampleData(SamplingData):
 
         return x_gen
 
-    def xiXiTest(self, hist_data: list) -> bool:
+    def xiXiTest(self, hist_data: list) -> tuple[bool, str]:
         f = self.toCreateNormalFunc()
-        x_2 = 0
+        x_2 = 0.0
         N = len(self)
         column_number = len(hist_data)
         h_x = (self.x.max - self.x.min) / column_number

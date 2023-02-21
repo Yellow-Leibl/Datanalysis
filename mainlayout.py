@@ -1,11 +1,10 @@
-from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QMenu, QMenuBar,
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget,
     QSpinBox, QDoubleSpinBox, QPushButton,
     QTableWidget, QAbstractItemView,
     QTextEdit, QTabWidget,
     QHBoxLayout, QVBoxLayout, QFormLayout,
     QLabel, QMessageBox)
-from PyQt5.QtCore import Qt
 import pyqtgraph as pg
 
 import platform
@@ -13,7 +12,7 @@ import platform
 from GeneralConstants import (
     dict_edit, dict_edit_shortcut, dict_reproduction, dict_repr_shortcut,
     dict_crit, dict_crit_shortcut, dict_regression, dict_regr_shortcut,
-    Edit, Critetion)
+    dict_file_shortcut, Edit, Critetion)
 
 
 class MainLayout(QMainWindow):
@@ -56,8 +55,10 @@ class MainLayout(QMainWindow):
         self.table = QTableWidget()
         self.table.cellDoubleClicked.connect(
             lambda: self.drawSamples())
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers)
         # self.table.setSelectionMode(QAbstractItemView.MultiSelection)
 
         # Protocol
@@ -79,7 +80,8 @@ class MainLayout(QMainWindow):
         # grid with transform func
         widget_func = QVBoxLayout()
         form_widget = QFormLayout()
-        form_widget.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_widget.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         widget_func.addLayout(form_widget)
 
         form_widget.addRow("Кількість класів:",
@@ -87,7 +89,7 @@ class MainLayout(QMainWindow):
         form_widget.addRow("Рівень значущості:",
                            self.__spin_box_level)
 
-        self.setMenuBar(self.createMenuBar1d())
+        self.createMenuBar1d()
 
         # borders
         borders = QHBoxLayout()
@@ -121,24 +123,27 @@ class MainLayout(QMainWindow):
                 title="Емпірична функція розподілу",
                 labels={"left": "P", "bottom": "x"})
         elif n == 2:
-            self.cor_plot = graphics.addPlot(
+            self.corr_plot = graphics.addPlot(
                 title="Корреляційне поле",
                 labels={"left": "Y", "bottom": "X"})
         elif n == 3:
-            pass
+            self.m3d_plot = graphics.addPlot(
+                labels={"left": "Y", "bottom": "X"})
         self.layout_widget.setCentralWidget(graphics)
 
     def createMenuBar1d(self):
         # File menu
-        file_menu = QMenu("&Файл", self)
+        menuBar = self.menuBar()
+        file_menu = menuBar.addMenu("&Файл")
         file_menu.addAction("&Відкрити", lambda: self.openFile(''))
-        file_menu.actions()[0].setShortcut(Qt.CTRL + Qt.Key_O)
+        file_menu.actions()[-1].setShortcut(dict_file_shortcut["&Відкрити"])
         file_menu.addAction("&Зберегти", self.saveFileAct)
+        file_menu.actions()[-1].setShortcut(dict_file_shortcut["&Зберегти"])
         file_menu.addAction("В&ийти", exit)
-        file_menu.actions()[-1].setShortcut(Qt.CTRL + Qt.Key_Q)
+        file_menu.actions()[-1].setShortcut(dict_file_shortcut["В&ийти"])
 
         # Editing menu
-        edit_menu = QMenu("&Редагувати", self)
+        edit_menu = menuBar.addMenu("&Редагувати")
         for k, v in dict_edit.items():
             if v == Edit.DRAW_SAMPLES.value:
                 edit_menu.addAction(k, self.drawSamples)
@@ -154,7 +159,7 @@ class MainLayout(QMainWindow):
         self.reprod_num = -1
 
         # Reproduction menu
-        vidt_menu = QMenu("&Відтворити", self)
+        vidt_menu = menuBar.addMenu("&Відтворити")
         for k, v in dict_reproduction.items():
             if k == "&Очистити":
                 vidt_menu.addSeparator()
@@ -162,7 +167,7 @@ class MainLayout(QMainWindow):
             vidt_menu.actions()[-1].setShortcut(dict_repr_shortcut[k])
 
         # Regression menu
-        regr_menu = QMenu("&Регресія", self)
+        regr_menu = menuBar.addMenu("&Регресія")
         for k, v in dict_regression.items():
             if k == "&Очистити":
                 regr_menu.addSeparator()
@@ -170,7 +175,7 @@ class MainLayout(QMainWindow):
             regr_menu.actions()[-1].setShortcut(dict_regr_shortcut[k])
 
         # Critetion menu
-        crit_menu = QMenu("&Критерії", self)
+        crit_menu = menuBar.addMenu("&Критерії")
         for k, v in dict_crit.items():
             if v == Critetion.HOMOGENEITY_INDEPENDENCE:
                 crit_menu.addAction(k, lambda: self.homogeneityAndIndependence(
@@ -179,13 +184,6 @@ class MainLayout(QMainWindow):
                 crit_menu.addAction(k, lambda: self.linearModelsCrit(
                     self.__spin_box_level.value()))
             crit_menu.actions()[-1].setShortcut(dict_crit_shortcut[k])
-        menuBar = QMenuBar()
-        menuBar.addMenu(file_menu)
-        menuBar.addMenu(edit_menu)
-        menuBar.addMenu(vidt_menu)
-        menuBar.addMenu(regr_menu)
-        menuBar.addMenu(crit_menu)
-        return menuBar
 
     def getMinMax(self):
         return (self.__spin_box_min_x.value(),
@@ -208,7 +206,7 @@ class MainLayout(QMainWindow):
     def getNumberClasses(self) -> int:
         return self.__spin_number_column.value()
 
-    def silentChangeNumberClasses(self, n: int) -> bool:
+    def silentChangeNumberClasses(self, n: int):
         self.__spin_number_column.blockSignals(True)
         self.__spin_number_column.setValue(n)
         self.__spin_number_column.blockSignals(False)

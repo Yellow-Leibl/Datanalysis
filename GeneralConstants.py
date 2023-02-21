@@ -1,4 +1,5 @@
-from PyQt5.QtCore import Qt
+from PyQt6.QtGui import QKeySequence
+from PyQt6.QtCore import Qt
 from enum import Enum
 
 
@@ -13,8 +14,8 @@ dict_crit = {
 }
 
 dict_crit_shortcut = {
-    "Перевірка однорідності/незалежності":  Qt.CTRL + Qt.Key_I,
-    "Порівняння лінійних регресій":         Qt.CTRL + Qt.Key_E
+    "Перевірка однорідності/незалежності":  QKeySequence("Ctrl+I"),
+    "Порівняння лінійних регресій":         QKeySequence("Ctrl+E"),
 }
 
 
@@ -38,13 +39,13 @@ dict_edit = {
     "Видалити &розподіл":   Edit.DELETE_SAMPLES.value,
 }
 dict_edit_shortcut = {
-    "&Перетворити":         Qt.CTRL + Qt.Key_T,
-    "&Стандартизувати":     Qt.CTRL + Qt.Key_S,
-    "&Зсунути":             Qt.CTRL + Qt.Key_P,
-    "&Клонувати":           Qt.CTRL + Qt.Key_Z,
-    "&Видалити аномалії":   Qt.CTRL + Qt.Key_A,
-    "Зо&бразити розподіл":  Qt.Key_D,
-    "Видалити &розподіл":   Qt.CTRL + Qt.Key_D
+    "&Перетворити":         QKeySequence("Ctrl+T"),
+    "&Стандартизувати":     QKeySequence("Ctrl+W"),
+    "&Зсунути":             QKeySequence("Ctrl+P"),
+    "&Клонувати":           QKeySequence("Ctrl+C"),
+    "&Видалити аномалії":   QKeySequence("Ctrl+A"),
+    "Зо&бразити розподіл":  Qt.Key.Key_D,
+    "Видалити &розподіл":   Qt.Key.Key_Delete
 }
 
 dict_reproduction = {
@@ -56,12 +57,12 @@ dict_reproduction = {
     "&Очистити":            5,
 }
 dict_repr_shortcut = {
-    "&Нормальний":          Qt.CTRL + Qt.ALT + Qt.Key_N,
-    "&Рівномірний":         Qt.CTRL + Qt.ALT + Qt.Key_U,
-    "&Експоненціальний":    Qt.CTRL + Qt.ALT + Qt.Key_E,
-    "&Вейбулла":            Qt.CTRL + Qt.ALT + Qt.Key_W,
-    "&Арксинус":            Qt.CTRL + Qt.ALT + Qt.Key_A,
-    "&Очистити":            Qt.CTRL + Qt.ALT + Qt.Key_C,
+    "&Нормальний":          QKeySequence("Ctrl+Alt+N"),
+    "&Рівномірний":         QKeySequence("Ctrl+Alt+U"),
+    "&Експоненціальний":    QKeySequence("Ctrl+Alt+E"),
+    "&Вейбулла":            QKeySequence("Ctrl+Alt+W"),
+    "&Арксинус":            QKeySequence("Ctrl+Alt+A"),
+    "&Очистити":            QKeySequence("Ctrl+Alt+C"),
 }
 
 dict_regression = {
@@ -73,9 +74,23 @@ dict_regression = {
 }
 
 dict_regr_shortcut = {
-    "Лінійна &МНК":         Qt.CTRL + Qt.ALT + Qt.Key_M,
-    "Лінійна Метод &Тейла": Qt.CTRL + Qt.ALT + Qt.Key_T,
-    "&Парабола":            Qt.CTRL + Qt.ALT + Qt.Key_P,
-    "Квазілінійна: y = a * exp(b * x)":   Qt.CTRL + Qt.ALT + Qt.Key_K,
-    "&Очистити":            Qt.CTRL + Qt.ALT + Qt.Key_C,
+    "Лінійна &МНК":         QKeySequence("Ctrl+Alt+M"),
+    "Лінійна Метод &Тейла": QKeySequence("Ctrl+Alt+T"),
+    "&Парабола":            QKeySequence("Ctrl+Alt+P"),
+    "Квазілінійна: y = a * exp(b * x)": QKeySequence("Ctrl+Alt+K"),
+    "&Очистити":            QKeySequence("Ctrl+Alt+C"),
+}
+
+
+dict_file = {
+    "&Відкрити":            0,
+    "&Зберегти":            1,
+    "В&ийти":               2
+}
+
+
+dict_file_shortcut = {
+    "&Відкрити":            QKeySequence("Ctrl+O"),
+    "&Зберегти":            QKeySequence("Ctrl+S"),
+    "В&ийти":               QKeySequence("Ctrl+Q"),
 }

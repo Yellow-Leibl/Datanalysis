@@ -2,7 +2,7 @@ import numpy as np
 import sys
 import os
 
-from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
+from PyQt6.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
 
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
@@ -20,8 +20,7 @@ class Window(MainLayout):
         self.number_sample = [0, 1]
         self.createPlotLayout(len(self.number_sample))
         self.datas = SamplingDatas()
-        self.d_d = None
-        self.d_d_cache = [-1, -1]
+        self.d2_cache = [-1, -1]
 
         if file != "":
             if is_file_name:
@@ -44,7 +43,7 @@ class Window(MainLayout):
         except FileNotFoundError:
             print(f"\"{file_name}\" not found")
 
-    def loadFromData(self, all_file: str):
+    def loadFromData(self, all_file: list[str]):
         self.datas.append(all_file)
 
         self.reprod_num = -1
@@ -100,8 +99,9 @@ class Window(MainLayout):
         if self.is1d():
             return self.datas[self.number_sample[0]].autoRemoveAnomaly()
         elif self.is2d():
-            hist_data = self.d_d.get_histogram_data(self.getNumberClasses())
-            return self.d_d.autoRemoveAnomaly(hist_data)
+            hist_data = self.d2.get_histogram_data(self.getNumberClasses())
+            return self.d2.autoRemoveAnomaly(hist_data)
+        return False
 
     def drawSamples(self):
         sel = self.getSelectedRows()
@@ -109,10 +109,10 @@ class Window(MainLayout):
             return
         self.createPlotLayout(len(sel))
         self.number_sample = sel
-        self.d_d_cache = None
+        self.d2_cache = None
         self.reprod_num = -1
         self.silentChangeNumberClasses(0)
-        self.setMaximumColumnNumber(len(self.datas[sel[0]].x))
+        self.setMaximumColumnNumber(len(self.datas[sel[0]]._x))
         self.sampleChanged()
 
     def deleteSamples(self):
@@ -132,7 +132,7 @@ class Window(MainLayout):
     def setReproductionSeries(self):
         if self.is1d():
             self.reprod_num = dict_reproduction[self.sender().text()]
-        else:
+        elif self.is2d():
             self.reprod_num = dict_regression[self.sender().text()]
         self.updateGraphics(self.getNumberClasses())
         self.writeProtocol()
@@ -141,7 +141,7 @@ class Window(MainLayout):
         if self.is1d():
             self.datas[self.number_sample[0]].setTrust(trust)
         elif self.is2d():
-            self.d_d.setTrust(trust)
+            self.d2.setTrust(trust)
         self.sampleChanged()
 
     def writeTable(self):
@@ -149,7 +149,7 @@ class Window(MainLayout):
         self.table.setColumnCount(self.datas.getMaxDepthRangeData())
         self.table.setRowCount(len(self.datas))
         for s in range(len(self.datas)):
-            for i, e in enumerate(self.datas[s].x):
+            for i, e in enumerate(self.datas[s]._x):
                 self.table.setItem(s,
                                    i,
                                    QTableWidgetItem(f"{self.datas[s][i]:.5}"))
@@ -163,7 +163,7 @@ class Window(MainLayout):
             self.protocol.setText(
                 self.datas[self.number_sample[0]].getProtocol())
         elif self.is2d():
-            self.protocol.setText(self.d_d.getProtocol())
+            self.protocol.setText(self.d2.getProtocol())
 
     def writeCritetion(self, text):
         self.criterion_protocol.setText(text)
@@ -173,24 +173,23 @@ class Window(MainLayout):
             d = self.datas[self.number_sample[0]]
             self.setMinMax(d.min, d.max)
             hist_data = d.get_histogram_data(number_column)
-            h = abs(d.max - d.min) / len(hist_data)
             self.silentChangeNumberClasses(len(hist_data))
-            self.drawHistogram(hist_data, d.min, h)
-            self.drawEmpFunc(hist_data, d.min, h)
+            self.drawHistogram(hist_data, d.min, d.max)
+            self.drawEmpFunc(hist_data, d.min, d.max)
             self.drawReproductionSeries()
         elif self.is2d():
-            if self.d_d_cache != self.number_sample:
-                self.d_d_cache = self.number_sample
+            if self.d2_cache != self.number_sample:
+                self.d2_cache = self.number_sample
                 x = self.datas[self.number_sample[0]]
                 y = self.datas[self.number_sample[1]]
-                self.d_d = DoubleSampleData(x, y)
-                self.d_d.toCalculateCharacteristic()
-            hist_data = self.d_d.get_histogram_data(number_column)
+                self.d2 = DoubleSampleData(x, y)
+                self.d2.toCalculateCharacteristic()
+            hist_data = self.d2.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(hist_data))
 
             self.drawHistogram2D(hist_data)
             self.drawReproductionSeries2D()
-            isNormal, crits = self.d_d.xiXiTest(hist_data)
+            isNormal, crits = self.d2.xiXiTest(hist_data)
             if isNormal:
                 self.writeCritetion(
                     f"Відтворення двовимірного розподілу адекватне: {crits}")
@@ -199,8 +198,8 @@ class Window(MainLayout):
                     f"Відтворення двовимірного розподілу неадекватне: {crits}")
 
     def drawHistogram2D(self, hist_data: list):
-        x = self.d_d.x
-        y = self.d_d.y
+        x = self.d2.x
+        y = self.d2.y
         if len(x) != len(y):
             return
 
@@ -213,16 +212,17 @@ class Window(MainLayout):
         h = y.max - start_y
         histogram_image.setRect(start_x, start_y, w, h)
 
-        self.cor_plot.clear()
-        self.cor_plot.addItem(histogram_image)
+        self.corr_plot.clear()
+        self.corr_plot.addItem(histogram_image)
         # points
-        self.cor_plot.plot(x.getRaw(), y.getRaw(),
+        self.corr_plot.plot(x.getRaw(), y.getRaw(),
                             symbolBrush=(255, 0, 0, 175),
                             symbolPen=(0, 0, 0, 200), symbolSize=7,
                             pen=None)
 
     def drawHistogram(self, hist_data: list,
-                      x_min: float, h: float):
+                      x_min: float, x_max: float):
+        h = abs(x_max - x_min) / len(hist_data)
         x = []
         y = []
         y_max: float = hist_data[0]
@@ -240,7 +240,8 @@ class Window(MainLayout):
         self.hist_plot.plot(x, y, fillLevel=0, brush=(250, 220, 70, 150))
 
     def drawEmpFunc(self, hist_data: list,
-                    x_min: float, h: float):
+                    x_min: float, x_max: float):
+        h = abs(x_max - x_min) / len(hist_data)
         x_class = []
         y_class = []
         col_height = 0.0
@@ -261,7 +262,7 @@ class Window(MainLayout):
         sum_ser = 0.0
         for i in range(len(d.probabilityX)):
             sum_ser += d.probabilityX[i]
-            x_stat.append(d.x[i])
+            x_stat.append(d._x[i])
             y_stat.append(sum_ser)
 
         self.emp_plot.clear()
@@ -357,20 +358,17 @@ class Window(MainLayout):
     def drawReproductionSeries2D(self):
         x_gen = []
         tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-            self.toCreateReproductionFunc2D(self.d_d, self.reprod_num)
+            self.toCreateReproductionFunc2D(self.d2, self.reprod_num)
         if f is not None:
-            x_gen = self.d_d.toGenerateReproduction(f)
+            x_gen = self.d2.toGenerateReproduction(f)
 
         if len(x_gen) == 0:
             self.writeCritetion('')
             return
 
-        y_tl_lf = []
-        y_tl_mf = []
-        y_tr_lf = []
-        y_tr_mf = []
-        y_tr_f_lf = []
-        y_tr_f_mf = []
+        y_tl_lf, y_tl_mf = [], []
+        y_tr_lf, y_tr_mf = [], []
+        y_tr_f_lf, y_tr_f_mf = [], []
         y = []
         for x in x_gen:
             y_tl_lf.append(tl_lf(x))
@@ -381,13 +379,13 @@ class Window(MainLayout):
             y_tr_f_mf.append(tr_f_mf(x))
             y.append(f(x))
 
-        self.cor_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
-        self.cor_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
-        self.cor_plot.plot(x_gen, y_tr_lf, pen=newPen((0, 128, 255), 3))
-        self.cor_plot.plot(x_gen, y_tr_mf, pen=newPen((0, 128, 255), 3))
-        self.cor_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
-        self.cor_plot.plot(x_gen, y_tr_f_mf, pen=newPen((128, 255, 128), 3))
-        self.cor_plot.plot(x_gen, y, pen=newPen((255, 0, 255), 3))
+        self.corr_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
+        self.corr_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
+        self.corr_plot.plot(x_gen, y_tr_lf, pen=newPen((0, 128, 255), 3))
+        self.corr_plot.plot(x_gen, y_tr_mf, pen=newPen((0, 128, 255), 3))
+        self.corr_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
+        self.corr_plot.plot(x_gen, y_tr_f_mf, pen=newPen((128, 255, 128), 3))
+        self.corr_plot.plot(x_gen, y, pen=newPen((255, 0, 255), 3))
 
     def linearModelsCrit(self, trust: float):
         sel = self.getSelectedRows()
@@ -417,7 +415,6 @@ class Window(MainLayout):
             else:
                 self.showMessageBox(title, f"{P:.5} < {trust}" +
                                     "\nСпостереження залежні")
-
         elif len(sel) == 2:
             if self.datas.ident2Samples(sel[0], sel[1], trust):
                 self.showMessageBox("Вибірки однорідні", "")

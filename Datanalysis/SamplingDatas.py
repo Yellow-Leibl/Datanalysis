@@ -15,7 +15,7 @@ def splitAndRemoveEmpty(s: str) -> list:
                        s.split(SPLIT_CHAR)))
 
 
-def readVectors(text: str) -> list:
+def readVectors(text: list[str]) -> list:
     def strToFloat(x: str): return float(x.replace(',', '.'))
     split_float_data = [[strToFloat(j) for j in splitAndRemoveEmpty(i)]
                         for i in text]
@@ -30,7 +30,7 @@ class SamplingDatas:
     def appendSample(self, s: SamplingData):
         self.samples.append(s)
 
-    def append(self, not_ranked_series_str: str):
+    def append(self, not_ranked_series_str: list[str]):
         t1 = time()
         vectors = readVectors(not_ranked_series_str)
 
@@ -177,34 +177,34 @@ class SamplingDatas:
                           x: SamplingData,
                           y: SamplingData,
                           trust: float = 0.05):
-        r = [[i, 0, 'x'] for i in x.x] + [[i, 0, 'y'] for i in y.x]
+        r: list = [[i, 0, 'x'] for i in x._x] + [[i, 0, 'y'] for i in y._x]
         r.sort()
 
         prev = r[0][0]
         r[0][1] = 1
-        i = 1
-        avr_r = 0
+        v = 1
+        avr_r = 0.0
         avr_i = 0
-        for i in range(1, len(r)):
-            if prev == r[i][0]:
-                avr_r += i
+        for v in range(1, len(r)):
+            if prev == r[v][0]:
+                avr_r += v
                 avr_i += 1
             else:
-                r[i][1] = i + 1
+                r[v][1] = v + 1
                 if avr_r != 0:
-                    avr_r = avr_r / avr_i
-                    j = i - 1
+                    avr_r /= avr_i
+                    j = v - 1
                     while r[j][1] != 0:
                         r[j][1] = avr_r
                         j -= 1
                     avr_r = 0
                     avr_i = 0
-            prev = r[i][0]
+            prev = r[v][0]
 
-        W = 0
-        for i in r:
-            if i[2] == 'x':
-                W += i[1]
+        W = 0.0
+        for v in r:
+            if v[2] == 'x':
+                W += v[1]
 
         N1 = len(x)
         N2 = len(y)
@@ -246,11 +246,11 @@ class SamplingDatas:
         N1 = len(x)
         N2 = len(y)
         N = N1 + N2
-        r = [[i, 0, 'x'] for i in x.x] + [[i, 0, 'y'] for i in y.x]
+        r = [[i, 0, 'x'] for i in x._x] + [[i, 0, 'y'] for i in y._x]
         r.sort()
 
-        rx = 0
-        ry = 0
+        rx = 0.0
+        ry = 0.0
         for i in range(N):
             if r[i][2] == 'x':
                 rx += r[i][1]
@@ -268,7 +268,7 @@ class SamplingDatas:
     def critetionKruskalaUolisa(self, samples, trust: float = 0.05) -> bool:
         k = len(samples)
 
-        x = []
+        x: list = []
         for i in range(k):
             x += [[j, 0, i] for j in samples[i]]
         x.sort()
@@ -410,7 +410,7 @@ class SamplingDatas:
                 S * (S1 / (N1 * sigma_x1_2) + S2 / (N2 * sigma_x2_2)) ** 0.5)
             C0 = S1 / (N1 * sigma_x1_2) / (
                 S1 / (N1 * sigma_x1_2) + S2 / (N2 * sigma_x2_2))
-            nu = math.round((C0 ** 2 / (
+            nu = round((C0 ** 2 / (
                 N1 - 2) + (1 - C0) ** 2 / (N2 - 2)) ** -1)
             if t <= QuantileTStudent(1 - trust / 2, nu):
                 b = (b1 * N1 * sigma_x1_2 / S1 + b2 * N2 * sigma_x2_2 / S2) / (
