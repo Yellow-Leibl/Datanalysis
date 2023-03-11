@@ -1,7 +1,5 @@
 import math
-
 import numpy as np
-
 import functions as func
 from Datanalysis.SamplingData import (SamplingData, formRow3V, formRow4V,
                                       toMakeRange, calc_reproduction_dx, MED)
@@ -20,14 +18,23 @@ class DoubleSampleData(SamplingData):
         self.x = x
         self.y = y
         self.trust = trust
-        self.probability_table: list[float] = []
 
     def __len__(self):
         return len(self.x.getRaw())
 
     def toCalculateCharacteristic(self):
         self.x_ = (self.x.x_, self.y.x_)
+        self.pearsonCorrelationСoefficient()
+        self.coeficientOfCorrelation()
+        try:
+            self.rangeCorrelation()
+        except ZeroDivisionError:
+            print('Error in range correlation')
+        self.coefficientsOfCombinationsOfTables()
+        self.linearCorrelationParametrs()
 
+    # pair correlation coef
+    def pearsonCorrelationСoefficient(self):
         N = len(self)
         xy_ = sum([self.x.raw_x[i] * self.y.raw_x[i]
                    for i in range(len(self.x.raw_x))]) / N
@@ -41,14 +48,6 @@ class DoubleSampleData(SamplingData):
         self.r_det_v = self.r + self.r * (1 - self.r ** 2) / (2 * N)
         self.det_r = func.QuantileNorm(1 - self.trust / 2
                                        ) * (1 - self.r ** 2) / (N - 1) ** 0.5
-
-        self.coeficientOfCorrelation()
-        try:
-            self.rangeCorrelation()
-        except ZeroDivisionError:
-            print('Error in range correlation')
-        self.coefficientsOfCombinationsOfTables()
-        self.linearCorrelationParametrs()
 
     def generateMas3Dot3(self, k):
         y = []
@@ -314,18 +313,20 @@ class DoubleSampleData(SamplingData):
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number
 
-        def point(i): return (self.x.getRaw()[i], self.y.getRaw()[i])
+        x_raw = self.x.getRaw()
+        def x(i): return x_raw[i]
+        y_raw = self.y.getRaw()
+        def y(i): return y_raw[i]
 
         for i in range(N):
-            p = point(i)
             s_x = self.x.min
             s_y = self.y.min
             c = 0
             r = 0
-            while not s_x <= p[0] <= s_x + h_x and c + 1 < column_number:
+            while not s_x <= x(i) <= s_x + h_x and c + 1 < column_number:
                 c += 1
                 s_x += h_x
-            while not s_y <= p[1] <= s_y + h_y and r + 1 < column_number:
+            while not s_y <= y(i) <= s_y + h_y and r + 1 < column_number:
                 r += 1
                 s_y += h_y
             self.probability_table[r][c] += 1
@@ -443,7 +444,7 @@ class DoubleSampleData(SamplingData):
         y = self.y._x
 
         N = len(self)
-        b_l = [0] * (N * (N - 1) / 2)
+        b_l = [0] * (N * (N - 1) // 2)
         ll = 0
         for i in range(N):
             for j in range(i + 1, N):
@@ -685,8 +686,8 @@ class DoubleSampleData(SamplingData):
         t_b = B / S_b
         t_stud = func.QuantileTStudent(1 - self.trust / 2, N - 2)
 
-        # if not (abs(t_a) > t_stud or abs(t_b) > t_stud):
-        #     return
+        if not (abs(t_a) > t_stud or abs(t_b) > t_stud):
+            print("не значущі проміжки")
 
         self.det_kvaz_a = t_stud * S_a
         self.det_kvaz_b = t_stud * S_b
@@ -866,7 +867,8 @@ class DoubleSampleData(SamplingData):
             f_po = func.QuantileFisher(1 - self.trust,
                                        self.po_k - 1,
                                        N - self.po_k)
-        except:
+        except TypeError:
+            print("Error while calculate quantile fisher")
             f_po = 0.0
         addIn(
             formRow3V("Значимість коефіцієнта p, f-test",

@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QTabWidget,
     QHBoxLayout, QVBoxLayout, QFormLayout,
     QLabel, QMessageBox)
-import pyqtgraph as pg
+from PlotWidget import PlotWidget
 
 import platform
 
@@ -22,12 +22,9 @@ class MainLayout(QMainWindow):
         self.setGeometry(150, 100, 1333, 733)
         self.setWindowTitle("Аналіз даних")
 
-        # PyQtGraph global configuration
-        pg.setConfigOption('imageAxisOrder', 'row-major')
-
         # 2 chart box
-        self.layout_widget = pg.GraphicsLayoutWidget()
-        self.createPlotLayout(2)
+        self.plot_widget = PlotWidget()
+        self.plot_widget.create2DPlot()
 
         # spin boxes
         self.__spin_number_column = QSpinBox()
@@ -59,7 +56,7 @@ class MainLayout(QMainWindow):
             QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers)
-        # self.table.setSelectionMode(QAbstractItemView.MultiSelection)
+        # self.table.setSelectionMode(QAbstractItemView.SelectionBehavior.MultiSelection)
 
         # Protocol
         self.protocol = QTextEdit()
@@ -106,7 +103,7 @@ class MainLayout(QMainWindow):
         info_text_box.addLayout(widget_func, 1)
 
         main_vbox = QVBoxLayout()
-        main_vbox.addWidget(self.layout_widget, 3)
+        main_vbox.addWidget(self.plot_widget, 3)
         main_vbox.addLayout(info_text_box, 1)
 
         widget = QWidget()
@@ -114,22 +111,12 @@ class MainLayout(QMainWindow):
         self.setCentralWidget(widget)
 
     def createPlotLayout(self, n: int):
-        graphics = pg.GraphicsLayout()
         if n == 1:
-            self.hist_plot = graphics.addPlot(
-                title="Гістограмна оцінка",
-                labels={"left": "P", "bottom": "x"})
-            self.emp_plot = graphics.addPlot(
-                title="Емпірична функція розподілу",
-                labels={"left": "P", "bottom": "x"})
+            self.plot_widget.create1DPlot()
         elif n == 2:
-            self.corr_plot = graphics.addPlot(
-                title="Корреляційне поле",
-                labels={"left": "Y", "bottom": "X"})
+            self.plot_widget.create2DPlot()
         elif n == 3:
-            self.m3d_plot = graphics.addPlot(
-                labels={"left": "Y", "bottom": "X"})
-        self.layout_widget.setCentralWidget(graphics)
+            self.plot_widget.create3DPlot()
 
     def createMenuBar1d(self):
         # File menu

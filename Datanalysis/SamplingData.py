@@ -64,7 +64,7 @@ def MED(r):
 
 
 class SamplingData:
-    def __init__(self, not_ranked_series_x: list, trust: float = 0.05):
+    def __init__(self, not_ranked_series_x: list[float], trust: float = 0.05):
         self.raw_x = not_ranked_series_x.copy()
         self._x = not_ranked_series_x.copy()
         self.probabilityX: list[float] = []
@@ -91,6 +91,13 @@ class SamplingData:
 
     def __getitem__(self, i: int) -> float:
         return self._x[i]
+
+    def __iter__(self):
+        self.__i_iter = 0
+        return self
+
+    def __next__(self):
+        self.__i_iter += 1
 
     def copy(self):
         t = SamplingData(self.getRaw())
@@ -164,9 +171,7 @@ class SamplingData:
 
         self.MED_Walsh = MED(xl)
 
-        self.x_ = 0.0
-        for i in range(N):
-            self.x_ += self._x[i] * self.probabilityX[i]
+        self.x_ = sum([self._x[i] * self.probabilityX[i] for i in range(N)])
 
         nu2 = 0.0
         u2 = 0.0
@@ -266,7 +271,7 @@ class SamplingData:
 
         self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * QUANT_I
 
-    def setSeries(self, not_ranked_series_x: list):
+    def setSeries(self, not_ranked_series_x: list[float]):
         self._x = not_ranked_series_x.copy()
         self.toRanking()
         self.toCalculateCharacteristic()
@@ -564,13 +569,12 @@ class SamplingData:
         elif number_of_column <= len(self._x):
             M = SamplingData.calculateM(n)
         h = abs(self.max - self.min) / M
-        hist_list: list[float] = []
+        hist_list: list[float] = [0.0] * M
         j = 0
         begin_j = self[0]
         for i in range(M):
-            hist_list.append(0)
             while j < n and begin_j + h * (i + 1) >= self[j]:
-                hist_list[-1] += self.probabilityX[j]
+                hist_list[i] += self.probabilityX[j]
                 j += 1
         return hist_list
 

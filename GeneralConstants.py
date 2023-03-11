@@ -45,7 +45,7 @@ dict_edit_shortcut = {
     "&Клонувати":           QKeySequence("Ctrl+C"),
     "&Видалити аномалії":   QKeySequence("Ctrl+A"),
     "Зо&бразити розподіл":  Qt.Key.Key_D,
-    "Видалити &розподіл":   Qt.Key.Key_Delete
+    "Видалити &розподіл":   Qt.Key.Key_Backspace
 }
 
 dict_reproduction = {

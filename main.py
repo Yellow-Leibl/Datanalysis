@@ -1,4 +1,3 @@
-import numpy as np
 import sys
 import os
 
@@ -6,48 +5,43 @@ from PyQt6.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
 
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
+from Datanalysis.SamplingData import SamplingData
 from mainlayout import MainLayout
 from GeneralConstants import (dict_edit, dict_reproduction,
                               dict_regression, Edit)
-
-import pyqtgraph as pg
 
 
 class Window(MainLayout):
     def __init__(self, file: str, is_file_name: bool = True):
         super().__init__()  # layout here
-
-        self.number_sample = [0, 1]
-        self.createPlotLayout(len(self.number_sample))
         self.datas = SamplingDatas()
         self.d2_cache = [-1, -1]
 
-        if file != "":
-            if is_file_name:
-                self.openFile(file)
-            else:
-                all_file = file.split('\n')
-                self.loadFromData(all_file)
+        # temp
+        self.number_sample = [1, 2]
+        self.createPlotLayout(len(self.number_sample))
 
-    def openFile(self, file: str):
-        file_name = file
-        if file == '':
+        if is_file_name:
+            self.openFile(file)
+        else:
+            all_file = file.split('\n')
+            self.loadFromData(all_file)
+
+    def openFile(self, file_name: str):
+        if file_name == '':
             file_name = QFileDialog().getOpenFileName(self, "Відкрити файл",
                                                       os.getcwd(),
                                                       "Bci файли (*)")[0]
 
         try:
             with open(file_name, 'r') as file:
-                all_file = [i for i in file]
-                self.loadFromData(all_file)
+                self.loadFromData(file.readlines())
         except FileNotFoundError:
             print(f"\"{file_name}\" not found")
 
     def loadFromData(self, all_file: list[str]):
         self.datas.append(all_file)
-
         self.reprod_num = -1
-
         self.sampleChanged()
 
     def saveFileAct(self):
@@ -70,7 +64,6 @@ class Window(MainLayout):
 
     def editSampleEvent(self):
         act = Edit(dict_edit[self.sender().text()])
-
         d = self.datas[self.number_sample[0]]
         if act == Edit.TRANSFORM:
             d.toLogarithmus10()
@@ -105,7 +98,7 @@ class Window(MainLayout):
 
     def drawSamples(self):
         sel = self.getSelectedRows()
-        if not (0 < len(sel) < 3):
+        if not (0 < len(sel) < 4):
             return
         self.createPlotLayout(len(sel))
         self.number_sample = sel
@@ -129,6 +122,12 @@ class Window(MainLayout):
     def is2d(self) -> bool:
         return len(self.number_sample) == 2
 
+    def is3d(self) -> bool:
+        return len(self.number_sample) == 3
+
+    def isNd(self) -> bool:
+        return len(self.number_sample) >= 3
+
     def setReproductionSeries(self):
         if self.is1d():
             self.reprod_num = dict_reproduction[self.sender().text()]
@@ -146,13 +145,13 @@ class Window(MainLayout):
 
     def writeTable(self):
         self.table.clear()
-        self.table.setColumnCount(self.datas.getMaxDepthRangeData())
+        self.table.setColumnCount(self.datas.getMaxDepthRangeData() + 1)
         self.table.setRowCount(len(self.datas))
         for s in range(len(self.datas)):
-            for i, e in enumerate(self.datas[s]._x):
-                self.table.setItem(s,
-                                   i,
-                                   QTableWidgetItem(f"{self.datas[s][i]:.5}"))
+            d = self.datas[s]
+            self.table.setItem(s, 0, QTableWidgetItem(f"N={len(d.getRaw())}"))
+            for i, e in enumerate(d._x):
+                self.table.setItem(s, i + 1, QTableWidgetItem(f"{e:.5}"))
 
     def numberColumnChanged(self, value: int):
         self.updateGraphics(value)
@@ -164,6 +163,8 @@ class Window(MainLayout):
                 self.datas[self.number_sample[0]].getProtocol())
         elif self.is2d():
             self.protocol.setText(self.d2.getProtocol())
+        else:
+            pass
 
     def writeCritetion(self, text):
         self.criterion_protocol.setText(text)
@@ -174,8 +175,7 @@ class Window(MainLayout):
             self.setMinMax(d.min, d.max)
             hist_data = d.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(hist_data))
-            self.drawHistogram(hist_data, d.min, d.max)
-            self.drawEmpFunc(hist_data, d.min, d.max)
+            self.plot_widget.plot1D(d, hist_data)
             self.drawReproductionSeries()
         elif self.is2d():
             if self.d2_cache != self.number_sample:
@@ -186,8 +186,7 @@ class Window(MainLayout):
                 self.d2.toCalculateCharacteristic()
             hist_data = self.d2.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(hist_data))
-
-            self.drawHistogram2D(hist_data)
+            self.plot_widget.plot2D(self.d2, hist_data)
             self.drawReproductionSeries2D()
             isNormal, crits = self.d2.xiXiTest(hist_data)
             if isNormal:
@@ -196,80 +195,19 @@ class Window(MainLayout):
             else:
                 self.writeCritetion(
                     f"Відтворення двовимірного розподілу неадекватне: {crits}")
+        elif self.is3d():
+            self.plot_widget.plot3D(
+                [self.datas[i] for i in self.number_sample])
 
-    def drawHistogram2D(self, hist_data: list):
-        x = self.d2.x
-        y = self.d2.y
-        if len(x) != len(y):
-            return
-
-        h = np.array(hist_data)
-        histogram_image = pg.ImageItem()
-        histogram_image.setImage(h)
-        start_x = x.min
-        start_y = y.min
-        w = x.max - start_x
-        h = y.max - start_y
-        histogram_image.setRect(start_x, start_y, w, h)
-
-        self.corr_plot.clear()
-        self.corr_plot.addItem(histogram_image)
-        # points
-        self.corr_plot.plot(x.getRaw(), y.getRaw(),
-                            symbolBrush=(255, 0, 0, 175),
-                            symbolPen=(0, 0, 0, 200), symbolSize=7,
-                            pen=None)
-
-    def drawHistogram(self, hist_data: list,
-                      x_min: float, x_max: float):
-        h = abs(x_max - x_min) / len(hist_data)
-        x = []
-        y = []
-        y_max: float = hist_data[0]
-        for p, i in enumerate(hist_data):
-            if y_max < i:
-                y_max = i
-            x.append(x_min + p * h)
-            x.append(x_min + p * h)
-            x.append(x_min + (p + 1) * h)
-            y.append(0)
-            y.append(i)
-            y.append(i)
-
-        self.hist_plot.clear()
-        self.hist_plot.plot(x, y, fillLevel=0, brush=(250, 220, 70, 150))
-
-    def drawEmpFunc(self, hist_data: list,
-                    x_min: float, x_max: float):
-        h = abs(x_max - x_min) / len(hist_data)
-        x_class = []
-        y_class = []
-        col_height = 0.0
-        for p, i in enumerate(hist_data):
-            if col_height > 1:
-                col_height = 1
-            x_class.append(x_min + p * h)
-            x_class.append(x_min + p * h)
-            x_class.append(x_min + (p + 1) * h)
-            y_class.append(col_height)
-            y_class.append(col_height + i)
-            y_class.append(col_height + i)
-            col_height += i
-
+    def drawReproductionSeries(self):
         d = self.datas[self.number_sample[0]]
-        x_stat = []
-        y_stat = []
-        sum_ser = 0.0
-        for i in range(len(d.probabilityX)):
-            sum_ser += d.probabilityX[i]
-            x_stat.append(d._x[i])
-            y_stat.append(sum_ser)
+        f, lF, F, hF = self.toCreateReproductionFunc(d, self.reprod_num)
+        if f is None:
+            return
+        self.writeCritetion1DSample(d, F)
+        self.plot_widget.plot1DReproduction(d, f, lF, F, hF)
 
-        self.emp_plot.clear()
-        self.emp_plot.plot(x_class, y_class, pen=newPen((255, 0, 0), 2))
-        self.emp_plot.plot(x_stat, y_stat, pen=newPen((0, 255, 0), 2))
-
-    def toCreateReproductionFunc(self, d, func_num):
+    def toCreateReproductionFunc(self, d: SamplingData, func_num):
         if func_num == 0:
             f, F, DF = d.toCreateNormalFunc()
         elif func_num == 1:
@@ -286,7 +224,7 @@ class Window(MainLayout):
         h = abs(d.max - d.min) / self.getNumberClasses()
         return d.toCreateTrustIntervals(f, F, DF, h)
 
-    def writeCritetion1DSample(self, d, F):
+    def writeCritetion1DSample(self, d: SamplingData, F):
         criterion_text = '\n'
         if d.kolmogorovTest(F):
             criterion_text += "Відтворення адекватне за критерієм" + \
@@ -297,8 +235,7 @@ class Window(MainLayout):
 
         try:
             xi_test_result = d.xiXiTest(
-                F,
-                d.get_histogram_data(self.getNumberClasses()))
+                F, d.get_histogram_data(self.getNumberClasses()))
         except ZeroDivisionError:
             xi_test_result = False
 
@@ -308,36 +245,13 @@ class Window(MainLayout):
             criterion_text += "Відтворення неадекватне за критерієм Пірсона\n"
         self.writeCritetion(criterion_text)
 
-    def drawReproductionSeries(self):
-        x_gen = []
-        d = self.datas[self.number_sample[0]]
-        f, lF, F, hF = self.toCreateReproductionFunc(d, self.reprod_num)
-        if f is None:
-            return
-        x_gen = d.toGenerateReproduction(f)
+    def drawReproductionSeries2D(self):
+        tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
+            self.toCreateReproductionFunc2D(self.d2, self.reprod_num)
+        self.plot_widget.plot2DReproduction(
+            self.d2, tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f)
 
-        if len(x_gen) == 0:
-            self.writeCritetion('')
-            return
-        else:
-            self.writeCritetion1DSample(d, F)
-
-        y_hist = []
-        y_low = []
-        y_emp = []
-        y_high = []
-        for x in x_gen:
-            y_hist.append(f(x))
-            y_low.append(lF(x))
-            y_emp.append(F(x))
-            y_high.append(hF(x))
-
-        self.hist_plot.plot(x_gen, y_hist, pen=newPen((0, 0, 255), 3))
-        self.emp_plot.plot(x_gen, y_low, pen=newPen((0, 128, 128), 2))
-        self.emp_plot.plot(x_gen, y_emp, pen=newPen((0, 255, 255), 2))
-        self.emp_plot.plot(x_gen, y_high, pen=newPen((128, 0, 128), 2))
-
-    def toCreateReproductionFunc2D(self, d_d, func_num):
+    def toCreateReproductionFunc2D(self, d_d: DoubleSampleData, func_num):
         if func_num == 0:
             tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
                 d_d.toCreateLinearRegressionMNK()
@@ -352,40 +266,7 @@ class Window(MainLayout):
                 d_d.toCreateKvazi8()
         else:
             return None, None, None, None, None, None, None
-
         return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
-
-    def drawReproductionSeries2D(self):
-        x_gen = []
-        tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-            self.toCreateReproductionFunc2D(self.d2, self.reprod_num)
-        if f is not None:
-            x_gen = self.d2.toGenerateReproduction(f)
-
-        if len(x_gen) == 0:
-            self.writeCritetion('')
-            return
-
-        y_tl_lf, y_tl_mf = [], []
-        y_tr_lf, y_tr_mf = [], []
-        y_tr_f_lf, y_tr_f_mf = [], []
-        y = []
-        for x in x_gen:
-            y_tl_lf.append(tl_lf(x))
-            y_tl_mf.append(tl_mf(x))
-            y_tr_lf.append(tr_lf(x))
-            y_tr_mf.append(tr_mf(x))
-            y_tr_f_lf.append(tr_f_lf(x))
-            y_tr_f_mf.append(tr_f_mf(x))
-            y.append(f(x))
-
-        self.corr_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
-        self.corr_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
-        self.corr_plot.plot(x_gen, y_tr_lf, pen=newPen((0, 128, 255), 3))
-        self.corr_plot.plot(x_gen, y_tr_mf, pen=newPen((0, 128, 255), 3))
-        self.corr_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
-        self.corr_plot.plot(x_gen, y_tr_f_mf, pen=newPen((128, 255, 128), 3))
-        self.corr_plot.plot(x_gen, y, pen=newPen((255, 0, 255), 3))
 
     def linearModelsCrit(self, trust: float):
         sel = self.getSelectedRows()
@@ -427,10 +308,6 @@ class Window(MainLayout):
                 self.showMessageBox("Вибірки неоднорідні", "")
 
 
-def newPen(color, width):
-    return {'color': color, 'width': width}
-
-
 def applicationLoadFromFile(file: str = ''):
     app = QApplication(sys.argv)
     widget = Window(file)
@@ -446,5 +323,5 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    applicationLoadFromFile("data/self/parable.txt")
-    # applicationLoadFromFile("data/self/norm5n.txt")
+    # applicationLoadFromFile("data/self/parable.txt")
+    applicationLoadFromFile("data/6har.dat")
