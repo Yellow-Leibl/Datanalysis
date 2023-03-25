@@ -1,13 +1,19 @@
+import math
+import numpy as np
+
 from Datanalysis.SamplingData import (
-    SamplingData, toMakeRange, calc_reproduction_dx)
+    SamplingData, toCalcRankSeries, calc_reproduction_dx)
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from functions import (
     QuantileNorm, QuantileTStudent, QuantilePearson, QuantileFisher,
     L)
-import math
 
 
 class SamplesCriteria:
+    def __init__(self) -> None:
+        self.samples: list[SamplingData] = []
+        self.trust = 0.05
+
     def identAvrTtestDependent(self,
                                x: SamplingData,
                                y: SamplingData,
@@ -148,9 +154,9 @@ class SamplesCriteria:
             prev = r[v][0]
 
         W = 0.0
-        for v in r:
-            if v[2] == 'x':
-                W += v[1]
+        for vect in r:
+            if vect[2] == 'x':
+                W += vect[1]
 
         N1 = len(x)
         N2 = len(y)
@@ -192,7 +198,7 @@ class SamplesCriteria:
         N1 = len(x)
         N2 = len(y)
         N = N1 + N2
-        r = [[i, 0, 'x'] for i in x._x] + [[i, 0, 'y'] for i in y._x]
+        r = [(i, 0, 'x') for i in x._x] + [(i, 0, 'y') for i in y._x]
         r.sort()
 
         rx = 0.0
@@ -211,21 +217,23 @@ class SamplesCriteria:
               f"{abs(nu)} <= {QuantileNorm(1 - trust / 2)}")
         return abs(nu) <= QuantileNorm(1 - trust / 2)
 
-    def critetionKruskalaUolisa(self, samples, trust: float = 0.05) -> bool:
+# Критерій Крускала Уоліса
+    def critetionKruskalaUolisa(self, samples: list[SamplingData],
+                                trust: float = 0.05) -> bool:
         k = len(samples)
 
-        x: list = []
+        x: list[list] = []
         for i in range(k):
-            x += [[j, 0, i] for j in samples[i]]
+            x += [[j, 0, i] for j in samples[i].getRaw()]
         x.sort()
         N_G = len(x)
 
-        toMakeRange(x)
+        toCalcRankSeries(x)
 
         def N(i): return len(samples[i])
         W = [0 for i in range(k)]
-        for i in x:
-            W[i[2]] += i[1]
+        for li in x:
+            W[li[2]] += li[1]
 
         for i in range(k):
             W[i] /= N(i)
@@ -241,11 +249,14 @@ class SamplesCriteria:
               f"{H} <= {QuantilePearson(1 - trust, k - 1)}")
         return H <= QuantilePearson(1 - trust, k - 1)
 
+# Критерій знаків
     def critetionSign(self,
-                      x: SamplingData,
-                      y: SamplingData,
+                      x_sample: SamplingData,
+                      y_sample: SamplingData,
                       trust: float = 0.05):
-        N = len(x)
+        N = len(x_sample)
+        x = x_sample.getRaw()
+        y = y_sample.getRaw()
         S = 0
         for i in range(N):
             if x[i] - y[i] > 0:
@@ -253,9 +264,10 @@ class SamplesCriteria:
         S = (2 * S - 1 - N) / N ** 0.5
 
         print("S*="
-              f"{S} <= {QuantileNorm(1 - trust)}")
-        return S <= QuantileNorm(1 - trust)
+              f"{S} < {QuantileNorm(1 - trust)}")
+        return S < QuantileNorm(1 - trust)
 
+# Критерій Кохрена
     def critetionKohrena(self, samples, trust: float = 0.05) -> bool:
         k = len(samples)
         N = len(samples[0].getRaw())
@@ -290,7 +302,6 @@ class SamplesCriteria:
                     and self.critetionUtest(x, y, trust) \
                     and self.critetionDiffAvrRanges(x, y, trust) \
                     and self.critetionSign(x, y, trust)
-        return False
 
     def identKSamples(self, samples: list, trust: float = 0.05):
         if len(samples[0]) == 2:
@@ -374,12 +385,10 @@ class SamplesCriteria:
         k = len(samples)
         for i in range(0, k - 1, 2):
             d = DoubleSampleData(samples[i], samples[i + 1])
-            d.toRanking()
             d.toCalculateCharacteristic()
             r.append(d.r)
         if len(samples) % 2 == 1:
             d = DoubleSampleData(samples[0], samples[-1])
-            d.toRanking()
             d.toCalculateCharacteristic()
             r.append(d.r)
 
@@ -391,3 +400,83 @@ class SamplesCriteria:
                 [N(i) - 3 for i in range(k)])
         print(f"{x_2} <= {QuantilePearson(1 - trust, k - 1)}")
         return x_2 <= QuantilePearson(1 - trust, k - 1)
+
+    def identAvrAndDC(self, samples1: list[SamplingData],
+                      samples2: list[SamplingData]):
+        def x(i, j): return samples1[i].getRaw()[j]
+        def y(i, j): return samples2[i].getRaw()[j]
+        N1 = len(samples1[0].getRaw())
+        N2 = len(samples1[0].getRaw())
+        n = len(samples1)
+
+        S0 = np.zeros((n, n))
+        S1 = np.zeros((n, n))
+        div1 = 1 / (N1 + N2 - 2)
+        div2 = 1 / (N1 + N2)
+        for i in range(n):
+            for j in range(n):
+                E_xx_E_yy = sum([x(i, k) * x(j, k) for k in range(N1)]) +\
+                    sum([y(i, k) * y(j, k) for k in range(N2)])
+                E_xi = sum([x(i, k) for k in range(N1)])
+                E_yi = sum([y(i, k) for k in range(N2)])
+                E_xj = sum([x(j, k) for k in range(N1)])
+                E_yj = sum([y(j, k) for k in range(N2)])
+                S0[i][j] = div1 * (E_xx_E_yy -
+                                   div2 * (E_xi + E_yi) * (E_xj + E_yj))
+                S1[i][j] = div1 * (E_xx_E_yy -
+                                   1 / N1 * E_xi * E_xj -
+                                   1 / N2 * (E_yi + E_yj))
+        V = - (N1 + N2 - 2 - n / 2) * math.log(
+            np.linalg.det(S1) / np.linalg.det(S0))
+        X_2 = QuantilePearson(1 - self.trust, n)
+        print(f"{V} <= {X_2}")
+        return V <= X_2
+
+    def identAvr(self, samples: list[list[SamplingData]]):
+        k = len(samples)
+        n = len(samples[0])
+        def N(d: int): return len(samples[d][0])
+
+        x__cache = [np.array([[s.x_] for s in samples[d]]) for d in range(k)]
+        def x_(d: int): return x__cache[d]
+
+        def X(d: int, i: int):
+            return np.array([[s.getRaw()[i]] for s in samples[d]])
+
+        def S(d: int): return 1 / (N(d) - 1) * sum(
+            [(X(d, i) - x_(d)) @ np.transpose(X(d, i) - x_(d))
+             for i in range(N(d))])
+
+        _x_ = np.linalg.inv(
+            sum([N(d) * np.linalg.inv(S(d)) for d in range(k)])
+            ) @ sum([N(d) * np.linalg.inv(S(d)) @ x_(d) for d in range(k)])
+        V = sum([N(d) * np.transpose(x_(d) - _x_) @
+                 np.linalg.inv(S(d)) @ (x_(d) - _x_) for d in range(k)])
+        X_2 = QuantilePearson(1 - self.trust, n * (k - 1))
+        V = V[0][0]
+        print(f"V={V} <= {X_2}")
+        return V <= X_2
+
+    def identDC(self, samples: list[list[SamplingData]]):
+        k = len(samples)
+        n = len(samples[0])
+        def N(d: int): return len(samples[d][0])
+
+        x__cache = [np.array([[s.x_] for s in samples[d]]) for d in range(k)]
+        def x_(d: int): return x__cache[d]
+
+        def X(d: int, i: int):
+            return np.array([[s.getRaw()[i]] for s in samples[d]])
+
+        def S(d: int): return 1 / (N(d) - 1) * sum(
+            [(X(d, i) - x_(d)) @ np.transpose(X(d, i) - x_(d))
+             for i in range(N(d))])
+
+        N_g = sum([N(d) for d in range(k)])
+        det_S_g = np.linalg.det(1 / (N_g - k) * sum([(N(d) - 1) * S(d)
+                                                     for d in range(k)]))
+        V = sum([(N(d) - 1) / 2 * math.log(det_S_g / np.linalg.det(S(d)))
+                 for d in range(k)])
+        X_2 = QuantilePearson(1 - self.trust, n * (n + 1) * (k - 1) // 2)
+        print(f"V={V} <= {X_2}")
+        return V <= X_2

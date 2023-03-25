@@ -1,3 +1,5 @@
+from time import time
+import numpy as np
 import math
 from functions import (
     QuantileNorm, QuantileTStudent, QuantilePearson,
@@ -12,6 +14,14 @@ NM_SMBLS = 32
 VL_SMBLS = 16
 
 
+def timer(function):
+    def wrapper(*args):
+        t = time()
+        function(*args)
+        print(f"{function.__name__}={time() - t}sec")
+    return wrapper
+
+
 def calc_reproduction_dx(x_start: float,
                          x_end: float,
                          n=500) -> float:
@@ -22,7 +32,7 @@ def calc_reproduction_dx(x_start: float,
     return (x_end - x_start) / n
 
 
-def toMakeRange(x):  # (xl, rx)
+def toCalcRankSeries(x):  # (xl, rx)
     N_G = len(x)
     prev = x[0][0]
     x[0][1] = 1
@@ -65,9 +75,8 @@ def MED(r):
 
 class SamplingData:
     def __init__(self, not_ranked_series_x: list[float], trust: float = 0.05):
-        self.raw_x = not_ranked_series_x.copy()
+        self.raw_x = np.array(not_ranked_series_x)
         self._x = not_ranked_series_x.copy()
-        self.probabilityX: list[float] = []
         self.countX: list[int] = []
         self.trust = trust
         self.min = 0.0
@@ -106,7 +115,7 @@ class SamplingData:
             t.toCalculateCharacteristic()
         return t
 
-    def getRaw(self) -> list:
+    def getRaw(self) -> np.ndarray:
         return self.raw_x
 
     @staticmethod  # number of classes
@@ -122,24 +131,20 @@ class SamplingData:
 
     def toRanking(self):
         self._x.sort()
-
         prev = self._x[0] - 1
         number_all_observ = 0
         number_of_deleted_items = 0
         self.countX = []
-        self.probabilityX = []
         for i in range(len(self._x)):
             if prev == self._x[i - number_of_deleted_items]:
                 self._x.pop(i - number_of_deleted_items)
                 number_of_deleted_items += 1
             else:
                 self.countX.append(0)
-            self.countX[len(self.countX) - 1] += 1
+            self.countX[-1] += 1
             prev = self._x[i - number_of_deleted_items]
             number_all_observ += 1
-
-        for i in range(len(self.countX)):
-            self.probabilityX.append(self.countX[i] / number_all_observ)
+        self.probabilityX = [c / number_all_observ for c in self.countX]
 
     def setTrust(self, trust: float):
         self.trust = trust
@@ -156,13 +161,10 @@ class SamplingData:
         self.MAD = 1.483 * self.MED
 
         PERCENT_USICH_SER = self.trust
-        self.x_a = 0.0
         k = int(PERCENT_USICH_SER * N)
-        for i in range(k + 1, N - k):
-            self.x_a += self._x[i]
-        self.x_a /= N - 2 * k
+        self.x_a = sum([self._x[i] for i in range(k + 1, N - k)]) / (N - 2 * k)
 
-        xl = [0] * (N * (N - 1) // 2)
+        xl = [0.0] * (N * (N - 1) // 2)
         ll = 0
         for i in range(N):
             for j in range(i, N - 1):
@@ -171,7 +173,7 @@ class SamplingData:
 
         self.MED_Walsh = MED(xl)
 
-        self.x_ = sum([self._x[i] * self.probabilityX[i] for i in range(N)])
+        self.x_ = sum(self._x) / N
 
         nu2 = 0.0
         u2 = 0.0
@@ -182,12 +184,13 @@ class SamplingData:
         u8 = 0.0
         for i in range(N):
             nu2 += self._x[i] ** 2 * self.probabilityX[i]
-            u2 += (self._x[i] - self.x_) ** 2 * self.probabilityX[i]
-            u3 += (self._x[i] - self.x_) ** 3 * self.probabilityX[i]
-            u4 += (self._x[i] - self.x_) ** 4 * self.probabilityX[i]
-            u5 += (self._x[i] - self.x_) ** 5 * self.probabilityX[i]
-            u6 += (self._x[i] - self.x_) ** 6 * self.probabilityX[i]
-            u8 += (self._x[i] - self.x_) ** 8 * self.probabilityX[i]
+            x_x_ = self._x[i] - self.x_
+            u2 += x_x_ ** 2 * self.probabilityX[i]
+            u3 += x_x_ ** 3 * self.probabilityX[i]
+            u4 += x_x_ ** 4 * self.probabilityX[i]
+            u5 += x_x_ ** 5 * self.probabilityX[i]
+            u6 += x_x_ ** 6 * self.probabilityX[i]
+            u8 += x_x_ ** 8 * self.probabilityX[i]
 
         # u2 -= self.x_ ** 2
         self.S_slide = nu2 - self.x_ ** 2
@@ -209,7 +212,7 @@ class SamplingData:
             self.E = math.inf
             self.c_E = math.inf
 
-        if self.x_ != 0:
+        if self.x_:
             self.W_ = self.Sigma / self.x_
         else:
             self.W_ = math.inf
@@ -271,18 +274,15 @@ class SamplingData:
 
         self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * QUANT_I
 
-    def setSeries(self, not_ranked_series_x: list[float]):
-        self._x = not_ranked_series_x.copy()
+    def setSeries(self, not_ranked_series_x):
+        SamplingData.__init__(self, not_ranked_series_x)
         self.toRanking()
         self.toCalculateCharacteristic()
 
 # edit sample
     def remove(self, minimum: float, maximum: float):
-        new_raw_x = []
-        for i in self.raw_x:
-            if minimum <= i <= maximum:
-                new_raw_x.append(i)
-        if len(new_raw_x) != len(self.raw_x):
+        new_raw_x = [x for x in self.getRaw() if minimum <= x <= maximum]
+        if len(new_raw_x) != len(self.getRaw()):
             self.setSeries(new_raw_x)
 
     def autoRemoveAnomaly(self) -> bool:
@@ -303,67 +303,51 @@ class SamplingData:
             a = self.x_ - t1 * self.S
             b = self.x_ + t1 * self.S
 
+        raw_x = list(self.raw_x)
+
         for i in range(N // 2 + N % 2):
             left_x = self._x[i]
             right_x = self._x[-i - 1]
             if not (a <= left_x <= b) and not (a <= right_x <= b):
                 if abs(a - left_x) > abs(b - right_x):
-                    self.raw_x.remove(left_x)
+                    raw_x.remove(left_x)
                 else:
-                    self.raw_x.remove(right_x)
+                    raw_x.remove(right_x)
                 is_item_del = True
                 break
             elif self._x[i] <= a:
-                self.raw_x.remove(left_x)
+                raw_x.remove(left_x)
                 is_item_del = True
                 break
             elif self._x[-i - 1] >= b:
-                self.raw_x.remove(right_x)
+                raw_x.remove(right_x)
                 is_item_del = True
                 break
 
         if is_item_del:
-            self.toRanking()
-            self.toCalculateCharacteristic()
+            self.setSeries(raw_x)
         return is_item_del
 
     def toLogarithmus10(self):
-        if self.min < 0:
-            self.toStandardization()
-            self.toSlide(3)
-        for i in range(len(self.raw_x)):
-            self.raw_x[i] = math.log10(self.raw_x[i])
-        self.setSeries(self.raw_x)
+        self.setSeries([math.log10(x) for x in self.getRaw()])
 
     def toExp(self):
-        for i in range(len(self.raw_x)):
-            self.raw_x[i] = math.exp(self.raw_x[i], 10)
-        self.setSeries(self.raw_x)
+        self.setSeries([math.exp(x) for x in self.getRaw()])
 
     def toStandardization(self):
-        for i in range(len(self.raw_x)):
-            self.raw_x[i] = (self.raw_x[i] - self.x_) / self.Sigma
-        self.setSeries(self.raw_x)
+        self.setSeries([(x - self.x_) / self.Sigma for x in self.getRaw()])
 
     def toSlide(self, value: float = 1):
-        for i in range(len(self.raw_x)):
-            self.raw_x[i] += value
-        self.setSeries(self.raw_x)
+        self.setSeries([x + value for x in self.getRaw()])
 
     def toMultiply(self, value: float = 1):
-        for i in range(len(self.raw_x)):
-            self.raw_x[i] *= value
-        self.setSeries(self.raw_x)
+        self.setSeries([x * value for x in self.getRaw()])
 
     def toBinarization(self, x_):
-        for i in range(len(self.raw_x)):
-            self.raw_x[i] = 1.0 if self.raw_x[i] > x_ else 0.0
-        self.setSeries(self.raw_x)
+        self.setSeries([1 if x > x_ else 0 for x in self.getRaw()])
 
     def toTransform(self, f_tr):
-        for i in range(len(self.raw_x)):
-            self.raw_x[i] = f_tr(self.raw_x[i])
-        self.setSeries(self.raw_x)
+        self.setSeries([f_tr(x) for x in self.getRaw()])
 # end edit
 
     def toCreateNormalFunc(self) -> tuple:
@@ -527,15 +511,22 @@ class SamplingData:
             alpha_zgodi = 0.05
         else:
             alpha_zgodi = 0.3
+        self.kolmogorov_pz = Pz
+        self.kolmogorov_alpha_zgodi = alpha_zgodi
+        return Pz >= alpha_zgodi
 
-        if Pz >= alpha_zgodi:
-            return True
+    def kolmogorovTestProtocol(self, res):
+        crits = f"{self.kolmogorov_pz:.5} >= {self.kolmogorov_alpha_zgodi:.5}"
+        if res:
+            return "Відтворення адекватне за критерієм" \
+                f" згоди Колмогорова: {crits}"
         else:
-            return False
+            return "Відтворення неадекватне за критерієм" \
+                f" згоди Колмогорова: {crits}"
 
     def xiXiTest(self,
                  func_reproduction,
-                 hist_list: list) -> bool:  # Pearson test
+                 hist_list: list):  # Pearson test
         hist_num = []
         M = len(hist_list)
         h = abs(self.max - self.min) / M
@@ -556,10 +547,18 @@ class SamplingData:
             Xi += (hist_num[i] - ni_o) ** 2 / ni_o
 
         Xi2 = QuantilePearson(1 - self.trust, M - 1)
-        if Xi < Xi2:
-            return True
+        self.xixitest_x_2 = Xi
+        self.xixitest_quant = Xi2
+        return Xi < Xi2
+
+    def xiXiTestProtocol(self, res):
+        crits = f"{self.kolmogorov_pz:.5} < {self.xixitest_quant:.5}"
+        if res:
+            return "Відтворення адекватне за критерієм" \
+                f" Пірсона: {crits}"
         else:
-            return False
+            return "Відтворення неадекватне за критерієм" \
+                f" Пірсона: {crits}"
 
     def get_histogram_data(self, number_of_column: int) -> list:
         n = len(self._x)
@@ -569,13 +568,11 @@ class SamplingData:
         elif number_of_column <= len(self._x):
             M = SamplingData.calculateM(n)
         h = abs(self.max - self.min) / M
-        hist_list: list[float] = [0.0] * M
-        j = 0
-        begin_j = self[0]
-        for i in range(M):
-            while j < n and begin_j + h * (i + 1) >= self[j]:
-                hist_list[i] += self.probabilityX[j]
-                j += 1
+        hist_list = [0.0] * M
+        for i in range(n - 1):
+            j = math.floor((self._x[i] - self.min) / h)
+            hist_list[j] += self.probabilityX[i]
+        hist_list[-1] += self.probabilityX[-1]
         return hist_list
 
     def getProtocol(self) -> str:
@@ -682,17 +679,8 @@ def formatValue(v: str) -> str:
     return v.center(VL_SMBLS)
 
 
-def formatRow2Value(name: str, v1, v2) -> str:
-    return formatName(name) + \
-        formatValue(v1) + \
-        formatValue(v2)
-
-
-def formRow3V(name: str, v1, v2, v3) -> str:
-    return formatRow2Value(name, v1, v2) + \
-        formatValue(v3)
-
-
-def formRow4V(name: str, v1, v2, v3, v4) -> str:
-    return formRow3V(name, v1, v2, v3) + \
-        formatValue(v4)
+def formRowNV(name: str, *args) -> str:
+    row = formatName(name)
+    for arg in args:
+        row += formatValue(arg)
+    return row

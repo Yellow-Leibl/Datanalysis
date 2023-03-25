@@ -13,6 +13,13 @@ def DF2Parametr(dF_d_theta1, dF_d_theta2, D_theta1, D_theta2, cov_theta12):
 
 
 # kvant
+c0 = 2.515517
+c1 = 0.802853
+c2 = 0.010328
+d1 = 1.432788
+d2 = 0.1892659
+d3 = 0.001308
+Ea = 4.5 * 10 ** -4
 
 
 def QuantileNorm(alpha):
@@ -21,13 +28,6 @@ def QuantileNorm(alpha):
     else:
         p = 1 - alpha
     t = math.log(1 / p ** 2) ** 0.5
-    c0 = 2.515517
-    c1 = 0.802853
-    c2 = 0.010328
-    d1 = 1.432788
-    d2 = 0.1892659
-    d3 = 0.001308
-    Ea = 4.5 * 10 ** -4
     u = t - (c0 + c1 * t + c2 * t ** 2) / (
         1 + d1 * t + d2 * t ** 2 + d3 * t ** 3) + Ea
     if alpha <= 0.5:

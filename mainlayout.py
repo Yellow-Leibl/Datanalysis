@@ -4,15 +4,21 @@ from PyQt6.QtWidgets import (
     QTableWidget, QAbstractItemView,
     QTextEdit, QTabWidget,
     QHBoxLayout, QVBoxLayout, QFormLayout,
-    QLabel, QMessageBox)
+    QLabel, QMessageBox, QMenu, QSplitter)
+from PyQt6.QtCore import Qt
 from PlotWidget import PlotWidget
 
 import platform
 
 from GeneralConstants import (
-    dict_edit, dict_edit_shortcut, dict_reproduction, dict_repr_shortcut,
-    dict_crit, dict_crit_shortcut, dict_regression, dict_regr_shortcut,
-    dict_file_shortcut, Edit, Critetion)
+    dict_edit, dict_edit_shortcut, dict_crit, dict_crit_shortcut,
+    dict_regression, dict_regr_shortcut,
+    dict_file_shortcut, Edit, Critetion, dict_view_shortcut)
+
+
+def addAction(menu: QMenu, title, action, shortcut_dict):
+    menu.addAction(title, action)
+    menu.actions()[-1].setShortcut(shortcut_dict[title])
 
 
 class MainLayout(QMainWindow):
@@ -69,24 +75,23 @@ class MainLayout(QMainWindow):
         self.criterion_protocol.setFontFamily(MonoFontForSpecificOS())
 
         # table and textEdit tab
-        tab_text_info = QTabWidget()
-        tab_text_info.addTab(self.protocol, "Протокол")
-        tab_text_info.addTab(self.criterion_protocol, "Критерії")
-        tab_text_info.addTab(self.table, "Ранжований ряд")
+        self.tab_info = QTabWidget()
+        self.tab_info.addTab(self.protocol, "Протокол")
+        self.tab_info.addTab(self.criterion_protocol, "Критерії")
+        self.tab_info.addTab(self.table, "Ранжований ряд")
 
         # grid with transform func
         widget_func = QVBoxLayout()
         form_widget = QFormLayout()
         form_widget.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        widget_func.addLayout(form_widget)
-
         form_widget.addRow("Кількість класів:",
                            self.__spin_number_column)
         form_widget.addRow("Рівень значущості:",
                            self.__spin_box_level)
+        widget_func.addLayout(form_widget)
 
-        self.createMenuBar1d()
+        self.createMenuBar()
 
         # borders
         borders = QHBoxLayout()
@@ -99,16 +104,16 @@ class MainLayout(QMainWindow):
 
         # tab and add. functionality
         info_text_box = QHBoxLayout()
-        info_text_box.addWidget(tab_text_info, 3)
+        info_text_box.addWidget(self.tab_info, 3)
         info_text_box.addLayout(widget_func, 1)
+        info_wid = QWidget()
+        info_wid.setLayout(info_text_box)
 
-        main_vbox = QVBoxLayout()
-        main_vbox.addWidget(self.plot_widget, 3)
-        main_vbox.addLayout(info_text_box, 1)
+        main_vbox = QSplitter(Qt.Orientation.Vertical)
+        main_vbox.addWidget(self.plot_widget)
+        main_vbox.addWidget(info_wid)
 
-        widget = QWidget()
-        widget.setLayout(main_vbox)
-        self.setCentralWidget(widget)
+        self.setCentralWidget(main_vbox)
 
     def createPlotLayout(self, n: int):
         if n == 1:
@@ -118,48 +123,50 @@ class MainLayout(QMainWindow):
         elif n == 3:
             self.plot_widget.create3DPlot()
 
-    def createMenuBar1d(self):
+    def createMenuBar(self):
         # File menu
         menuBar = self.menuBar()
         file_menu = menuBar.addMenu("&Файл")
-        file_menu.addAction("&Відкрити", lambda: self.openFile(''))
-        file_menu.actions()[-1].setShortcut(dict_file_shortcut["&Відкрити"])
-        file_menu.addAction("&Зберегти", self.saveFileAct)
-        file_menu.actions()[-1].setShortcut(dict_file_shortcut["&Зберегти"])
-        file_menu.addAction("В&ийти", exit)
-        file_menu.actions()[-1].setShortcut(dict_file_shortcut["В&ийти"])
+        addAction(file_menu, "&Відкрити", lambda: self.openFile(''),
+                  dict_file_shortcut)
+        addAction(file_menu, "&Зберегти", self.saveFileAct,
+                  dict_file_shortcut)
+        addAction(file_menu, "В&ийти", self.saveFileAct,
+                  dict_file_shortcut)
 
         # Editing menu
         edit_menu = menuBar.addMenu("&Редагувати")
         for k, v in dict_edit.items():
             if v == Edit.DRAW_SAMPLES.value:
-                edit_menu.addAction(k, self.drawSamples)
+                addAction(edit_menu, k, self.drawSamples, dict_edit_shortcut)
             elif v == Edit.DELETE_SAMPLES.value:
-                edit_menu.addAction(k, self.deleteSamples)
+                addAction(edit_menu, k, self.deleteSamples, dict_edit_shortcut)
             elif v == Edit.DUPLICATE.value:
-                edit_menu.addAction(k, self.duplicateSample)
+                addAction(edit_menu, k, self.duplicateSample,
+                          dict_edit_shortcut)
             else:
-                edit_menu.addAction(k, self.editSampleEvent)
-            edit_menu.actions()[-1].setShortcut(dict_edit_shortcut[k])
+                addAction(edit_menu, k, self.editSampleEvent,
+                          dict_edit_shortcut)
             if k == "&Видалити аномалії":
                 edit_menu.addSeparator()
         self.reprod_num = -1
 
-        # Reproduction menu
-        vidt_menu = menuBar.addMenu("&Відтворити")
-        for k, v in dict_reproduction.items():
-            if k == "&Очистити":
-                vidt_menu.addSeparator()
-            vidt_menu.addAction(k, self.setReproductionSeries)
-            vidt_menu.actions()[-1].setShortcut(dict_repr_shortcut[k])
+        view_menu = menuBar.addMenu("&Вигляд")
+        for k, v in dict_view_shortcut.items():
+            if k == "&Наступна вкладка":
+                addAction(view_menu, k,
+                          lambda: self.tab_info.setCurrentIndex(
+                              (self.tab_info.currentIndex() + 1)
+                              % len(self.tab_info.tabBar())),
+                          dict_view_shortcut)
 
         # Regression menu
         regr_menu = menuBar.addMenu("&Регресія")
         for k, v in dict_regression.items():
-            if k == "&Очистити":
+            if v == 5 or v == 9 or v == 10:
                 regr_menu.addSeparator()
-            regr_menu.addAction(k, self.setReproductionSeries)
-            regr_menu.actions()[-1].setShortcut(dict_regr_shortcut[k])
+            addAction(regr_menu, k, self.setReproductionSeries,
+                      dict_regr_shortcut)
 
         # Critetion menu
         crit_menu = menuBar.addMenu("&Критерії")

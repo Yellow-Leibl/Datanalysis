@@ -26,7 +26,7 @@ def generateUniform(N: int = 1000):
     return sample
 
 
-def generateExp(alpha, N: int = 1000):
+def generateExp(alpha=1, N: int = 1000):
     sample = []
     for i in range(N):
         sample.append(alpha * math.log(1 / (1 - r.random())))
@@ -42,7 +42,7 @@ def generateWeibulla(N: int = 1000):
     return sample
 
 
-def generateArcsin(b, N: int = 1000):
+def generateArcsin(b=1, N=1000):
     sample = []
     for i in range(N):
         x = np.average([r.random() * b for i in range(5000)])
@@ -50,7 +50,7 @@ def generateArcsin(b, N: int = 1000):
     return sample
 
 
-def binaryData(N: int = 1000):
+def binaryData(N=1000):
     sample = generateNormal(N=N)
     x = SamplingData(sample)
     x.toRanking()
@@ -59,9 +59,8 @@ def binaryData(N: int = 1000):
     return x.getRaw()
 
 
-def generateLine(m1: float = 0, m2: float = 0,
-                 sigma1: float = 1, sigma2: float = 1,
-                 r_x_y: float = 0.5, N: int = 1000):
+def generateLine(m1=0.0, m2=0.0, sigma1=1.0, sigma2=1.0, r_x_y=0.75,
+                 N=1000):
     z1 = generateNormal(N=N)
     z2 = generateNormal(N=N)
 
@@ -82,35 +81,43 @@ def generateParable(r: float = 0.01, N: int = 1000):
     return x, y
 
 
-def generateExp2D(a, b, N: int = 1000):
+def generateExp2D(a=1, b=1, N: int = 1000):
     x = generateUniform(N=N)
     y = [a * (math.exp(b * xi + r.random()) + r.random()) for xi in x]
     return x, y
 
 
 def generateSample(number_sample: int = 1,
-                   a: float = 0, b: float = 1,
-                   n: int = 1000, vec_n: int = 2) -> str:
+                   n: int = 1000, vec_n: int = 2,
+                   parameters=[]) -> str:
     rozp = []
     for i in range(vec_n):
         if number_sample == 1:
-            rozp.append(generateNormal(a, b, n))
+            rozp.append(generateNormal(n))
         if number_sample == 2:
             rozp.append(generateUniform(n))
         if number_sample == 3:
-            rozp.append(generateExp(a, n))
+            rozp.append(generateExp(n))
         if number_sample == 4:
             rozp.append(generateWeibulla(n))
         if number_sample == 5:
-            rozp.append(generateArcsin(b, n))
+            rozp.append(generateArcsin(N=n))
         if number_sample == 6:
-            rozp.append(binaryData(n))
+            rozp.append(binaryData(N=n))
         if number_sample == 7:
-            x, y = generateLine(N=n, m2=4)
+            if len(parameters) == 5:
+                x, y = generateLine(parameters[0], parameters[1],
+                                    parameters[2], parameters[3],
+                                    parameters[4], N=n)
+            else:
+                x, y = generateLine(N=n)
             rozp.append(x)
             rozp.append(y)
         if number_sample == 8:
-            x, y = generateParable(N=n)
+            if len(parameters) == 1:
+                x, y = generateParable(parameters[0], N=n)
+            else:
+                x, y = generateParable(N=n)
             rozp.append(x)
             rozp.append(y)
         if number_sample == 9:
@@ -126,7 +133,7 @@ def generateSample(number_sample: int = 1,
 if __name__ == "__main__":
     while (True):
         t1 = time()
-        all_file = generateSample(number_sample=8, vec_n=2, n=5000)
+        all_file = generateSample(number_sample=7, vec_n=3, n=1000)
         # with open("norm5n.txt", 'w') as f:
         #     f.write(all_file)
         print(f"generation time={time() - t1}")

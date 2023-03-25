@@ -48,44 +48,38 @@ dict_edit_shortcut = {
     "Видалити &розподіл":   Qt.Key.Key_Backspace
 }
 
-dict_reproduction = {
+dict_regression = {
+    # 1D
     "&Нормальний":          0,
     "&Рівномірний":         1,
     "&Експоненціальний":    2,
     "&Вейбулла":            3,
     "&Арксинус":            4,
-    "&Очистити":            5,
+    # 2D
+    "Лінійна &МНК":         5,
+    "Лінійна Метод &Тейла": 6,
+    "&Парабола":            7,
+    "Квазілінійна: y = a * exp(b * x)":   8,
+    # 3D
+    "Лінійна МНК":         9,
+
+    "&Очистити":            10,
 }
-dict_repr_shortcut = {
+dict_regr_shortcut = {
+    # 1D
     "&Нормальний":          QKeySequence("Ctrl+Alt+N"),
     "&Рівномірний":         QKeySequence("Ctrl+Alt+U"),
     "&Експоненціальний":    QKeySequence("Ctrl+Alt+E"),
     "&Вейбулла":            QKeySequence("Ctrl+Alt+W"),
     "&Арксинус":            QKeySequence("Ctrl+Alt+A"),
-    "&Очистити":            QKeySequence("Ctrl+Alt+C"),
-}
-
-dict_regression = {
-    "Лінійна &МНК":         0,
-    "Лінійна Метод &Тейла": 1,
-    "&Парабола":            2,
-    "Квазілінійна: y = a * exp(b * x)":   3,
-    "&Очистити":            4,
-}
-
-dict_regr_shortcut = {
+    # 2D
     "Лінійна &МНК":         QKeySequence("Ctrl+Alt+M"),
     "Лінійна Метод &Тейла": QKeySequence("Ctrl+Alt+T"),
     "&Парабола":            QKeySequence("Ctrl+Alt+P"),
     "Квазілінійна: y = a * exp(b * x)": QKeySequence("Ctrl+Alt+K"),
+    # 3D
+    "Лінійна МНК":          QKeySequence("Ctrl+Alt+V"),
     "&Очистити":            QKeySequence("Ctrl+Alt+C"),
-}
-
-
-dict_file = {
-    "&Відкрити":            0,
-    "&Зберегти":            1,
-    "В&ийти":               2
 }
 
 
@@ -93,4 +87,8 @@ dict_file_shortcut = {
     "&Відкрити":            QKeySequence("Ctrl+O"),
     "&Зберегти":            QKeySequence("Ctrl+S"),
     "В&ийти":               QKeySequence("Ctrl+Q"),
+}
+
+dict_view_shortcut = {
+    "&Наступна вкладка":  QKeySequence("Alt+Tab"),
 }

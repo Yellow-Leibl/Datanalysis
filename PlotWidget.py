@@ -1,13 +1,11 @@
 from PyQt6.QtWidgets import QStackedWidget
 import pyqtgraph as pg
-import matplotlib as plt
-import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from Datanalysis.SamplingData import SamplingData
 from Datanalysis.DoubleSampleData import DoubleSampleData
-
-plt.use('QtAgg')
+from Datanalysis.SamplingDatas import SamplingDatas
+import numpy as np
 
 pg.setConfigOption('imageAxisOrder', 'row-major')
 pg.setConfigOption('background', 'w')
@@ -115,19 +113,19 @@ class PlotWidget(QStackedWidget):
             y_emp.append(F(x))
             y_high.append(hF(x))
 
-        self.hist_plot.plot(x_gen, y_hist, pen=newPen((0, 0, 255), 3))
+        self.hist_plot.plot(x_gen, y_hist, pen=newPen((255, 0, 0), 3))
         self.emp_plot.plot(x_gen, y_low, pen=newPen((0, 128, 128), 2))
         self.emp_plot.plot(x_gen, y_emp, pen=newPen((0, 255, 255), 2))
         self.emp_plot.plot(x_gen, y_high, pen=newPen((128, 0, 128), 2))
 
-    def plot2D(self, d2: DoubleSampleData, hist_data: list[list]):
+    def plot2D(self, d2: DoubleSampleData, hist_data):
         x = d2.x
         y = d2.y
         if len(x.getRaw()) != len(y.getRaw()):
             return
 
         histogram_image = pg.ImageItem()
-        histogram_image.setImage(np.array(hist_data))
+        histogram_image.setImage(hist_data)
         width = x.max - x.min
         height = y.max - y.min
         histogram_image.setRect(x.min, y.min, width, height)
@@ -135,7 +133,7 @@ class PlotWidget(QStackedWidget):
         self.corr_plot.clear()
         self.corr_plot.addItem(histogram_image)
         self.corr_plot.plot(x.getRaw(), y.getRaw(),
-                            symbolBrush=(255, 0, 0, 175),
+                            symbolBrush=(30, 120, 180),
                             symbolPen=(0, 0, 0, 200), symbolSize=7,
                             pen=None)
 
@@ -159,20 +157,74 @@ class PlotWidget(QStackedWidget):
 
         self.corr_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
         self.corr_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
-        self.corr_plot.plot(x_gen, y_tr_lf, pen=newPen((0, 128, 255), 3))
-        self.corr_plot.plot(x_gen, y_tr_mf, pen=newPen((0, 128, 255), 3))
+        self.corr_plot.plot(x_gen, y_tr_lf, pen=newPen((255, 0, 255), 3))
+        self.corr_plot.plot(x_gen, y_tr_mf, pen=newPen((255, 0, 255), 3))
         self.corr_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
-        self.corr_plot.plot(x_gen, y_tr_f_mf, pen=newPen((128, 255, 128), 3))
-        self.corr_plot.plot(x_gen, y, pen=newPen((255, 0, 255), 3))
+        self.corr_plot.plot(x_gen, y_tr_f_mf, pen=newPen((0, 255, 128), 3))
+        self.corr_plot.plot(x_gen, y, pen=newPen((255, 0, 0), 3))
 
     def plot3D(self, d3: list[SamplingData]):
-        x = d3[0].getRaw()
-        y = d3[1].getRaw()
-        z = d3[2].getRaw()
+        x0_raw = d3[0].getRaw()
+        x1_raw = d3[1].getRaw()
+        x2_raw = d3[2].getRaw()
         self.__axes.clear()
-        self.__axes.scatter(x, y, z)
+        self.__axes.scatter(x0_raw, x1_raw, x2_raw)
+
+        self.__axes.set_xlabel("$X0$")
+        self.__axes.set_ylabel("$X1$")
+        self.__axes.set_zlabel("$X2$")
         self.__3d_figure.canvas.draw()
+
+    def plot3DReproduction(self, d3: SamplingDatas):
+        x0 = d3[0]
+        x1 = d3[1]
+        x0_min = x0.min
+        x0_max = x0.max
+        x0_plane = [x0_min, x0_max, x0_min, x0_max]
+        x1_min = x1.min
+        x1_max = x1.max
+        x1_plane = [x1_min, x1_max, x1_min, x1_max]
+        tr_l_f, f, tr_m_f = d3.toCreateLinearRegressionMNK(2)
+        X0, X1 = np.meshgrid(x0_plane, x1_plane)
+        zs_f = np.array(f(np.ravel(X0), np.ravel(X1)))
+        zs_tr_l_f = np.array(tr_l_f(np.ravel(X0), np.ravel(X1)))
+        zs_tr_m_f = np.array(tr_m_f(np.ravel(X0), np.ravel(X1)))
+        X2 = zs_f.reshape(X0.shape)
+        X2_l = zs_tr_l_f.reshape(X0.shape)
+        X2_m = zs_tr_m_f.reshape(X0.shape)
+        self.__axes.plot_surface(X0, X1, X2, alpha=0.1, color='red')
+        self.__axes.plot_surface(X0, X1, X2_l, alpha=0.0, color='purple')
+        self.__axes.plot_surface(X0, X1, X2_m, alpha=0.0, color='purple')
+
+        self.__3d_figure.canvas.draw()
+
+    def plotND(self, dn: SamplingDatas):
+        pass
 
 
 def newPen(color, width):
     return {'color': color, 'width': width}
+
+
+if __name__ == "__main__":
+    from mpl_toolkits.mplot3d import axes3d
+    import matplotlib.pyplot as plt
+
+    ax = plt.figure().add_subplot(projection='3d')
+    X, Y, Z = axes3d.get_test_data(0.025)
+
+    # Plot the 3D surface
+    ax.plot_surface(X, Y, Z, edgecolor='royalblue', lw=0.5,
+                    rstride=8, cstride=8, alpha=0.3)
+
+    # Plot projections of the contours for each dimension.  By choosing offsets
+    # that match the appropriate axes limits, the projected contours will sit
+    # on the 'walls' of the graph.
+    ax.contour(X, Y, Z, zdir='z', offset=-100, cmap='coolwarm')
+    ax.contour(X, Y, Z, zdir='x', offset=-40, cmap='coolwarm')
+    ax.contour(X, Y, Z, zdir='y', offset=40, cmap='coolwarm')
+
+    ax.set(xlim=(-40, 40), ylim=(-40, 40), zlim=(-100, 100),
+           xlabel='X', ylabel='Y', zlabel='Z')
+
+    plt.show()
