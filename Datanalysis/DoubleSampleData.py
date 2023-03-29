@@ -324,8 +324,7 @@ class DoubleSampleData(DoubleSampleRegression):
                 r += 1
                 s_y += h_y
             self.probability_table[r, c] += 1
-
-        printHistogram(self.probability_table, N)
+        # printHistogram(self.probability_table, N)
         return self.probability_table
 
     def remove(self, x, y, w, h):

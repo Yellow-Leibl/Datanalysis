@@ -16,6 +16,9 @@ class Window(MainLayout):
         self.datas = SamplingDatas()
         self.number_sample: list[int] = []
         self.reproduction_1d_F = None
+        self.d2_active: list[int] = []
+        self.datas_active: list[int] = []
+        self.regr_num = -1
         if is_file_name:
             self.openFile(file)
         else:
@@ -25,17 +28,15 @@ class Window(MainLayout):
         self.autoSelect()
 
     def autoSelect(self):
-        self.number_sample = [2, 1, 0]
+        self.number_sample = [2, 1, 0, 3]
         self.createPlotLayout(len(self.number_sample))
         self.regr_num = 9
         self.sampleChanged()
 
     def openFile(self, file_name: str):
         if file_name == '':
-            file_name = QFileDialog().getOpenFileName(self, "Відкрити файл",
-                                                      os.getcwd(),
-                                                      "Bci файли (*)")[0]
-
+            file_name, _ = QFileDialog().getOpenFileName(
+                self, "Відкрити файл", os.getcwd(), "Bci файли (*)")
         try:
             with open(file_name, 'r') as file:
                 self.loadFromData(file.readlines())
@@ -44,8 +45,7 @@ class Window(MainLayout):
 
     def loadFromData(self, all_file: list[str]):
         self.datas.append(all_file)
-        self.regr_num = -1
-        self.sampleChanged()
+        self.writeTable()
 
     def saveFileAct(self):
         file_name = QFileDialog().getSaveFileName(self, "Зберегти файл",
@@ -54,7 +54,6 @@ class Window(MainLayout):
         with open(file_name, 'w') as file:
             def safe_access(lst: list, i):
                 return str(lst[i]) if len(lst) > i else ''
-
             file.write('\n'.join(
                 [' '.join([safe_access(self.datas[j].getRaw(), i)
                            for j in range(len(self.datas))])
@@ -65,6 +64,14 @@ class Window(MainLayout):
         self.writeTable()
         self.writeProtocol()
         self.writeCritetion()
+
+    def getActiveSamples(self):
+        if self.is1d():
+            return self.datas[self.number_sample[0]]
+        elif self.is2d():
+            return self.d2
+        elif self.isNd():
+            return self.datas_act
 
     def editSampleEvent(self):
         act = Edit(dict_edit[self.sender().text()])
@@ -101,11 +108,12 @@ class Window(MainLayout):
 
     def drawSamples(self):
         sel = self.getSelectedRows()
-        if 0 == len(sel):
+        if 0 == len(sel) or sel == self.number_sample:
             return
         self.createPlotLayout(len(sel))
         self.number_sample = sel
         self.d2_active = [-1, -1]
+        self.datas_active = []
         self.regr_num = -1
         self.silentChangeNumberClasses(0)
         self.setMaximumColumnNumber(len(self.datas[sel[0]]._x))
@@ -140,13 +148,10 @@ class Window(MainLayout):
         self.writeCritetion()
 
     def changeTrust(self, trust: float):
-        if self.is1d():
-            self.datas[self.number_sample[0]].setTrust(trust)
-        elif self.is2d():
-            self.d2.setTrust(trust)
-        elif self.isNd():
-            self.datas_act.setTrust(trust)
-        self.sampleChanged()
+        s = self.getActiveSamples()
+        if s is not None:
+            s.setTrust(trust)
+            self.sampleChanged()
 
     def writeTable(self):
         self.table.clear()
@@ -165,13 +170,9 @@ class Window(MainLayout):
         self.writeProtocol()
 
     def writeProtocol(self):
-        if self.is1d():
-            d = self.datas[self.number_sample[0]]
-            self.protocol.setText(d.getProtocol())
-        elif self.is2d():
-            self.protocol.setText(self.d2.getProtocol())
-        elif self.isNd():
-            self.protocol.setText(self.datas_act.getProtocol())
+        s = self.getActiveSamples()
+        if s is not None:
+            self.protocol.setText(s.getProtocol())
 
     def writeCritetion(self):
         if self.is1d():
@@ -207,15 +208,13 @@ class Window(MainLayout):
             self.drawReproductionSeries2D()
         elif self.isNd():
             samples = [self.datas[i] for i in self.number_sample]
-            self.datas_act = SamplingDatas(samples)
-            self.datas_act.toCalculateCharacteristic()
-            if self.is3d():
-                self.plot_widget.plot3D(samples)
-                if self.regr_num == 9:
-                    self.drawReproductionSeries3D()
-            else:
-                if self.regr_num == 9:
-                    self.datas_act.toCreateLinearRegressionMNK(2)
+            if self.datas_active != self.number_sample:
+                self.datas_active = self.number_sample
+                self.datas_act = SamplingDatas(samples)
+                self.datas_act.toCalculateCharacteristic()
+            self.plot_widget.plotND(self.datas_act, number_column)
+            if self.regr_num == 9:
+                self.plot_widget.plotDiagnosticDiagram(self.datas_act)
 
     def drawReproductionSeries1D(self):
         d = self.datas[self.number_sample[0]]

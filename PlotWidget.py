@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import QStackedWidget
+from PyQt6.QtWidgets import QStackedWidget, QTabWidget
 import pyqtgraph as pg
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from Datanalysis.SamplingData import SamplingData
+from Datanalysis.SamplingData import SamplingData, timer
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from Datanalysis.SamplingDatas import SamplingDatas
 import numpy as np
@@ -15,16 +15,50 @@ pg.setConfigOption('foreground', 'k')
 class PlotWidget(QStackedWidget):
     def __init__(self) -> None:
         super().__init__()
-        #  2D
+        #  1D & 2D
         __2d_widget = pg.GraphicsLayoutWidget()
         self.__2d_layout = __2d_widget.ci
         #  3D
-        self.__3d_figure = Figure()
-        __3d_widget = FigureCanvasQTAgg(self.__3d_figure)
-        self.__axes = self.__3d_figure.add_subplot(projection='3d')
-
+        __3d_figure = Figure()
+        self.update_3d = lambda: __3d_figure.canvas.draw()
+        __3d_widget = FigureCanvasQTAgg(__3d_figure)
+        self.__3d_plot = __3d_figure.add_subplot(projection='3d')
+        #  Diagnostic diagram
+        __E_widget = pg.GraphicsLayoutWidget()
+        self.__3d_E_plot = __E_widget.ci.addPlot(
+            title="Похибка регресії",
+            labels={"left": "ε", "bottom": "Y"})
+        #  Scatter diagram
+        __scatter_widget = pg.GraphicsLayoutWidget()
+        self.__scatter_diagram_layout = __scatter_widget.ci
+        #  Parallel coordinates
+        __parallel_widget = pg.GraphicsLayoutWidget()
+        self.__parallel_layout = __parallel_widget.ci
+        #  Heat map
+        __heatmap_widget = pg.GraphicsLayoutWidget()
+        self.__heatmap_layout = __heatmap_widget.ci
+        #  Radar diagram
+        # __radar_figure = Figure()
+        # self.update_3d = lambda: __3d_figure.canvas.draw()
+        # __radar_widget = FigureCanvasQTAgg(__radar_figure)
+        # self.__radar_plot = __radar_figure.add_subplot(projection='polar')
+        #  N canvas
+        __nd_widget = QTabWidget()
+        __nd_widget.addTab(__parallel_widget, "Паралельні координати")
+        __nd_widget.addTab(__scatter_widget, "Діаграма розкиду")
+        __nd_widget.addTab(__3d_widget, "3-вимірний простір")
+        self.setEnabled3d = lambda: __nd_widget.setTabEnabled(2, True)
+        self.setDisabled3d = lambda: __nd_widget.setTabEnabled(2, False)
+        __nd_widget.addTab(__heatmap_widget, "Теплова карта")
+        # __nd_widget.addTab(__radar_widget, "Радарна діаграма")
+        __nd_widget.addTab(__E_widget, "Діагностична діаграма")
+        #  General canvas
         self.addWidget(__2d_widget)
-        self.addWidget(__3d_widget)
+        self.addWidget(__nd_widget)
+
+    #
+    #  Creating plot
+    #
 
     def create1DPlot(self):
         self.setCurrentIndex(0)
@@ -43,14 +77,75 @@ class PlotWidget(QStackedWidget):
             title="Корреляційне поле",
             labels={"left": "Y", "bottom": "X"})
 
-    def create3DPlot(self):
+    def createNDPlot(self, n):
+        if n == 3:
+            self.setEnabled3d()
+        else:
+            self.setDisabled3d()
+        self.createScatterPlot(n)
+        self.createParallelPlot(n)
+        self.createHeatmapPlot(n)
         self.setCurrentIndex(1)
+
+    def createScatterPlot(self, n):
+        self.__scatter_diagram_plots = []
+        self.__scatter_diagram_layout.clear()
+        # *
+        # 111 ... ... ...
+        # 000 111 ... ...
+        # 000 000 111 ...
+        # 000 000 000 111
+        #
+        # 111 000 000 000 111 000 000 111 000 111
+        # *
+        for i in range(n):
+            for j in range(i, n):
+                left = ""
+                bottom = ""
+                if i == 0:
+                    left = f"X{j+1}"
+                if j == n - 1:
+                    bottom = f"X{i+1}"
+                plot_item = self.__scatter_diagram_layout.addPlot(
+                    row=j, col=i, labels={"left": left, "bottom": bottom})
+                plot_item.getViewBox().setDefaultPadding(0.0)
+                self.__scatter_diagram_plots.append(plot_item)
+
+    def createParallelPlot(self, n):
+        x = [f"X{i+1}" for i in range(n)]
+        xdict = dict(enumerate(x))
+        self.__parallel_x_data = list(xdict.keys())
+        stringaxis = pg.AxisItem(orientation='bottom')
+        stringaxis.setTicks([xdict.items()])
+
+        self.__parallel_layout.clear()
+        self.__parallel_plot = self.__parallel_layout.addPlot(
+            labels={"left": "Умовні величини"},
+            axisItems={'bottom': stringaxis})
+
+    def createHeatmapPlot(self, n):
+        cols = [f"X{i+1}" for i in range(n)]
+        colsdict = dict(enumerate(cols))
+        # self.__heatmap_x_data = list(colsdict.keys())
+        colsaxis = pg.AxisItem(orientation='bottom')
+        colsaxis.setTicks([colsdict.items()])
+
+        self.__heatmap_layout.clear()
+        self.__heatmap_plot = self.__heatmap_layout.addPlot(
+            axisItems={'bottom': colsaxis})
+        self.__heatmap_plot.getViewBox().invertY(True)
+        self.__heatmap_plot.getViewBox().setDefaultPadding(0.0)
+
+    #
+    #  Plotting
+    #
 
     def plot1D(self, d: SamplingData, hist_data: list):
         self.plot1DHist(d, hist_data)
         self.plot1DEmp(d, hist_data)
 
-    def plot1DHist(self, d: SamplingData, hist_data: list):
+    def plot1DHist(self, d: SamplingData, hist_data: list,
+                   hist_plot: pg.PlotItem = None):
         h = abs(d.max - d.min) / len(hist_data)
         x = []
         y = []
@@ -65,9 +160,12 @@ class PlotWidget(QStackedWidget):
             y.append(i)
             y.append(i)
 
-        self.hist_plot.clear()
-        self.hist_plot.plot(x, y, fillLevel=0,
-                            brush=(30, 120, 180))
+        if hist_plot is None:
+            hist_plot = self.hist_plot
+        hist_plot.clear()
+        hist_plot.plot(x, y, fillLevel=0,
+                       brush=(30, 120, 180),
+                       pen=newPen((0, 0, 0), 1))
 
     def plot1DEmp(self, d: SamplingData, hist_data: list):
         h = abs(d.max - d.min) / len(hist_data)
@@ -118,7 +216,7 @@ class PlotWidget(QStackedWidget):
         self.emp_plot.plot(x_gen, y_emp, pen=newPen((0, 255, 255), 2))
         self.emp_plot.plot(x_gen, y_high, pen=newPen((128, 0, 128), 2))
 
-    def plot2D(self, d2: DoubleSampleData, hist_data):
+    def plot2D(self, d2: DoubleSampleData, hist_data, corr_plot=None):
         x = d2.x
         y = d2.y
         if len(x.getRaw()) != len(y.getRaw()):
@@ -130,12 +228,14 @@ class PlotWidget(QStackedWidget):
         height = y.max - y.min
         histogram_image.setRect(x.min, y.min, width, height)
 
-        self.corr_plot.clear()
-        self.corr_plot.addItem(histogram_image)
-        self.corr_plot.plot(x.getRaw(), y.getRaw(),
-                            symbolBrush=(30, 120, 180),
-                            symbolPen=(0, 0, 0, 200), symbolSize=7,
-                            pen=None)
+        if corr_plot is None:
+            corr_plot = self.corr_plot
+        corr_plot.clear()
+        corr_plot.addItem(histogram_image)
+        corr_plot.plot(x.getRaw(), y.getRaw(),
+                       symbolBrush=(30, 120, 180),
+                       symbolPen=(0, 0, 0, 200), symbolSize=7,
+                       pen=None)
 
     def plot2DReproduction(self, d2: DoubleSampleData,
                            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f):
@@ -164,67 +264,115 @@ class PlotWidget(QStackedWidget):
         self.corr_plot.plot(x_gen, y, pen=newPen((255, 0, 0), 3))
 
     def plot3D(self, d3: list[SamplingData]):
-        x0_raw = d3[0].getRaw()
-        x1_raw = d3[1].getRaw()
-        x2_raw = d3[2].getRaw()
-        self.__axes.clear()
-        self.__axes.scatter(x0_raw, x1_raw, x2_raw)
+        x1_raw = d3[0].getRaw()
+        x2_raw = d3[1].getRaw()
+        x3_raw = d3[2].getRaw()
+        self.__3d_plot.clear()
+        self.__3d_plot.set(xlabel="$X1$", ylabel="$X2$", zlabel="$X3$")
+        self.__3d_plot.scatter(x1_raw, x2_raw, x3_raw)
+        self.update_3d()
 
-        self.__axes.set_xlabel("$X0$")
-        self.__axes.set_ylabel("$X1$")
-        self.__axes.set_zlabel("$X2$")
-        self.__3d_figure.canvas.draw()
+    def plotDiagnosticDiagram(self, dn: SamplingDatas):
+        tr_l_f, f, tr_m_f = dn.toCreateLinearRegressionMNK(2)
+        self.__3d_E_plot.plot(dn.line_Y, dn.line_E,
+                              symbolBrush=(30, 120, 180),
+                              symbolPen=(0, 0, 0, 200), symbolSize=7,
+                              pen=None)
+        if len(dn) == 3:
+            self.plot3DReproduction(dn, tr_l_f, f, tr_m_f)
 
-    def plot3DReproduction(self, d3: SamplingDatas):
-        x0 = d3[0]
-        x1 = d3[1]
-        x0_min = x0.min
-        x0_max = x0.max
-        x0_plane = [x0_min, x0_max, x0_min, x0_max]
+    def plot3DReproduction(self, d3: SamplingDatas, tr_l_f, f, tr_m_f):
+        x1 = d3[0]
+        x2 = d3[1]
         x1_min = x1.min
         x1_max = x1.max
         x1_plane = [x1_min, x1_max, x1_min, x1_max]
-        tr_l_f, f, tr_m_f = d3.toCreateLinearRegressionMNK(2)
-        X0, X1 = np.meshgrid(x0_plane, x1_plane)
-        zs_f = np.array(f(np.ravel(X0), np.ravel(X1)))
-        zs_tr_l_f = np.array(tr_l_f(np.ravel(X0), np.ravel(X1)))
-        zs_tr_m_f = np.array(tr_m_f(np.ravel(X0), np.ravel(X1)))
-        X2 = zs_f.reshape(X0.shape)
-        X2_l = zs_tr_l_f.reshape(X0.shape)
-        X2_m = zs_tr_m_f.reshape(X0.shape)
-        self.__axes.plot_surface(X0, X1, X2, alpha=0.1, color='red')
-        self.__axes.plot_surface(X0, X1, X2_l, alpha=0.0, color='purple')
-        self.__axes.plot_surface(X0, X1, X2_m, alpha=0.0, color='purple')
+        x2_min = x2.min
+        x2_max = x2.max
+        x2_plane = [x2_min, x2_max, x2_min, x2_max]
+        X1, X2 = np.meshgrid(x1_plane, x2_plane)
+        zs_f = np.array(f(np.ravel(X1), np.ravel(X2)))
+        zs_tr_l_f = np.array(tr_l_f(np.ravel(X1), np.ravel(X2)))
+        zs_tr_m_f = np.array(tr_m_f(np.ravel(X1), np.ravel(X2)))
+        X3 = zs_f.reshape(X1.shape)
+        X3_l = zs_tr_l_f.reshape(X1.shape)
+        X3_m = zs_tr_m_f.reshape(X1.shape)
+        self.__3d_plot.plot_surface(X1, X2, X3, alpha=0.1, color='red')
+        self.__3d_plot.plot_surface(X1, X2, X3_l, alpha=0.05, color='purple')
+        self.__3d_plot.plot_surface(X1, X2, X3_m, alpha=0.05, color='purple')
+        self.update_3d()
 
-        self.__3d_figure.canvas.draw()
+    def plotScatterDiagram(self, dn: list[SamplingData], col):
+        n = len(dn)
+        diag_i = 0
+        slide_cells = 0
+        for i in range(n):
+            self.plot1DHist(dn[i], dn[i].get_histogram_data(col),
+                            self.__scatter_diagram_plots[diag_i])
+            diag_i += n - i
+            slide_cells += i
+            for j in range(diag_i - n + i + 1, diag_i):
+                d2 = DoubleSampleData(dn[i], dn[(j + slide_cells) % n])
+                self.plot2D(d2, d2.get_histogram_data(col),
+                            self.__scatter_diagram_plots[j])
 
-    def plotND(self, dn: SamplingDatas):
-        pass
+    def plotParallelCoordinates(self, dn: list[SamplingData]):
+        n = len(dn)
+        N = len(dn[0])
+
+        def tr2v(d: SamplingData, i):
+            return (d.getRaw()[i] - d.min) / (
+                d.max - d.min)
+        self.__parallel_plot.clear()
+        x_data = []
+        y_data = []
+        for i in range(N):
+            x_data += self.__parallel_x_data
+            y_data += [tr2v(dn[j], i) for j in range(n)]
+            x_data += self.__parallel_x_data[-2::-1]
+            y_data += [tr2v(dn[j], i) for j in range(n - 2, -1, -1)]
+
+        self.__parallel_plot.plot(x_data, y_data,
+                                  pen=newPen((0, 0, 255), 1))
+
+    def plotHeatMap(self, dn: SamplingDatas):
+        n = len(dn)
+        N = len(dn[0].getRaw())
+        histogram_image = pg.ImageItem()
+        values_image = np.array([s.getRaw() for s in dn.samples])
+        for i, row in enumerate(values_image):
+            values_image[i] = (row - dn[i].min) / dn[i].max
+        histogram_image.setImage(values_image.transpose())
+        histogram_image.setRect(-0.5, -0.5, n, N)
+        self.__heatmap_plot.addItem(histogram_image)
+        t = dict((i, f"{i+1}") for i in range(N)).items()
+        self.__heatmap_plot.getAxis("left").setTicks((t, []))
+
+    @timer
+    def plotND(self, dn: SamplingDatas, col=0):
+        self.__3d_E_plot.clear()
+        if len(dn) == 3:
+            self.plot3D(dn.samples)
+        self.plotScatterDiagram(dn.samples, col)
+        self.plotParallelCoordinates(dn.samples)
+        self.plotHeatMap(dn)
 
 
 def newPen(color, width):
     return {'color': color, 'width': width}
 
 
+#  Example matplotlib 3d
 if __name__ == "__main__":
     from mpl_toolkits.mplot3d import axes3d
     import matplotlib.pyplot as plt
-
     ax = plt.figure().add_subplot(projection='3d')
     X, Y, Z = axes3d.get_test_data(0.025)
-
-    # Plot the 3D surface
     ax.plot_surface(X, Y, Z, edgecolor='royalblue', lw=0.5,
                     rstride=8, cstride=8, alpha=0.3)
-
-    # Plot projections of the contours for each dimension.  By choosing offsets
-    # that match the appropriate axes limits, the projected contours will sit
-    # on the 'walls' of the graph.
     ax.contour(X, Y, Z, zdir='z', offset=-100, cmap='coolwarm')
     ax.contour(X, Y, Z, zdir='x', offset=-40, cmap='coolwarm')
     ax.contour(X, Y, Z, zdir='y', offset=40, cmap='coolwarm')
-
     ax.set(xlim=(-40, 40), ylim=(-40, 40), zlim=(-100, 100),
            xlabel='X', ylabel='Y', zlabel='Z')
-
     plt.show()

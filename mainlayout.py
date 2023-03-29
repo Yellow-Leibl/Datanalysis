@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QVBoxLayout, QFormLayout,
     QLabel, QMessageBox, QMenu, QSplitter)
 from PyQt6.QtCore import Qt
+from PyQt6 import QtGui
 from PlotWidget import PlotWidget
 
 import platform
@@ -66,6 +67,7 @@ class MainLayout(QMainWindow):
 
         # Protocol
         self.protocol = QTextEdit()
+        self.protocol.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.protocol.setReadOnly(True)
         self.protocol.setFontFamily(MonoFontForSpecificOS())
 
@@ -120,8 +122,8 @@ class MainLayout(QMainWindow):
             self.plot_widget.create1DPlot()
         elif n == 2:
             self.plot_widget.create2DPlot()
-        elif n == 3:
-            self.plot_widget.create3DPlot()
+        elif n >= 3:
+            self.plot_widget.createNDPlot(n)
 
     def createMenuBar(self):
         # File menu
@@ -226,6 +228,8 @@ def MonoFontForSpecificOS():
         return "Monospace"
 
 
+#  Examples pyqtgraph
 if __name__ == "__main__":
     import pyqtgraph.examples
     pyqtgraph.examples.run()
+# matrix display

@@ -145,12 +145,13 @@ class SamplingDatas(SamplesCriteria):
         A_ = np.linalg.inv(X_x @ np.transpose(X_x)) @ (X_x) @ Y_T
         self.line_A = A_
         a0 = y_ - sum([A_[k] * x_[k] for k in range(n)])
-        def f(*x): return a0 + sum([A_[k] * x[k] for k in range(n)])
-        self.lineAccuracyParameters(A_, yi)
+        self.line_A0 = a0
+        def f(*x): return a0 + A_ @ np.array(x)
+        self.lineAccuracyParameters(f, yi)
         less_f, more_f = self.lineTrustIntervals(f)
         return less_f, f, more_f
 
-    def lineAccuracyParameters(self, A, yi: int):
+    def lineAccuracyParameters(self, f, yi: int):
         n = len(self) - 1
         N = len(self.samples[0])
         Y = self.samples[yi].getRaw()
@@ -158,12 +159,13 @@ class SamplingDatas(SamplesCriteria):
                       for i in range(len(self)) if i != yi])
         self.line_Y = Y
         self.line_X = X
-        C = np.linalg.inv(X @ np.transpose(X))
+        C = np.linalg.inv(X @ X.transpose())
         self.line_C = C
-        E = Y - A @ X
+        E = Y - f(*X)
         self.line_E = E
         S_2 = E @ np.transpose(E)
         sigma = (S_2 / (N - n)) ** 0.5
+        sigma_2 = (S_2 / (N - n))
         t = func.QuantileTStudent(1 - self.trust / 2, N - n)
         self.line_det_A = [t * sigma * C[k][k] ** 0.5 for k in range(n)]
         self.line_A_t_test = [self.line_A[k] / (sigma * C[k][k] ** 0.5)
@@ -179,9 +181,10 @@ class SamplingDatas(SamplesCriteria):
         alpha1 = (1 - (1 - self.trust)) / 2
         alpha2 = (1 + (1 - self.trust)) / 2
         self.det_less_line_Sigma = S_2 * (N - n) / X_2(alpha2)
-        self.line_S = sigma ** 2
+        self.line_S = sigma_2
+        self.line_S_slide = S_2
         self.det_more_line_Sigma = S_2 * (N - n) / X_2(alpha1)
-        self.line_sigma_signif_f_test = (N - n) * S_2 / sigma ** 2
+        self.line_sigma_signif_f_test = (N - n) * S_2 / sigma_2
         self.line_sigma_signif_f_quant = func.QuantilePearson(1 - self.trust,
                                                               N - n)
 
@@ -189,10 +192,10 @@ class SamplingDatas(SamplesCriteria):
         n = len(self) - 1
         N = len(self.samples[0])
         t = func.QuantileTStudent(1 - self.trust / 2, N - n)
-        X = self.line_X
-        C = self.line_C
-        det_trust = t * self.line_S ** 0.5 * (
-            1 + np.linalg.det(np.transpose(X) @ C @ X)) ** 0.5
+        # X = self.line_X
+        # C = self.line_C
+        det_trust = t * self.line_S ** 0.5
+        # * (1 + np.linalg.det(np.transpose(X) @ C @ X)) ** 0.5
 
         def less_f(*X): return f(*X) - det_trust
         def more_f(*X): return f(*X) + det_trust
@@ -211,30 +214,35 @@ class SamplingDatas(SamplesCriteria):
         addIn()
 
         for i, s in enumerate(self.samples):
-            addForm(f"Сер арифметичне X{i}",
+            addForm(f"Сер Арифметичне X{i+1}",
                     f"{s.x_-s.det_x_:.5}",
                     f"{s.x_:.5}",
                     f"{s.x_+s.det_x_:.5}",
                     f"{s.det_x_:.5}")
+            addForm(f"Сер квадратичне X{i+1}",
+                    f"{s.Sigma-s.det_Sigma:.5}",
+                    f"{s.Sigma:.5}",
+                    f"{s.Sigma+s.det_Sigma:.5}",
+                    f"{s.det_Sigma:.5}")
 
         addIn()
         addIn("Оцінка дисперсійно-коваріаційної матриці DC:")
         n_DC = len(self.DC)
-        addForm("", *[f"X{i}" for i in range(n_DC)])
+        addForm("", *[f"X{i+1}" for i in range(n_DC)])
         addIn()
         for i in range(n_DC):
-            addForm(f"X{i}", *[f"{self.DC[i][j]:.5}" for j in range(n_DC)])
+            addForm(f"X{i+1}", *[f"{self.DC[i][j]:.5}" for j in range(n_DC)])
 
         addIn()
         addIn("Оцінка кореляційної матриці R:")
         n_R = len(self.R)
-        addForm("", *[f"X{i}" for i in range(n_R)])
+        addForm("", *[f"X{i+1}" for i in range(n_R)])
         addIn()
         for i in range(n_R):
-            addForm(f"X{i}", *[f"{self.R[i][j]:.5}" for j in range(n_R)])
+            addForm(f"X{i+1}", *[f"{self.R[i][j]:.5}" for j in range(n_R)])
 
+        addIn()
         if hasattr(self, "line_A"):
-            addIn()
             addIn("Параметри лінійної регресії: Y = AX")
             addIn("-" * 16)
             addForm("Коефіцієнт детермінації", "",
@@ -244,25 +252,28 @@ class SamplingDatas(SamplesCriteria):
                     ">",
                     f"{self.line_R_f_quant:.5}")
             addIn()
-            addForm("",
+            addForm("Стандартна похибка регресії",
                     f"{self.det_less_line_Sigma:.5}",
                     f"{self.line_S ** 2:.5}",
                     f"{self.det_more_line_Sigma:.5}")
-            addForm("σ 2  ˆ 2",
+            addForm("σ^2 = σˆ^2",
                     f"{self.line_sigma_signif_f_test:.5}",
                     "≤",
                     f"{self.line_sigma_signif_f_quant:.5}")
+            addIn()
+            addForm(f"Параметр a{0}", "", f"{self.line_A0:.5}")
+            addIn()
             for k, a in enumerate(self.line_A):
-                addForm(f"Параметр a{k}",
+                addForm(f"Параметр a{k+1}",
                         f"{a - self.line_det_A[k]:.5}",
                         f"{a:.5}",
                         f"{a + self.line_det_A[k]:.5}",
                         f"{self.line_det_A[k]:.5}")
-                addForm(f"T-Тест a{k}",
+                addForm(f"T-Тест a{k+1}",
                         f"{self.line_A_t_test[k]:.5}",
                         "≤",
                         f"{self.line_A_t_quant:.5}")
-                addForm(f"Стандартизований параметр a{k}", '',
+                addForm(f"Стандартизований параметр a{k+1}", '',
                         f"{self.line_stand_A[k]:.5}")
                 addIn()
 

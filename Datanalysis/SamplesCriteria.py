@@ -268,7 +268,8 @@ class SamplesCriteria:
         return S < QuantileNorm(1 - trust)
 
 # Критерій Кохрена
-    def critetionKohrena(self, samples, trust: float = 0.05) -> bool:
+    def critetionKohrena(self, samples: list[SamplingData],
+                         trust: float = 0.05) -> bool:
         k = len(samples)
         N = len(samples[0].getRaw())
         def u(i): return sum([samples[j].getRaw()[i] for j in range(k)])
@@ -303,7 +304,7 @@ class SamplesCriteria:
                     and self.critetionDiffAvrRanges(x, y, trust) \
                     and self.critetionSign(x, y, trust)
 
-    def identKSamples(self, samples: list, trust: float = 0.05):
+    def identKSamples(self, samples: list[SamplingData], trust: float = 0.05):
         if len(samples[0]) == 2:
             return self.critetionKohrena(samples, trust)
         isNormal = True
@@ -316,9 +317,9 @@ class SamplesCriteria:
                    and self.critetionKruskalaUolisa(samples, trust)
         else:
             return self.critetionKruskalaUolisa(samples, trust)
-        return False
 
-    def ident2ModelsLine(self, samples: list, trust: float = 0.05):
+    def ident2ModelsLine(self, samples: list[SamplingData],
+                         trust: float = 0.05):
         d_samples = [DoubleSampleData(samples[i * 2], samples[i * 2 + 1])
                      for i in range(len(samples) // 2)]
         [i.toCalculateCharacteristic() for i in d_samples]

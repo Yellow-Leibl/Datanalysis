@@ -101,13 +101,6 @@ class SamplingData:
     def __getitem__(self, i: int) -> float:
         return self._x[i]
 
-    def __iter__(self):
-        self.__i_iter = 0
-        return self
-
-    def __next__(self):
-        self.__i_iter += 1
-
     def copy(self):
         t = SamplingData(self.getRaw())
         if len(self.probabilityX) > 0:
