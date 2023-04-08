@@ -17,7 +17,10 @@ VL_SMBLS = 16
 def timer(function):
     def wrapper(*args):
         t = time()
-        function(*args)
+        if len(args) == 0:
+            function()
+        else:
+            function(*args)
         print(f"{function.__name__}={time() - t}sec")
     return wrapper
 
@@ -75,7 +78,7 @@ def MED(r):
 
 class SamplingData:
     def __init__(self, not_ranked_series_x: list[float], trust: float = 0.05):
-        self.raw_x = np.array(not_ranked_series_x)
+        self.raw = np.array(not_ranked_series_x)
         self._x = not_ranked_series_x.copy()
         self.countX: list[int] = []
         self.trust = trust
@@ -109,7 +112,7 @@ class SamplingData:
         return t
 
     def getRaw(self) -> np.ndarray:
-        return self.raw_x
+        return self.raw
 
     @staticmethod  # number of classes
     def calculateM(n: int) -> int:
@@ -296,7 +299,7 @@ class SamplingData:
             a = self.x_ - t1 * self.S
             b = self.x_ + t1 * self.S
 
-        raw_x = list(self.raw_x)
+        raw_x = list(self.raw)
 
         for i in range(N // 2 + N % 2):
             left_x = self._x[i]
@@ -650,9 +653,9 @@ class SamplingData:
         return "\n".join(info_protocol)
 
     def critetionAbbe(self) -> float:
-        N = len(self.raw_x)
-        d2 = 1 / (N - 1) * sum([(self.raw_x[i + 1] -
-                                 self.raw_x[i]) ** 2
+        N = len(self.raw)
+        d2 = 1 / (N - 1) * sum([(self.raw[i + 1] -
+                                 self.raw[i]) ** 2
                                for i in range(N - 1)])
 
         q = d2 / (2 * self.S)

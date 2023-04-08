@@ -86,6 +86,9 @@ class SamplingDatas(SamplesCriteria):
                 d2.rangeCorrelation()
                 self.R_Kendala[i][j] = d2.teta_k
 
+        self.r_multi = [self.multipleCorrelationCoefficient(i)
+                        for i in range(n)]
+
     def coeficientOfCorrelation(self, i, j, cd):
         if len(cd) >= 1:
             d = cd[-1]
@@ -99,6 +102,45 @@ class SamplingDatas(SamplesCriteria):
         else:
             return self.R[i][j]
 
+    def coeficientOfCorrelationTTest(self, r_ij_c, w):
+        N = len(self.samples[0].getRaw())
+        signif_r_ij_c = r_ij_c * (N - w - 2) ** 0.5 / (1 - r_ij_c ** 2) ** 0.5
+        t = func.QuantileTStudent(1 - self.trust / 2, N - w - 2)
+        self.partial_r_signif_t_test = signif_r_ij_c
+        self.partial_r_signif_t_quant = t
+        return signif_r_ij_c <= t
+
+    def coeficientOfCorrelationIntervals(self, r_ij_c, w):
+        N = len(self.samples[0].getRaw())
+        u = func.QuantileNorm(self.trust / 2)
+        v1 = 1 / 2 * math.log((1 + r_ij_c) / (1 - r_ij_c)) - u / (N - w - 3)
+        v2 = 1 / 2 * math.log((1 + r_ij_c) / (1 - r_ij_c)) + u / (N - w - 3)
+        det_less_partial_r = (math.exp(2 * v2) - 1) / (math.exp(2 * v2) + 1)
+        det_more_partial_r = (math.exp(2 * v1) - 1) / (math.exp(2 * v1) + 1)
+        self.det_less_partial_r = det_less_partial_r
+        self.det_more_partial_r = det_more_partial_r
+
+    def partialCoeficientOfCorrelationProtocol(self, i, j, cd):
+        info_protocol = []
+
+        def addForm(title, *args):
+            info_protocol.append(formRowNV(title, *args))
+        addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
+        info_protocol.append("")
+
+        self.partial_r = self.coeficientOfCorrelation(i, j, cd)
+        self.coeficientOfCorrelationIntervals(self.partial_r, len(cd) + 2)
+        self.coeficientOfCorrelationTTest(self.partial_r, len(cd) + 2)
+        addForm("Частковий коефіцієнт кореляції",
+                f"{self.det_less_partial_r:.5}",
+                f"{self.partial_r:.5}",
+                f"{self.det_more_partial_r:.5}")
+        addForm("Т-тест",
+                f"{self.partial_r_signif_t_test:.5}",
+                "≤",
+                f"{self.partial_r_signif_t_quant:.5}")
+        return "\n".join(info_protocol)
+
     def coeficientOfRangeCorrelation(self, i, j, cd):
         if len(cd) >= 1:
             d = cd[-1]
@@ -111,16 +153,6 @@ class SamplingDatas(SamplesCriteria):
             return r_ij_cd
         else:
             return self.R_Kendala[i][j]
-
-    def coeficientOfCorrelationTTestAndIntervals(self, r_ij_c, N, w):
-        signif_r_ij_c = r_ij_c * (N - w - 2) ** 0.5 / (1 - r_ij_c ** 2) ** 0.5
-        t = func.QuantileTStudent(1 - self.trust / 2, N - w - 2)
-        print(f"{signif_r_ij_c} <= {t}")
-        u = func.QuantileNorm(self.trust / 2)
-        v1 = 1 / 2 * math.log((1 + r_ij_c) / (1 - r_ij_c)) - u / (N - w - 3)
-        v2 = 1 / 2 * math.log((1 + r_ij_c) / (1 - r_ij_c)) + u / (N - w - 3)
-        self.det_less_r_ij_c = (math.exp(2 * v1) - 1) / (math.exp(2 * v1) + 1)
-        self.det_more_r_ij_c = (math.exp(2 * v2) - 1) / (math.exp(2 * v2) + 1)
 
     def multipleCorrelationCoefficient(self, k):
         n = len(self.R)
@@ -192,13 +224,14 @@ class SamplingDatas(SamplesCriteria):
         n = len(self) - 1
         N = len(self.samples[0])
         t = func.QuantileTStudent(1 - self.trust / 2, N - n)
-        # X = self.line_X
-        # C = self.line_C
-        det_trust = t * self.line_S ** 0.5
-        # * (1 + np.linalg.det(np.transpose(X) @ C @ X)) ** 0.5
+        C = self.line_C
 
-        def less_f(*X): return f(*X) - det_trust
-        def more_f(*X): return f(*X) + det_trust
+        def det_f(X: np.ndarray) -> np.ndarray:
+            return t * self.line_S ** 0.5 * (
+                1 + (X.transpose() @ C @ X).diagonal()) ** 0.5
+
+        def less_f(*X): return f(*X) - det_f(np.array(X))
+        def more_f(*X): return f(*X) + det_f(np.array(X))
         return less_f, more_f
 
     def getProtocol(self) -> str:
@@ -227,19 +260,27 @@ class SamplingDatas(SamplesCriteria):
 
         addIn()
         addIn("Оцінка дисперсійно-коваріаційної матриці DC:")
-        n_DC = len(self.DC)
-        addForm("", *[f"X{i+1}" for i in range(n_DC)])
+        n = len(self.samples)
+        addForm("", *[f"X{i+1}" for i in range(n)])
         addIn()
-        for i in range(n_DC):
-            addForm(f"X{i+1}", *[f"{self.DC[i][j]:.5}" for j in range(n_DC)])
+        for i in range(n):
+            addForm(f"X{i+1}", *[f"{self.DC[i][j]:.5}" for j in range(n)])
 
         addIn()
         addIn("Оцінка кореляційної матриці R:")
-        n_R = len(self.R)
-        addForm("", *[f"X{i+1}" for i in range(n_R)])
+        addForm("", *[f"X{i+1}" for i in range(n)])
         addIn()
-        for i in range(n_R):
-            addForm(f"X{i+1}", *[f"{self.R[i][j]:.5}" for j in range(n_R)])
+        for i in range(n):
+            addForm(f"X{i+1}", *[f"{self.R[i][j]:.5}" for j in range(n)])
+
+        addIn()
+        for i in range(n):
+            addForm(f"Множинний коефіцієнт кореляції X{i+1}",
+                    "", f"{self.r_multi[i][0]:.5}")
+            addForm("Т-тест коефіцієнту",
+                    f"{self.r_multi[i][1]:.5}",
+                    "≥",
+                    f"{self.r_multi[i][2]:.5}")
 
         addIn()
         if hasattr(self, "line_A"):
@@ -254,7 +295,7 @@ class SamplingDatas(SamplesCriteria):
             addIn()
             addForm("Стандартна похибка регресії",
                     f"{self.det_less_line_Sigma:.5}",
-                    f"{self.line_S ** 2:.5}",
+                    f"{self.line_S_slide:.5}",
                     f"{self.det_more_line_Sigma:.5}")
             addForm("σ^2 = σˆ^2",
                     f"{self.line_sigma_signif_f_test:.5}",

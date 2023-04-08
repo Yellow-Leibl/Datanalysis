@@ -9,8 +9,6 @@ from PyQt6.QtCore import Qt
 from PyQt6 import QtGui
 from PlotWidget import PlotWidget
 
-import platform
-
 from GeneralConstants import (
     dict_edit, dict_edit_shortcut, dict_crit, dict_crit_shortcut,
     dict_regression, dict_regr_shortcut,
@@ -37,8 +35,7 @@ class MainLayout(QMainWindow):
         self.__spin_number_column = QSpinBox()
         self.__spin_number_column.setMinimum(0)
         self.__spin_number_column.valueChanged.connect(
-            lambda: self.numberColumnChanged(
-                self.__spin_number_column.value()))
+            self.numberColumnChanged)
 
         self.__spin_box_level = QDoubleSpinBox()
         self.__spin_box_level.setDecimals(5)
@@ -83,7 +80,7 @@ class MainLayout(QMainWindow):
         self.tab_info.addTab(self.table, "Ранжований ряд")
 
         # grid with transform func
-        widget_func = QVBoxLayout()
+        form_func = QVBoxLayout()
         form_widget = QFormLayout()
         form_widget.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -91,7 +88,7 @@ class MainLayout(QMainWindow):
                            self.__spin_number_column)
         form_widget.addRow("Рівень значущості:",
                            self.__spin_box_level)
-        widget_func.addLayout(form_widget)
+        form_func.addLayout(form_widget)
 
         self.createMenuBar()
 
@@ -101,15 +98,15 @@ class MainLayout(QMainWindow):
         borders.addWidget(self.__spin_box_min_x)
         borders.addWidget(QLabel("max"))
         borders.addWidget(self.__spin_box_max_x)
-        widget_func.addLayout(borders)
-        widget_func.addWidget(self.__remove_anomaly)
+        form_func.addLayout(borders)
+        form_func.addWidget(self.__remove_anomaly)
 
         # tab and add. functionality
-        info_text_box = QHBoxLayout()
-        info_text_box.addWidget(self.tab_info, 3)
-        info_text_box.addLayout(widget_func, 1)
-        info_wid = QWidget()
-        info_wid.setLayout(info_text_box)
+        info_wid = QSplitter(Qt.Orientation.Horizontal)
+        info_wid.addWidget(self.tab_info)
+        widget_func = QWidget()
+        widget_func.setLayout(form_func)
+        info_wid.addWidget(widget_func)
 
         main_vbox = QSplitter(Qt.Orientation.Vertical)
         main_vbox.addWidget(self.plot_widget)
@@ -172,14 +169,24 @@ class MainLayout(QMainWindow):
 
         # Critetion menu
         crit_menu = menuBar.addMenu("&Критерії")
+        def setTrust(func): return lambda: func(self.__spin_box_level.value())
         for k, v in dict_crit.items():
             if v == Critetion.HOMOGENEITY_INDEPENDENCE:
-                crit_menu.addAction(k, lambda: self.homogeneityAndIndependence(
-                    self.__spin_box_level.value()))
+                addAction(crit_menu, k,
+                          setTrust(self.homogeneityAndIndependence),
+                          dict_crit_shortcut)
             if v == Critetion.LINEAR_REGRESSION_MODELS:
-                crit_menu.addAction(k, lambda: self.linearModelsCrit(
-                    self.__spin_box_level.value()))
-            crit_menu.actions()[-1].setShortcut(dict_crit_shortcut[k])
+                addAction(crit_menu, k,
+                          setTrust(self.linearModelsCrit),
+                          dict_crit_shortcut)
+            if v == Critetion.HOMOGENEITY_N_SAMPLES:
+                addAction(crit_menu, k,
+                          self.homogeneityNSamples,
+                          dict_crit_shortcut)
+            if v == Critetion.PARTIAL_CORRELATION:
+                addAction(crit_menu, k,
+                          self.partialCorrelation,
+                          dict_crit_shortcut)
 
     def getMinMax(self):
         return (self.__spin_box_min_x.value(),
@@ -193,11 +200,18 @@ class MainLayout(QMainWindow):
                 sel_rows.append(i)
         return sel_rows
 
-    def showMessageBox(self, text: str, informative_text: str):
-        box = QMessageBox()
-        box.setText(text)
-        box.setInformativeText(informative_text)
-        box.exec()
+    def unselectTable(self):
+        self.table.clearSelection()
+
+    def showMessageBox(self, title: str, text: str):
+        mes = QMessageBox(self)
+        mes.setText(title)
+        font = mes.font()
+        font.setPointSize(16)
+        mes.setFont(font)
+        mes.setInformativeText(text)
+        mes.setBaseSize(400, 300)
+        mes.exec()
 
     def getNumberClasses(self) -> int:
         return self.__spin_number_column.value()
@@ -221,6 +235,7 @@ class MainLayout(QMainWindow):
 
 
 def MonoFontForSpecificOS():
+    import platform
     name = platform.system()
     if name == 'Darwin':
         return "Andale Mono"

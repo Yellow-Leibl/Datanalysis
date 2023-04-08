@@ -7,10 +7,7 @@ from Datanalysis.SamplingData import SamplingData
 
 
 def generateNormal(m=0, sigma=1, N: int = 1000):
-    sample = []
-    for i in range(N):
-        sample.append(sum([r.random() for i in range(10)]))
-
+    sample = [sum(r.random() for j in range(10)) for i in range(N)]
     x = SamplingData(sample)
     x.toRanking()
     x.toCalculateCharacteristic()
@@ -87,6 +84,27 @@ def generateExp2D(a=1, b=1, N: int = 1000):
     return x, y
 
 
+def generateMultivariateNormal(E=None, DC=None, n: int = 3, N: int = 1000):
+    if DC is None:
+        DC = np.diag([1 + r.random() * 0.1 for i in range(n)])
+        for i in range(n):
+            for j in range(i + 1, n):
+                DC[i, j] = DC[j, i] = (0.89 + r.random() * 0.1) \
+                    * DC[i, i] ** 0.5 * DC[j, j] ** 0.5
+    A = np.zeros((n, n))
+    samples = []
+    for i in range(n):
+        samples.append(generateNormal(N=N))
+    U = np.array(samples)
+    for i in range(n):
+        A[i, i] = (DC[i, i] - sum(A[i, w] ** 2 for w in range(i))) ** 0.5
+        for j in range(i):
+            A[i, j] = (DC[i, j] - sum(
+                A[i, w] * A[j, w] for w in range(j))) / A[j, j]
+    X = A @ U
+    return X
+
+
 def generateSample(number_sample: int = 1,
                    n: int = 1000, vec_n: int = 2,
                    parameters=[]) -> str:
@@ -94,17 +112,17 @@ def generateSample(number_sample: int = 1,
     for i in range(vec_n):
         if number_sample == 1:
             rozp.append(generateNormal(n))
-        if number_sample == 2:
+        elif number_sample == 2:
             rozp.append(generateUniform(n))
-        if number_sample == 3:
+        elif number_sample == 3:
             rozp.append(generateExp(n))
-        if number_sample == 4:
+        elif number_sample == 4:
             rozp.append(generateWeibulla(n))
-        if number_sample == 5:
+        elif number_sample == 5:
             rozp.append(generateArcsin(N=n))
-        if number_sample == 6:
+        elif number_sample == 6:
             rozp.append(binaryData(N=n))
-        if number_sample == 7:
+        elif number_sample == 7:
             if len(parameters) == 5:
                 x, y = generateLine(parameters[0], parameters[1],
                                     parameters[2], parameters[3],
@@ -113,17 +131,22 @@ def generateSample(number_sample: int = 1,
                 x, y = generateLine(N=n)
             rozp.append(x)
             rozp.append(y)
-        if number_sample == 8:
+        elif number_sample == 8:
             if len(parameters) == 1:
                 x, y = generateParable(parameters[0], N=n)
             else:
                 x, y = generateParable(N=n)
             rozp.append(x)
             rozp.append(y)
-        if number_sample == 9:
+        elif number_sample == 9:
             x, y = generateExp2D(1, 5, n)
             rozp.append(x)
             rozp.append(y)
+        elif number_sample == 10:
+            x = generateMultivariateNormal(n=vec_n, N=n)
+            for i in range(len(x)):
+                rozp.append(x[i])
+            break
 
     return '\n'.join(
         [''.join([str(rozp[j][i]).ljust(24) for j in range(len(rozp))])
@@ -133,7 +156,7 @@ def generateSample(number_sample: int = 1,
 if __name__ == "__main__":
     while (True):
         t1 = time()
-        all_file = generateSample(number_sample=7, vec_n=3, n=1000)
+        all_file = generateSample(number_sample=10, vec_n=18, n=500)
         # with open("norm5n.txt", 'w') as f:
         #     f.write(all_file)
         print(f"generation time={time() - t1}")

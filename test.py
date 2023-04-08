@@ -23,7 +23,8 @@ def test_identPar():
     k = 3
     datas.append(generateSample(number_sample=7, vec_n=k*n, n=500).split('\n'))
     datas.toCalculateCharacteristic()
-    datas.identAvr([datas.samples[i * n * 2:(i+1) * n * 2] for i in range(k)])
+    datas.identAvrIfNotIdentDC(
+        [datas.samples[i * n * 2:(i+1) * n * 2] for i in range(k)])
     datas.identDC([datas.samples[i * n * 2:(i+1) * n * 2] for i in range(k)])
 
 

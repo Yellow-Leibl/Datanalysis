@@ -2,10 +2,11 @@ from PyQt6.QtWidgets import QStackedWidget, QTabWidget
 import pyqtgraph as pg
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from Datanalysis.SamplingData import SamplingData, timer
+from Datanalysis.SamplingData import SamplingData
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from Datanalysis.SamplingDatas import SamplingDatas
 import numpy as np
+import math
 
 pg.setConfigOption('imageAxisOrder', 'row-major')
 pg.setConfigOption('background', 'w')
@@ -15,6 +16,7 @@ pg.setConfigOption('foreground', 'k')
 class PlotWidget(QStackedWidget):
     def __init__(self) -> None:
         super().__init__()
+        self.cache_graphics = [False] * 7
         #  1D & 2D
         __2d_widget = pg.GraphicsLayoutWidget()
         self.__2d_layout = __2d_widget.ci
@@ -25,7 +27,7 @@ class PlotWidget(QStackedWidget):
         self.__3d_plot = __3d_figure.add_subplot(projection='3d')
         #  Diagnostic diagram
         __E_widget = pg.GraphicsLayoutWidget()
-        self.__3d_E_plot = __E_widget.ci.addPlot(
+        self.__diagnostic_plot = __E_widget.ci.addPlot(
             title="Похибка регресії",
             labels={"left": "ε", "bottom": "Y"})
         #  Scatter diagram
@@ -37,25 +39,42 @@ class PlotWidget(QStackedWidget):
         #  Heat map
         __heatmap_widget = pg.GraphicsLayoutWidget()
         self.__heatmap_layout = __heatmap_widget.ci
-        #  Radar diagram
-        # __radar_figure = Figure()
-        # self.update_3d = lambda: __3d_figure.canvas.draw()
-        # __radar_widget = FigureCanvasQTAgg(__radar_figure)
-        # self.__radar_plot = __radar_figure.add_subplot(projection='polar')
+        #  Buble diagram
+        __buble_widget = pg.GraphicsLayoutWidget()
+        self.__buble_plot = __buble_widget.ci.addPlot(
+            labels={"left": "Y", "bottom": "X"})
+        #  Glyph diagram
+        __glyph_widget = pg.GraphicsLayoutWidget()
+        self.__glyph_plot = __glyph_widget.ci.addPlot(
+            labels={"left": "Y", "bottom": "X"})
+        colorMap = pg.colormap.get("CET-D1")
+        self.__glyph_bar = pg.ColorBarItem(colorMap=colorMap)
         #  N canvas
-        __nd_widget = QTabWidget()
-        __nd_widget.addTab(__parallel_widget, "Паралельні координати")
-        __nd_widget.addTab(__scatter_widget, "Діаграма розкиду")
-        __nd_widget.addTab(__3d_widget, "3-вимірний простір")
-        self.setEnabled3d = lambda: __nd_widget.setTabEnabled(2, True)
-        self.setDisabled3d = lambda: __nd_widget.setTabEnabled(2, False)
-        __nd_widget.addTab(__heatmap_widget, "Теплова карта")
-        # __nd_widget.addTab(__radar_widget, "Радарна діаграма")
-        __nd_widget.addTab(__E_widget, "Діагностична діаграма")
+        self.__nd_widget = QTabWidget()
+        self.__nd_widget.addTab(__parallel_widget, "Паралельні координати")
+        self.__nd_widget.addTab(__scatter_widget, "Діаграма розкиду")
+        self.__nd_widget.addTab(__heatmap_widget, "Теплова карта")
+        self.__nd_widget.addTab(__E_widget, "Діагностична діаграма")
+        self.__nd_widget.addTab(__3d_widget, "3-вимірний простір")
+        self.__nd_widget.addTab(__buble_widget, "Бульбашкова діаграма")
+        self.__nd_widget.addTab(__glyph_widget, "Гліф діаграма")
+        self.__nd_widget.currentChanged.connect(self.updateCharts)
         #  General canvas
         self.addWidget(__2d_widget)
-        self.addWidget(__nd_widget)
+        self.addWidget(self.__nd_widget)
 
+    def setEnabled3d(self):
+        self.__nd_widget.setTabEnabled(4, True)
+        self.__nd_widget.setTabEnabled(5, True)
+        self.__nd_widget.setTabEnabled(6, True)
+
+    def setDisabled3d(self):
+        self.__nd_widget.setTabEnabled(4, False)
+        self.__nd_widget.setTabEnabled(5, False)
+        self.__nd_widget.setTabEnabled(6, False)
+
+    def getCurrentTabIndex(self):
+        return self.__nd_widget.currentIndex()
     #
     #  Creating plot
     #
@@ -222,8 +241,7 @@ class PlotWidget(QStackedWidget):
         if len(x.getRaw()) != len(y.getRaw()):
             return
 
-        histogram_image = pg.ImageItem()
-        histogram_image.setImage(hist_data)
+        histogram_image = pg.ImageItem(hist_data)
         width = x.max - x.min
         height = y.max - y.min
         histogram_image.setRect(x.min, y.min, width, height)
@@ -234,7 +252,7 @@ class PlotWidget(QStackedWidget):
         corr_plot.addItem(histogram_image)
         corr_plot.plot(x.getRaw(), y.getRaw(),
                        symbolBrush=(30, 120, 180),
-                       symbolPen=(0, 0, 0, 200), symbolSize=7,
+                       symbolPen=(0, 0, 0, 200), symbolSize=5,
                        pen=None)
 
     def plot2DReproduction(self, d2: DoubleSampleData,
@@ -274,10 +292,10 @@ class PlotWidget(QStackedWidget):
 
     def plotDiagnosticDiagram(self, dn: SamplingDatas):
         tr_l_f, f, tr_m_f = dn.toCreateLinearRegressionMNK(2)
-        self.__3d_E_plot.plot(dn.line_Y, dn.line_E,
-                              symbolBrush=(30, 120, 180),
-                              symbolPen=(0, 0, 0, 200), symbolSize=7,
-                              pen=None)
+        self.__diagnostic_plot.plot(dn.line_Y, dn.line_E,
+                                    symbolBrush=(30, 120, 180),
+                                    symbolPen=(0, 0, 0, 200), symbolSize=7,
+                                    pen=None)
         if len(dn) == 3:
             self.plot3DReproduction(dn, tr_l_f, f, tr_m_f)
 
@@ -318,7 +336,7 @@ class PlotWidget(QStackedWidget):
 
     def plotParallelCoordinates(self, dn: list[SamplingData]):
         n = len(dn)
-        N = len(dn[0])
+        N = len(dn[0].getRaw())
 
         def tr2v(d: SamplingData, i):
             return (d.getRaw()[i] - d.min) / (
@@ -341,21 +359,92 @@ class PlotWidget(QStackedWidget):
         histogram_image = pg.ImageItem()
         values_image = np.array([s.getRaw() for s in dn.samples])
         for i, row in enumerate(values_image):
-            values_image[i] = (row - dn[i].min) / dn[i].max
+            values_image[i] = (row - dn[i].min) / (dn[i].max - dn[i].min)
         histogram_image.setImage(values_image.transpose())
         histogram_image.setRect(-0.5, -0.5, n, N)
         self.__heatmap_plot.addItem(histogram_image)
         t = dict((i, f"{i+1}") for i in range(N)).items()
         self.__heatmap_plot.getAxis("left").setTicks((t, []))
 
-    @timer
+    def plotBubleDiagram(self, dn: list[SamplingData]):
+        x_raw = dn[0].getRaw()
+        y_raw = dn[1].getRaw()
+        z_raw = dn[2].getRaw()
+        sz = dn[2]
+        def f_norm(z): return (z - sz.min) / (sz.max - sz.min) + 1
+
+        self.__buble_plot.clear()
+        for i, z in enumerate(z_raw):
+            self.__buble_plot.plot([x_raw[i]], [y_raw[i]],
+                                   symbolSize=f_norm(z) * 10, pen=None)
+
+    def plotGlyphDiagram(self, dn: list[SamplingData], col):
+        x_raw = dn[0].getRaw()
+        y_raw = dn[1].getRaw()
+        z_raw = dn[2].getRaw()
+        x = dn[0]
+        y = dn[1]
+        if col == 0:
+            col = SamplingData.calculateM(len(x_raw))
+
+        glyph_data_sum = np.zeros((col, col))
+        glyph_data_count = np.zeros((col, col), dtype=np.uint8)
+        h_x = (x.max - x.min) / col
+        h_y = (y.max - y.min) / col
+        for i, z in enumerate(z_raw):
+            c = math.floor((x_raw[i] - x.min) / h_x)
+            if c == col:
+                c -= 1
+            r = math.floor((y_raw[i] - y.min) / h_y)
+            if r == col:
+                r -= 1
+            glyph_data_count[r, c] += 1
+            glyph_data_sum[r, c] += z
+
+        glyph_data = glyph_data_sum
+        for i in range(col):
+            for j in range(col):
+                if glyph_data_count[i, j] != 0:
+                    glyph_data[i, j] /= glyph_data_count[i, j]
+
+        glyph_image = pg.ImageItem(glyph_data)
+        width = x.max - x.min
+        height = y.max - y.min
+        glyph_image.setRect(x.min, y.min, width, height)
+        self.__glyph_plot.clear()
+        self.__glyph_plot.addItem(glyph_image)
+        self.__glyph_bar.values = glyph_image.quickMinMax()
+        self.__glyph_bar.setImageItem(glyph_image, insert_in=self.__glyph_plot)
+
+        self.__glyph_plot.plot(x_raw, y_raw,
+                               symbolBrush=(30, 120, 180),
+                               symbolPen=(0, 0, 0, 200), symbolSize=5,
+                               pen=None)
+
     def plotND(self, dn: SamplingDatas, col=0):
-        self.__3d_E_plot.clear()
-        if len(dn) == 3:
-            self.plot3D(dn.samples)
-        self.plotScatterDiagram(dn.samples, col)
-        self.plotParallelCoordinates(dn.samples)
-        self.plotHeatMap(dn)
+        self.__diagnostic_plot.clear()
+        self.column_count = col
+        self.datas = dn
+        self.cache_graphics = [False] * 7
+        self.updateCharts()
+
+    def updateCharts(self):
+        index = self.getCurrentTabIndex()
+        if self.cache_graphics[index]:
+            return
+        self.cache_graphics[index] = True
+        if index == 0:
+            self.plotParallelCoordinates(self.datas.samples)
+        if index == 1:
+            self.plotScatterDiagram(self.datas.samples, self.column_count)
+        if index == 2:
+            self.plotHeatMap(self.datas)
+        if index == 4:
+            self.plot3D(self.datas.samples)
+        if index == 5:
+            self.plotBubleDiagram(self.datas.samples)
+        if index == 6:
+            self.plotGlyphDiagram(self.datas.samples, self.column_count)
 
 
 def newPen(color, width):

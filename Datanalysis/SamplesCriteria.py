@@ -289,20 +289,20 @@ class SamplesCriteria:
             # normal
             if len(x) == len(y):
                 return self.identDispersionBarlet([x, y], trust) \
-                        and self.identAvrTtestDependent(x, y, trust)
+                    and self.identAvrTtestDependent(x, y, trust)
             else:
                 return self.identDispersionFtest(x, y, trust) \
-                        and self.identAvrTtestIndependent(x, y, trust) \
-                        and self.critetionWilcoxon(x, y, trust) \
-                        and self.critetionUtest(x, y, trust) \
-                        and self.critetionDiffAvrRanges(x, y, trust)
+                    and self.identAvrTtestIndependent(x, y, trust) \
+                    and self.critetionWilcoxon(x, y, trust) \
+                    and self.critetionUtest(x, y, trust) \
+                    and self.critetionDiffAvrRanges(x, y, trust)
         else:
             # other
             return self.critetionSmirnovKolmogorov(x, y, trust) \
-                    and self.critetionWilcoxon(x, y, trust) \
-                    and self.critetionUtest(x, y, trust) \
-                    and self.critetionDiffAvrRanges(x, y, trust) \
-                    and self.critetionSign(x, y, trust)
+                and self.critetionWilcoxon(x, y, trust) \
+                and self.critetionUtest(x, y, trust) \
+                and self.critetionDiffAvrRanges(x, y, trust) \
+                and self.critetionSign(x, y, trust)
 
     def identKSamples(self, samples: list[SamplingData], trust: float = 0.05):
         if len(samples[0]) == 2:
@@ -314,7 +314,7 @@ class SamplesCriteria:
                 break
         if isNormal:  # normal
             return self.identDispersionBarlet(samples, trust) \
-                   and self.critetionKruskalaUolisa(samples, trust)
+                and self.critetionKruskalaUolisa(samples, trust)
         else:
             return self.critetionKruskalaUolisa(samples, trust)
 
@@ -402,12 +402,12 @@ class SamplesCriteria:
         print(f"{x_2} <= {QuantilePearson(1 - trust, k - 1)}")
         return x_2 <= QuantilePearson(1 - trust, k - 1)
 
-    def identAvrAndDC(self, samples1: list[SamplingData],
-                      samples2: list[SamplingData]):
+    def identAvrIfIdentDC2Samples(self, samples1: list[SamplingData],
+                                  samples2: list[SamplingData]):
         def x(i, j): return samples1[i].getRaw()[j]
         def y(i, j): return samples2[i].getRaw()[j]
         N1 = len(samples1[0].getRaw())
-        N2 = len(samples1[0].getRaw())
+        N2 = len(samples2[0].getRaw())
         n = len(samples1)
 
         S0 = np.zeros((n, n))
@@ -430,10 +430,21 @@ class SamplesCriteria:
         V = - (N1 + N2 - 2 - n / 2) * math.log(
             np.linalg.det(S1) / np.linalg.det(S0))
         X_2 = QuantilePearson(1 - self.trust, n)
-        print(f"{V} <= {X_2}")
+        self.identAvrIfIdentDC_V = V
+        self.identAvrIfIdentDC_X_2 = X_2
         return V <= X_2
 
-    def identAvr(self, samples: list[list[SamplingData]]):
+    def identAvrIfIdentDCProtocol(self, res):
+        crits = f"{self.identAvrIfIdentDC_V:.5} <= " \
+            f"{self.identAvrIfIdentDC_X_2:.5}"
+        if res:
+            return "2 n-вимірних середніх при збіжності " \
+                f"дисперсійно-коваріаційних матриць збігаються:\n{crits}"
+        else:
+            return "2 n-вимірних середніх при збіжності " \
+                f"дисперсійно-коваріаційних матриць незбігаються:\n{crits}"
+
+    def identAvrIfNotIdentDC(self, samples: list[list[SamplingData]]):
         k = len(samples)
         n = len(samples[0])
         def N(d: int): return len(samples[d][0])
@@ -450,13 +461,24 @@ class SamplesCriteria:
 
         _x_ = np.linalg.inv(
             sum([N(d) * np.linalg.inv(S(d)) for d in range(k)])
-            ) @ sum([N(d) * np.linalg.inv(S(d)) @ x_(d) for d in range(k)])
+        ) @ sum([N(d) * np.linalg.inv(S(d)) @ x_(d) for d in range(k)])
         V = sum([N(d) * np.transpose(x_(d) - _x_) @
                  np.linalg.inv(S(d)) @ (x_(d) - _x_) for d in range(k)])
         X_2 = QuantilePearson(1 - self.trust, n * (k - 1))
         V = V[0][0]
-        print(f"V={V} <= {X_2}")
+        self.identAvrIfNotIdentDC_V = V
+        self.identAvrIfNotIdentDC_X_2 = X_2
         return V <= X_2
+
+    def identAvrIfNotIdentDCProtocol(self, res):
+        crits = f"{self.identAvrIfNotIdentDC_V:.5} <= " \
+            f"{self.identAvrIfNotIdentDC_X_2:.5}"
+        if res:
+            return "k n-вимірних середніх при розбіжності " \
+                f"дисперсійно-коваріаційних матриць збігаються:\n{crits}"
+        else:
+            return "k n-вимірних середніх при розбіжності " \
+                f"дисперсійно-коваріаційних матриць незбігаються:\n{crits}"
 
     def identDC(self, samples: list[list[SamplingData]]):
         k = len(samples)
@@ -479,5 +501,26 @@ class SamplesCriteria:
         V = sum([(N(d) - 1) / 2 * math.log(det_S_g / np.linalg.det(S(d)))
                  for d in range(k)])
         X_2 = QuantilePearson(1 - self.trust, n * (n + 1) * (k - 1) // 2)
-        print(f"V={V} <= {X_2}")
+        self.identDC_V = V
+        self.identDC_X_2 = X_2
         return V <= X_2
+
+    def identDCProtocol(self, res):
+        crits = f"{self.identDC_V:.5} <= {self.identDC_X_2:.5}"
+        if res:
+            return "Дисперсійно-коваріаційні матриці нормально " \
+                f"розподілених випадкових величин збігаються:\n{crits}"
+        else:
+            return "Дисперсійно-коваріаційні матриці нормально " \
+                f"розподілених випадкових величин незбігаються:\n{crits}"
+
+    def homogeneityProtocol(self, samples: list[list[SamplingData]]):
+        res = self.identDC(samples)
+        protocol = self.identDCProtocol(res)
+        if len(samples) == 2:
+            res = self.identAvrIfIdentDC2Samples(samples[0], samples[1])
+            protocol += "\n" + self.identAvrIfIdentDCProtocol(res)
+        else:
+            res = self.identAvrIfNotIdentDC(samples)
+            protocol += "\n" + self.identAvrIfNotIdentDCProtocol(res)
+        return protocol

@@ -5,17 +5,24 @@ from enum import Enum
 
 class Critetion(Enum):
     HOMOGENEITY_INDEPENDENCE = 0,
-    LINEAR_REGRESSION_MODELS = 1
+    LINEAR_REGRESSION_MODELS = 1,
+    HOMOGENEITY_N_SAMPLES = 2,
+    PARTIAL_CORRELATION = 3
 
 
 dict_crit = {
     "Перевірка однорідності/незалежності":  Critetion.HOMOGENEITY_INDEPENDENCE,
-    "Порівняння лінійних регресій":         Critetion.LINEAR_REGRESSION_MODELS
+    "Порівняння лінійних регресій":         Critetion.LINEAR_REGRESSION_MODELS,
+    "Перевірка однорідності сукупностей "
+    "(Нормальні)":                          Critetion.HOMOGENEITY_N_SAMPLES,
+    "Частковий коефіцієнт кореляції":       Critetion.PARTIAL_CORRELATION,
 }
 
 dict_crit_shortcut = {
-    "Перевірка однорідності/незалежності":  QKeySequence("Ctrl+I"),
-    "Порівняння лінійних регресій":         QKeySequence("Ctrl+E"),
+    "Перевірка однорідності/незалежності":              QKeySequence("Ctrl+I"),
+    "Порівняння лінійних регресій":                     QKeySequence("Ctrl+E"),
+    "Перевірка однорідності сукупностей (Нормальні)":   QKeySequence("Ctrl+N"),
+    "Частковий коефіцієнт кореляції":                   QKeySequence("Ctrl+P"),
 }
 
 
@@ -90,5 +97,5 @@ dict_file_shortcut = {
 }
 
 dict_view_shortcut = {
-    "&Наступна вкладка":  QKeySequence("Alt+Tab"),
+    "&Наступна вкладка":    QKeySequence("Alt+Tab"),
 }

@@ -18,6 +18,7 @@ class Window(MainLayout):
         self.reproduction_1d_F = None
         self.d2_active: list[int] = []
         self.datas_active: list[int] = []
+        self.datas_crits: list[list] = []
         self.regr_num = -1
         if is_file_name:
             self.openFile(file)
@@ -28,7 +29,9 @@ class Window(MainLayout):
         self.autoSelect()
 
     def autoSelect(self):
-        self.number_sample = [2, 1, 0, 3]
+        # self.openFile("data/self/3lines_500_2.txt")
+        # self.openFile("data/self/3lines_500_3.txt")
+        # self.number_sample = [2, 1, 3]
         self.createPlotLayout(len(self.number_sample))
         self.regr_num = 9
         self.sampleChanged()
@@ -61,7 +64,12 @@ class Window(MainLayout):
 
     def sampleChanged(self):
         self.updateGraphics(self.getNumberClasses())
+        self.writeProtocol()
+        self.writeCritetion()
         self.writeTable()
+
+    def selectSampleOrReproduction(self):
+        self.updateGraphics(self.getNumberClasses())
         self.writeProtocol()
         self.writeCritetion()
 
@@ -110,14 +118,17 @@ class Window(MainLayout):
         sel = self.getSelectedRows()
         if 0 == len(sel) or sel == self.number_sample:
             return
+        if self.datas_active == sel or \
+           self.d2_active == sel:
+            return
         self.createPlotLayout(len(sel))
         self.number_sample = sel
         self.d2_active = [-1, -1]
         self.datas_active = []
         self.regr_num = -1
         self.silentChangeNumberClasses(0)
-        self.setMaximumColumnNumber(len(self.datas[sel[0]]._x))
-        self.sampleChanged()
+        self.setMaximumColumnNumber(max(len(d._x) for d in self.datas.samples))
+        self.selectSampleOrReproduction()
 
     def deleteSamples(self):
         sel = self.getSelectedRows()
@@ -143,9 +154,7 @@ class Window(MainLayout):
 
     def setReproductionSeries(self):
         self.regr_num = dict_regression[self.sender().text()]
-        self.updateGraphics(self.getNumberClasses())
-        self.writeProtocol()
-        self.writeCritetion()
+        self.selectSampleOrReproduction()
 
     def changeTrust(self, trust: float):
         s = self.getActiveSamples()
@@ -162,12 +171,11 @@ class Window(MainLayout):
             self.table.setItem(s, 0, QTableWidgetItem(f"N={len(d.getRaw())}"))
             for i, e in enumerate(d._x):
                 self.table.setItem(s, i + 1, QTableWidgetItem(f"{e:.5}"))
-        self.table.resizeRowsToContents()
         self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
 
-    def numberColumnChanged(self, value: int):
-        self.updateGraphics(value)
-        self.writeProtocol()
+    def numberColumnChanged(self):
+        self.selectSampleOrReproduction()
 
     def writeProtocol(self):
         s = self.getActiveSamples()
@@ -196,22 +204,20 @@ class Window(MainLayout):
             self.plot_widget.plot1D(d, hist_data)
             self.drawReproductionSeries1D()
         elif self.is2d():
-            if self.d2_active != self.number_sample:
-                self.d2_active = self.number_sample
-                x = self.datas[self.number_sample[0]]
-                y = self.datas[self.number_sample[1]]
-                self.d2 = DoubleSampleData(x, y)
-                self.d2.toCalculateCharacteristic()
+            self.d2_active = self.number_sample
+            x = self.datas[self.number_sample[0]]
+            y = self.datas[self.number_sample[1]]
+            self.d2 = DoubleSampleData(x, y)
+            self.d2.toCalculateCharacteristic()
             self.hist_data_2d = self.d2.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(self.hist_data_2d))
             self.plot_widget.plot2D(self.d2, self.hist_data_2d)
             self.drawReproductionSeries2D()
         elif self.isNd():
             samples = [self.datas[i] for i in self.number_sample]
-            if self.datas_active != self.number_sample:
-                self.datas_active = self.number_sample
-                self.datas_act = SamplingDatas(samples)
-                self.datas_act.toCalculateCharacteristic()
+            self.datas_active = self.number_sample
+            self.datas_act = SamplingDatas(samples)
+            self.datas_act.toCalculateCharacteristic()
             self.plot_widget.plotND(self.datas_act, number_column)
             if self.regr_num == 9:
                 self.plot_widget.plotDiagnosticDiagram(self.datas_act)
@@ -316,6 +322,44 @@ class Window(MainLayout):
             else:
                 self.showMessageBox("Вибірки неоднорідні", "")
 
+    def homogeneityNSamples(self):
+        title = "Перевірка однорідності сукупностей"
+        sel = self.getSelectedRows()
+        self.unselectTable()
+        if len(sel) == 0:
+            if len(self.datas_crits) < 2:
+                return
+            text = self.datas.homogeneityProtocol(
+                [[self.datas[j] for j in i] for i in self.datas_crits])
+            self.showMessageBox(title, text)
+            self.datas_crits = []
+        elif sel not in self.datas_crits:
+            if len(self.datas_crits) != 0 and \
+               len(self.datas_crits[0]) != len(sel):
+                return self.showMessageBox(
+                    "Помилка",
+                    f"Потрібен {len(self.datas_crits[0])}-вимірний розподіл")
+            norm_test = [self.datas[i].isNormal() for i in sel]
+            if False in norm_test:
+                return self.showMessageBox(
+                    "Помилка", "Не є нормальним розподілом:" +
+                    str([sel[i]+1 for i, res in enumerate(norm_test)
+                         if not res]))
+            self.datas_crits.append(sel)
+            self.showMessageBox(
+                title, "Вибрані вибірки:\n" +
+                "\n".join([str([i+1 for i in r]) for r in self.datas_crits]))
+
+    def partialCorrelation(self):
+        sel = self.getSelectedRows()
+        w = len(sel)
+        if w > 2:
+            datas = SamplingDatas([self.datas.samples[i] for i in sel])
+            datas.toCalculateCharacteristic()
+            text = datas.partialCoeficientOfCorrelationProtocol(
+                sel[0], sel[1], sel[2:])
+            self.criterion_protocol.setText(text)
+
 
 def applicationLoadFromFile(file: str = ''):
     app = QApplication(sys.argv)
@@ -332,6 +376,8 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    applicationLoadFromFile("data/self/line.txt")
+    # applicationLoadFromFile("data/self/3lines_500_1.txt")
+    # applicationLoadFromFile("data/self/line.txt")
     # applicationLoadFromFile("data/self/parable_n5000.txt")
     # applicationLoadFromFile("data/6har.dat")
+    applicationLoadFromFile("data/500/norm3n.txt")

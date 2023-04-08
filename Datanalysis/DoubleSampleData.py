@@ -36,8 +36,8 @@ class DoubleSampleData(DoubleSampleRegression):
     # pair correlation coef
     def pearsonCorrelationСoefficient(self):
         N = len(self)
-        xy_ = sum([self.x.raw_x[i] * self.y.raw_x[i]
-                   for i in range(len(self.x.raw_x))]) / N
+        xy_ = sum([self.x.raw[i] * self.y.raw[i]
+                   for i in range(len(self.x.raw))]) / N
 
         self.r = N / (N - 1) * (xy_ - self.x.x_ * self.y.x_) / (
             self.x.Sigma * self.y.Sigma)
@@ -299,30 +299,22 @@ class DoubleSampleData(DoubleSampleRegression):
 
     def get_histogram_data(self, column_number: int = 0):
         if column_number <= 0:
-            column_number = SamplingData.calculateM(len(self.x))
+            column_number = SamplingData.calculateM(len(self.x.getRaw()))
 
         self.probability_table = np.zeros((column_number, column_number))
-
         N = len(self)
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number
-
-        x_raw = self.x.getRaw()
-        def x(i): return x_raw[i]
-        y_raw = self.y.getRaw()
-        def y(i): return y_raw[i]
+        x = self.x.getRaw()
+        y = self.y.getRaw()
 
         for i in range(N):
-            s_x = self.x.min
-            s_y = self.y.min
-            c = 0
-            r = 0
-            while not s_x <= x(i) <= s_x + h_x and c + 1 < column_number:
-                c += 1
-                s_x += h_x
-            while not s_y <= y(i) <= s_y + h_y and r + 1 < column_number:
-                r += 1
-                s_y += h_y
+            c = math.floor((x[i] - self.x.min) / h_x)
+            if c == column_number:
+                c -= 1
+            r = math.floor((y[i] - self.y.min) / h_y)
+            if r == column_number:
+                r -= 1
             self.probability_table[r, c] += 1
         # printHistogram(self.probability_table, N)
         return self.probability_table
@@ -330,20 +322,24 @@ class DoubleSampleData(DoubleSampleRegression):
     def remove(self, x, y, w, h):
         self.fastRemove(x, y, w, h)
 
-        self.x.setSeries(self.x.raw_x)
-        self.y.setSeries(self.y.raw_x)
+        self.x.setSeries(self.x.raw)
+        self.y.setSeries(self.y.raw)
 
     def fastRemove(self, x, y, w, h):
         N = len(self)
         del_ind = []
+        raw_x = list(self.x.raw)
+        raw_y = list(self.y.raw)
         for i in range(N):
-            if (x <= self.x.raw_x[i] <= x + w) and\
-               (y <= self.y.raw_x[i] <= y + h):
+            if (x <= self.x.raw[i] <= x + w) and\
+               (y <= self.y.raw[i] <= y + h):
                 del_ind.append(i)
 
-        for i in range(len(del_ind)):
-            self.x.raw_x.pop(del_ind[-1 - i])
-            self.y.raw_x.pop(del_ind[-1 - i])
+        for i in del_ind[::-1]:
+            raw_x.pop(i)
+            raw_y.pop(i)
+        self.x.raw = raw_x
+        self.y.raw = raw_y
 
     def autoRemoveAnomaly(self, hist_data):
         is_item_del = False
@@ -352,7 +348,6 @@ class DoubleSampleData(DoubleSampleRegression):
         column_number = len(hist_data)
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number
-
         for i in range(column_number):
             for j in range(column_number):
                 n = hist_data[i][j]
@@ -363,8 +358,8 @@ class DoubleSampleData(DoubleSampleRegression):
                                     h_x, h_y,)
                     is_item_del = True
 
-        self.x.setSeries(self.x.raw_x)
-        self.y.setSeries(self.y.raw_x)
+        self.x.setSeries(self.x.raw)
+        self.y.setSeries(self.y.raw)
 
         return is_item_del
 
