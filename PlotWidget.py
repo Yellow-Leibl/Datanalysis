@@ -24,7 +24,7 @@ class PlotWidget(QStackedWidget):
         __3d_figure = Figure()
         self.update_3d = lambda: __3d_figure.canvas.draw()
         __3d_widget = FigureCanvasQTAgg(__3d_figure)
-        self.__3d_plot = __3d_figure.add_subplot(projection='3d')
+        self.__3d_plot: plt.Axes = __3d_figure.add_subplot(projection='3d')
         #  Diagnostic diagram
         __E_widget = pg.GraphicsLayoutWidget()
         self.__diagnostic_plot = __E_widget.ci.addPlot(
@@ -291,7 +291,7 @@ class PlotWidget(QStackedWidget):
         self.update_3d()
 
     def plotDiagnosticDiagram(self, dn: SamplingDatas):
-        tr_l_f, f, tr_m_f = dn.toCreateLinearRegressionMNK(2)
+        tr_l_f, f, tr_m_f = dn.toCreateLinearRegressionMNK(len(dn) - 1)
         self.__diagnostic_plot.plot(dn.line_Y, dn.line_E,
                                     symbolBrush=(30, 120, 180),
                                     symbolPen=(0, 0, 0, 200), symbolSize=7,
@@ -371,12 +371,12 @@ class PlotWidget(QStackedWidget):
         y_raw = dn[1].getRaw()
         z_raw = dn[2].getRaw()
         sz = dn[2]
-        def f_norm(z): return (z - sz.min) / (sz.max - sz.min) + 1
+        def f_norm(z): return (z - sz.min) / (sz.max - sz.min)
+        z_norm = [f_norm(z) * 25 + 2 for z in z_raw]
 
         self.__buble_plot.clear()
-        for i, z in enumerate(z_raw):
-            self.__buble_plot.plot([x_raw[i]], [y_raw[i]],
-                                   symbolSize=f_norm(z) * 10, pen=None)
+        self.__buble_plot.plot(x_raw, y_raw,
+                               symbolSize=z_norm, alphaHint=0.6, pen=None)
 
     def plotGlyphDiagram(self, dn: list[SamplingData], col):
         x_raw = dn[0].getRaw()

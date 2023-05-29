@@ -1,13 +1,13 @@
 from PyQt6.QtGui import QKeySequence
 from PyQt6.QtCore import Qt
-from enum import Enum
+from enum import IntFlag, auto
 
 
-class Critetion(Enum):
-    HOMOGENEITY_INDEPENDENCE = 0,
-    LINEAR_REGRESSION_MODELS = 1,
-    HOMOGENEITY_N_SAMPLES = 2,
-    PARTIAL_CORRELATION = 3
+class Critetion(IntFlag):
+    HOMOGENEITY_INDEPENDENCE = auto(),
+    LINEAR_REGRESSION_MODELS = auto(),
+    HOMOGENEITY_N_SAMPLES = auto(),
+    PARTIAL_CORRELATION = auto(),
 
 
 dict_crit = {
@@ -26,14 +26,14 @@ dict_crit_shortcut = {
 }
 
 
-class Edit(Enum):
-    TRANSFORM = 0
-    STANDARTIZATION = 1
-    SLIDE = 2
-    DUPLICATE = 3
-    DELETE_ANOMALY = 4
-    DRAW_SAMPLES = 5
-    DELETE_SAMPLES = 6
+class Edit(IntFlag):
+    TRANSFORM = auto(),
+    STANDARTIZATION = auto(),
+    SLIDE = auto(),
+    DUPLICATE = auto(),
+    DELETE_ANOMALY = auto(),
+    DRAW_SAMPLES = auto(),
+    DELETE_SAMPLES = auto(),
 
 
 dict_edit = {

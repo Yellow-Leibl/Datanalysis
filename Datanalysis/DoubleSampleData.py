@@ -490,7 +490,7 @@ class DoubleSampleData(DoubleSampleRegression):
 
         addIn("")
 
-        N = len(self.x)
+        N = len(self)
         nu = N - 2
         alpha = 1 - self.trust
         addIn(

@@ -6,20 +6,22 @@ from Datanalysis.SamplesCriteria import SamplesCriteria
 from Datanalysis.DoubleSampleData import DoubleSampleData
 import functions as func
 
-SPLIT_CHAR = ' '
-
-
-def splitAndRemoveEmpty(s: str) -> list:
-    return list(filter(lambda x: x != '\n' and x != '',
-                       s.split(SPLIT_CHAR)))
-
 
 def readVectors(text: list[str]) -> list:
-    def strToFloat(x: str): return float(x.replace(',', '.'))
-    split_float_data = [[strToFloat(j) for j in splitAndRemoveEmpty(i)]
-                        for i in text]
-    return [[vector[i] for vector in split_float_data]
-            for i in range(len(split_float_data[0]))]
+    if ',' in text[0]:
+        def to_float(x: str): return float(x.replace(',', '.'))
+    else:
+        def to_float(x: str): return float(x)
+
+    def splitAndRemoveEmpty(s: str) -> list:
+        return list(filter(lambda x: not x.isspace(), s.split()))
+
+    n = len(splitAndRemoveEmpty(text[0]))
+    vectors = [[0.0] * len(text) for i in range(n)]
+    for j, line in enumerate(text):
+        for i, str_num in enumerate(splitAndRemoveEmpty(line)):
+            vectors[i][j] = to_float(str_num)
+    return vectors
 
 
 class SamplingDatas(SamplesCriteria):
@@ -158,8 +160,8 @@ class SamplingDatas(SamplesCriteria):
         n = len(self.R)
         Rkk = [[self.R[i][j] for j in range(n) if j != k]
                for i in range(n) if i != k]
-        r_k = (1 - np.linalg.det(self.R) / np.linalg.det(Rkk)) ** 0.5
-        N = len(self.samples[0])
+        r_k = (1 - abs(np.linalg.det(self.R) / np.linalg.det(Rkk))) ** 0.5
+        N = len(self.samples[0].getRaw())
         signif_r_k = (N - n - 1) / n * r_k ** 2 / (1 - r_k ** 2)
         f = func.QuantileFisher(1 - self.trust, n, N - n - 1)
         return r_k, signif_r_k, f
@@ -185,7 +187,7 @@ class SamplingDatas(SamplesCriteria):
 
     def lineAccuracyParameters(self, f, yi: int):
         n = len(self) - 1
-        N = len(self.samples[0])
+        N = len(self.samples[0].getRaw())
         Y = self.samples[yi].getRaw()
         X = np.array([self.samples[i].getRaw()
                       for i in range(len(self)) if i != yi])
@@ -222,7 +224,7 @@ class SamplingDatas(SamplesCriteria):
 
     def lineTrustIntervals(self, f):
         n = len(self) - 1
-        N = len(self.samples[0])
+        N = len(self.samples[0].getRaw())
         t = func.QuantileTStudent(1 - self.trust / 2, N - n)
         C = self.line_C
 

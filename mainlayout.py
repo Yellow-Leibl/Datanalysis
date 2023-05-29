@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QSpinBox, QDoubleSpinBox, QPushButton,
     QTableWidget, QAbstractItemView,
     QTextEdit, QTabWidget,
-    QHBoxLayout, QVBoxLayout, QFormLayout,
+    QHBoxLayout, QVBoxLayout, QFormLayout, QBoxLayout,
     QLabel, QMessageBox, QMenu, QSplitter)
 from PyQt6.QtCore import Qt
 from PyQt6 import QtGui
@@ -18,6 +18,22 @@ from GeneralConstants import (
 def addAction(menu: QMenu, title, action, shortcut_dict):
     menu.addAction(title, action)
     menu.actions()[-1].setShortcut(shortcut_dict[title])
+
+
+def BoxWithObjects(box, *args):
+    addObjects(box, *args)
+    return box
+
+
+def addObjects(box: QBoxLayout, *args):
+    for arg in args:
+        typ = str(type(arg))
+        if 'Layout' in typ:
+            box.addLayout(arg)
+        elif 'Widget' in typ:
+            box.addWidget(arg)
+        else:
+            raise Exception()
 
 
 class MainLayout(QMainWindow):
@@ -80,7 +96,6 @@ class MainLayout(QMainWindow):
         self.tab_info.addTab(self.table, "Ранжований ряд")
 
         # grid with transform func
-        form_func = QVBoxLayout()
         form_widget = QFormLayout()
         form_widget.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -88,38 +103,41 @@ class MainLayout(QMainWindow):
                            self.__spin_number_column)
         form_widget.addRow("Рівень значущості:",
                            self.__spin_box_level)
-        form_func.addLayout(form_widget)
-
-        self.createMenuBar()
 
         # borders
-        borders = QHBoxLayout()
-        borders.addWidget(QLabel("min"))
-        borders.addWidget(self.__spin_box_min_x)
-        borders.addWidget(QLabel("max"))
-        borders.addWidget(self.__spin_box_max_x)
-        form_func.addLayout(borders)
-        form_func.addWidget(self.__remove_anomaly)
+        borders = BoxWithObjects(
+            QHBoxLayout(),
+            QLabel("min"),
+            self.__spin_box_min_x,
+            QLabel("max"),
+            self.__spin_box_max_x)
+
+        form_func = BoxWithObjects(
+            QVBoxLayout(),
+            form_widget,
+            borders,
+            self.__remove_anomaly)
 
         # tab and add. functionality
-        info_wid = QSplitter(Qt.Orientation.Horizontal)
-        info_wid.addWidget(self.tab_info)
         widget_func = QWidget()
         widget_func.setLayout(form_func)
-        info_wid.addWidget(widget_func)
+        info_wid = BoxWithObjects(QSplitter(Qt.Orientation.Horizontal),
+                                  self.tab_info,
+                                  widget_func)
 
-        main_vbox = QSplitter(Qt.Orientation.Vertical)
-        main_vbox.addWidget(self.plot_widget)
-        main_vbox.addWidget(info_wid)
+        main_vbox = BoxWithObjects(QSplitter(Qt.Orientation.Vertical),
+                                   self.plot_widget,
+                                   info_wid)
 
         self.setCentralWidget(main_vbox)
+        self.createMenuBar()
 
     def createPlotLayout(self, n: int):
         if n == 1:
             self.plot_widget.create1DPlot()
         elif n == 2:
             self.plot_widget.create2DPlot()
-        elif n >= 3:
+        else:
             self.plot_widget.createNDPlot(n)
 
     def createMenuBar(self):

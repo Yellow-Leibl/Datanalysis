@@ -51,9 +51,8 @@ class Window(MainLayout):
         self.writeTable()
 
     def saveFileAct(self):
-        file_name = QFileDialog().getSaveFileName(self, "Зберегти файл",
-                                                  os.getcwd(),
-                                                  "Bci файли (*)")[0]
+        file_name, _ = QFileDialog().getSaveFileName(
+            self, "Зберегти файл", os.getcwd(), "Bci файли (*)")
         with open(file_name, 'w') as file:
             def safe_access(lst: list, i):
                 return str(lst[i]) if len(lst) > i else ''
@@ -150,7 +149,7 @@ class Window(MainLayout):
         return len(self.number_sample) == 3
 
     def isNd(self) -> bool:
-        return len(self.number_sample) >= 3
+        return len(self.number_sample) >= 2
 
     def setReproductionSeries(self):
         self.regr_num = dict_regression[self.sender().text()]
@@ -379,5 +378,5 @@ if __name__ == "__main__":
     # applicationLoadFromFile("data/self/3lines_500_1.txt")
     # applicationLoadFromFile("data/self/line.txt")
     # applicationLoadFromFile("data/self/parable_n5000.txt")
-    # applicationLoadFromFile("data/6har.dat")
-    applicationLoadFromFile("data/500/norm3n.txt")
+    applicationLoadFromFile("data/6har.dat")
+    # applicationLoadFromFile("data/500/norm3n.txt")

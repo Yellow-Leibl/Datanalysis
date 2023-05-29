@@ -111,13 +111,13 @@ def generateSample(number_sample: int = 1,
     rozp = []
     for i in range(vec_n):
         if number_sample == 1:
-            rozp.append(generateNormal(n))
+            rozp.append(generateNormal(N=n))
         elif number_sample == 2:
-            rozp.append(generateUniform(n))
+            rozp.append(generateUniform(N=n))
         elif number_sample == 3:
-            rozp.append(generateExp(n))
+            rozp.append(generateExp(N=n))
         elif number_sample == 4:
-            rozp.append(generateWeibulla(n))
+            rozp.append(generateWeibulla(N=n))
         elif number_sample == 5:
             rozp.append(generateArcsin(N=n))
         elif number_sample == 6:
@@ -154,10 +154,9 @@ def generateSample(number_sample: int = 1,
 
 
 if __name__ == "__main__":
-    while (True):
-        t1 = time()
-        all_file = generateSample(number_sample=10, vec_n=18, n=500)
-        # with open("norm5n.txt", 'w') as f:
-        #     f.write(all_file)
-        print(f"generation time={time() - t1}")
-        res = applicationLoadFromStr(all_file)
+    t1 = time()
+    all_file = generateSample(number_sample=1, vec_n=1, n=27000)
+    # with open("norm5n.txt", 'w') as f:
+    #     f.write(all_file)
+    print(f"generation time={time() - t1}")
+    res = applicationLoadFromStr(all_file)
