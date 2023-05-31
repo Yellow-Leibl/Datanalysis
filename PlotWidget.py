@@ -96,7 +96,7 @@ class PlotWidget(QStackedWidget):
             title="Корреляційне поле",
             labels={"left": "Y", "bottom": "X"})
 
-    def createNDPlot(self, n):
+    def createNDPlot(self, n: int):
         if n == 3:
             self.setEnabled3d()
         else:
@@ -252,7 +252,7 @@ class PlotWidget(QStackedWidget):
         corr_plot.addItem(histogram_image)
         corr_plot.plot(x.getRaw(), y.getRaw(),
                        symbolBrush=(30, 120, 180),
-                       symbolPen=(0, 0, 0, 200), symbolSize=5,
+                       symbolPen=(0, 0, 0, 200), symbolSize=6,
                        pen=None)
 
     def plot2DReproduction(self, d2: DoubleSampleData,

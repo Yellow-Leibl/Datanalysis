@@ -5,19 +5,18 @@ from PyQt6.QtWidgets import (
     QTextEdit, QTabWidget,
     QHBoxLayout, QVBoxLayout, QFormLayout, QBoxLayout,
     QLabel, QMessageBox, QMenu, QSplitter)
+from PyQt6.QtGui import QKeySequence
 from PyQt6.QtCore import Qt
 from PyQt6 import QtGui
 from PlotWidget import PlotWidget
 
-from GeneralConstants import (
-    dict_edit, dict_edit_shortcut, dict_crit, dict_crit_shortcut,
-    dict_regression, dict_regr_shortcut,
-    dict_file_shortcut, Edit, Critetion, dict_view_shortcut)
+
+def keySequence(sequence: str):
+    return QKeySequence(sequence)
 
 
-def addAction(menu: QMenu, title, action, shortcut_dict):
-    menu.addAction(title, action)
-    menu.actions()[-1].setShortcut(shortcut_dict[title])
+def justKey(key: Qt.Key):
+    return key
 
 
 def BoxWithObjects(box, *args):
@@ -48,23 +47,29 @@ class MainLayout(QMainWindow):
         self.plot_widget.create2DPlot()
 
         # spin boxes
-        self.__spin_number_column = QSpinBox()
-        self.__spin_number_column.setMinimum(0)
-        self.__spin_number_column.valueChanged.connect(
-            self.numberColumnChanged)
+        def spinBox(box, val_changed_f=None,
+                    min=0, max=1, decimals=None, val=0):
+            box.setMinimum(min)
+            box.setMaximum(max)
+            if decimals is not None:
+                box.setDecimals(decimals)
+            box.setValue(val)
+            if val_changed_f is not None:
+                box.valueChanged.connect(val_changed_f)
+            return box
 
-        self.__spin_box_level = QDoubleSpinBox()
-        self.__spin_box_level.setDecimals(5)
-        self.__spin_box_level.setMinimum(0)
-        self.__spin_box_level.setMaximum(1)
-        self.__spin_box_level.setValue(0.05)
-        self.__spin_box_level.valueChanged.connect(
-            lambda: self.changeTrust(self.__spin_box_level.value()))
+        self.__spin_number_column = spinBox(
+            QSpinBox(), self.numberColumnChanged)
 
-        self.__spin_box_min_x = QDoubleSpinBox()
-        self.__spin_box_min_x.setDecimals(5)
-        self.__spin_box_max_x = QDoubleSpinBox()
-        self.__spin_box_max_x.setDecimals(5)
+        self.__trust_value = spinBox(
+            QDoubleSpinBox(),
+            lambda: self.changeTrust(self.__trust_value.value()),
+            min=0.0, max=1.0, decimals=5, val=0.05)
+
+        self.pCA_number = spinBox(QSpinBox(), min=2, max=99)
+
+        self.__spin_box_min_x = spinBox(QDoubleSpinBox(), decimals=5)
+        self.__spin_box_max_x = spinBox(QDoubleSpinBox(), decimals=5)
         self.__remove_anomaly = QPushButton("Видалити аномалії")
         self.__remove_anomaly.clicked.connect(self.removeAnomaly)
 
@@ -102,7 +107,10 @@ class MainLayout(QMainWindow):
         form_widget.addRow("Кількість класів:",
                            self.__spin_number_column)
         form_widget.addRow("Рівень значущості:",
-                           self.__spin_box_level)
+                           self.__trust_value)
+        form_widget.addRow("", QWidget())
+        form_widget.addRow("Кількість перших компонентів для МГК:",
+                           self.pCA_number)
 
         # borders
         borders = BoxWithObjects(
@@ -132,79 +140,96 @@ class MainLayout(QMainWindow):
         self.setCentralWidget(main_vbox)
         self.createMenuBar()
 
-    def createPlotLayout(self, n: int):
-        if n == 1:
-            self.plot_widget.create1DPlot()
-        elif n == 2:
-            self.plot_widget.create2DPlot()
-        else:
-            self.plot_widget.createNDPlot(n)
-
     def createMenuBar(self):
+        def addAction(menu: QMenu, title, action, shortcut):
+            act = menu.addAction(title, action)
+            act.setShortcut(keySequence(shortcut))
         # File menu
         menuBar = self.menuBar()
         file_menu = menuBar.addMenu("&Файл")
         addAction(file_menu, "&Відкрити", lambda: self.openFile(''),
-                  dict_file_shortcut)
+                  "Ctrl+O")
         addAction(file_menu, "&Зберегти", self.saveFileAct,
-                  dict_file_shortcut)
+                  "Ctrl+S")
         addAction(file_menu, "В&ийти", self.saveFileAct,
-                  dict_file_shortcut)
+                  "Ctrl+Q")
 
         # Editing menu
         edit_menu = menuBar.addMenu("&Редагувати")
-        for k, v in dict_edit.items():
-            if v == Edit.DRAW_SAMPLES.value:
-                addAction(edit_menu, k, self.drawSamples, dict_edit_shortcut)
-            elif v == Edit.DELETE_SAMPLES.value:
-                addAction(edit_menu, k, self.deleteSamples, dict_edit_shortcut)
-            elif v == Edit.DUPLICATE.value:
-                addAction(edit_menu, k, self.duplicateSample,
-                          dict_edit_shortcut)
-            else:
-                addAction(edit_menu, k, self.editSampleEvent,
-                          dict_edit_shortcut)
-            if k == "&Видалити аномалії":
-                edit_menu.addSeparator()
-        self.reprod_num = -1
+        addAction(edit_menu, "&Перетворити", self.editSampleEvent, "Ctrl+T")
+        addAction(edit_menu, "&Стандартизувати", self.editSampleEvent,
+                  "Ctrl+W")
+        addAction(edit_menu, "&Центрувати", self.editSampleEvent,
+                  "Ctrl+Shift+W")
+        addAction(edit_menu, "&Зсунути", self.editSampleEvent, "Ctrl+P")
+        addAction(edit_menu, "&Видалити аномалії", self.editSampleEvent,
+                  "Ctrl+A")
+        addAction(edit_menu, "До &незалежних величин", self.editSampleEvent,
+                  "Ctrl+Y")
+        edit_menu.addSeparator()
+        addAction(edit_menu, "&Клонувати", self.duplicateSample, "Ctrl+C")
+        addAction(edit_menu, "Зо&бразити розподіл", self.drawSamples, "Ctrl+D")
+        addAction(edit_menu, "Видалити &розподіл", self.deleteSamples,
+                  "Ctrl+Backspace")
 
         view_menu = menuBar.addMenu("&Вигляд")
-        for k, v in dict_view_shortcut.items():
-            if k == "&Наступна вкладка":
-                addAction(view_menu, k,
-                          lambda: self.tab_info.setCurrentIndex(
-                              (self.tab_info.currentIndex() + 1)
-                              % len(self.tab_info.tabBar())),
-                          dict_view_shortcut)
+        addAction(view_menu, "&Наступна вкладка", self.nextProtocolTab,
+                  "Alt+Tab")
+
+        self.reprod_num = -1
 
         # Regression menu
         regr_menu = menuBar.addMenu("&Регресія")
-        for k, v in dict_regression.items():
-            if v == 5 or v == 9 or v == 10:
-                regr_menu.addSeparator()
-            addAction(regr_menu, k, self.setReproductionSeries,
-                      dict_regr_shortcut)
+        addAction(regr_menu, "&Нормальний", self.setReproductionSeries,
+                  "Ctrl+Alt+N")
+        addAction(regr_menu, "&Рівномірний", self.setReproductionSeries,
+                  "Ctrl+Alt+U")
+        addAction(regr_menu, "&Експоненціальний", self.setReproductionSeries,
+                  "Ctrl+Alt+E")
+        addAction(regr_menu, "&Вейбулла", self.setReproductionSeries,
+                  "Ctrl+Alt+W")
+        addAction(regr_menu, "&Арксинус", self.setReproductionSeries,
+                  "Ctrl+Alt+A")
+        regr_menu.addSeparator()
+        addAction(regr_menu, "Лінійна &МНК", self.setReproductionSeries,
+                  "Ctrl+Alt+M")
+        addAction(regr_menu, "Лінійна Метод &Тейла",
+                  self.setReproductionSeries, "Ctrl+Alt+T")
+        addAction(regr_menu, "&Парабола", self.setReproductionSeries,
+                  "Ctrl+Alt+P")
+        addAction(regr_menu, "Квазілінійна y = a * exp(b * x)",
+                  self.setReproductionSeries, "Ctrl+Alt+K")
+        regr_menu.addSeparator()
+        addAction(regr_menu, "Лінійна МНК", self.setReproductionSeries,
+                  "Ctrl+Alt+V")
+        regr_menu.addSeparator()
+        addAction(regr_menu, "&Очистити", self.setReproductionSeries,
+                  "Ctrl+Alt+C")
 
         # Critetion menu
         crit_menu = menuBar.addMenu("&Критерії")
-        def setTrust(func): return lambda: func(self.__spin_box_level.value())
-        for k, v in dict_crit.items():
-            if v == Critetion.HOMOGENEITY_INDEPENDENCE:
-                addAction(crit_menu, k,
-                          setTrust(self.homogeneityAndIndependence),
-                          dict_crit_shortcut)
-            if v == Critetion.LINEAR_REGRESSION_MODELS:
-                addAction(crit_menu, k,
-                          setTrust(self.linearModelsCrit),
-                          dict_crit_shortcut)
-            if v == Critetion.HOMOGENEITY_N_SAMPLES:
-                addAction(crit_menu, k,
-                          self.homogeneityNSamples,
-                          dict_crit_shortcut)
-            if v == Critetion.PARTIAL_CORRELATION:
-                addAction(crit_menu, k,
-                          self.partialCorrelation,
-                          dict_crit_shortcut)
+        def setTrust(func): return lambda: func(self.__trust_value.value())
+        addAction(crit_menu, "Перевірка однорідності/незалежності",
+                  setTrust(self.homogeneityAndIndependence), "Ctrl+I")
+        addAction(crit_menu, "Порівняння лінійних регресій",
+                  setTrust(self.linearModelsCrit), "Ctrl+E")
+        addAction(crit_menu, "Перевірка однорідності сукупностей (Нормальні)",
+                  self.homogeneityNSamples, "Ctrl+N")
+        addAction(crit_menu, "Частковий коефіцієнт кореляції",
+                  self.partialCorrelation, "Ctrl+P")
+
+        anal_menu = menuBar.addMenu("К&омпонентний та факторний аналіз")
+        addAction(anal_menu, "Метод головних компонент",
+                  self.PCA, "Ctrl+Shift+M")
+
+    def get_edit_menu(self):
+        return self.menuBar().actions()[1].menu()
+
+    def get_regr_menu(self):
+        return self.menuBar().actions()[3].menu()
+
+    def index_in_menu(self, menu, act):
+        return menu.actions().index(act)
 
     def getMinMax(self):
         return (self.__spin_box_min_x.value(),
@@ -220,6 +245,11 @@ class MainLayout(QMainWindow):
 
     def unselectTable(self):
         self.table.clearSelection()
+
+    def nextProtocolTab(self):
+        curr_ind = self.tab_info.currentIndex()
+        total_tabs = len(self.tab_info.tabBar())
+        self.tab_info.setCurrentIndex((curr_ind + 1) % total_tabs)
 
     def showMessageBox(self, title: str, text: str):
         mes = QMessageBox(self)

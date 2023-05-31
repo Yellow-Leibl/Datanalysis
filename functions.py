@@ -1,7 +1,55 @@
 import math
+import numpy as np
 
-# reproduction one-two parametr
 
+# Matrix operations
+
+def EigenvalueJacob(A: np.ndarray, eps=0.00001):
+    n = len(A)
+
+    def phi(i, j):
+        if A[i, i] == A[j, j]:
+            return math.pi / 4
+        return 1 / 2 * math.atan(2 * A[i, j] / (A[i, i] - A[j, j]))
+
+    def U(i, j):
+        u = np.identity(n)
+        phi_k = phi(i, j)
+        u[i, i] = math.cos(phi_k)
+        u[i, j] = -math.sin(phi_k)
+        u[j, i] = math.sin(phi_k)
+        u[j, j] = math.cos(phi_k)
+        return u
+
+    def S(A):
+        return sum([sum([A[i, j] ** 2 for j in range(n) if j != i])
+                    for i in range(n)])
+
+    def max(A):
+        mi, mj, max_a = 0, 1, abs(A[0, 1])
+        for i in range(n):
+            for j in range(n):
+                if abs(A[i, j]) > max_a and i != j:
+                    mi, mj, max_a = i, j, abs(A[i, j])
+        return mi, mj
+
+    e_vect = np.identity(n)
+    while S(A) > eps:
+        i, j = max(A)
+        U_ = U(i, j)
+        e_vect = e_vect @ U_
+        A = U_.transpose() @ A @ U_
+    return A.diagonal(), e_vect
+
+
+# val, vect = EigenvalueJacob(np.array([[3, 2, 1],
+#                                       [2, 2, 5],
+#                                       [1, 5, 1]]))
+# print(val)
+# print(vect)
+
+
+# Reproduction one-two parametr
 
 def DF1Parametr(dF_d_theta, D_theta):
     return dF_d_theta ** 2 * D_theta
@@ -12,7 +60,7 @@ def DF2Parametr(dF_d_theta1, dF_d_theta2, D_theta1, D_theta2, cov_theta12):
         + 2 * dF_d_theta1 * dF_d_theta2 * cov_theta12
 
 
-# kvant
+# Kvant
 c0 = 2.515517
 c1 = 0.802853
 c2 = 0.010328
@@ -74,8 +122,7 @@ def QuantileFisher(alpha, nu1, nu2):
     return math.exp(2 * z)
 
 
-# probability functions
-
+# Probability functions
 
 def L(z, N):
     return 1 - math.e ** (-2 * z ** 2) * (
@@ -128,8 +175,7 @@ def FArcsin(x, a):
     return 0.5 + 1 / math.pi * math.asin(x / a)
 
 
-# probability density functions
-
+# Probability density functions
 
 def fNorm(x, m=0, sigma=1):
     return 1 / (sigma * math.sqrt(2 * math.pi)) \
@@ -160,7 +206,6 @@ def fArcsin(x, a):
 
 
 # Derivative functions
-
 
 def fNorm_d_m(x, m, sigma):
     return -1 / (sigma * math.sqrt(2 * math.pi)) \

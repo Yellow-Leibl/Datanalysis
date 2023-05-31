@@ -7,7 +7,6 @@ from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from Datanalysis.SamplingData import SamplingData
 from mainlayout import MainLayout
-from GeneralConstants import dict_edit, dict_regression, Edit
 
 
 class Window(MainLayout):
@@ -31,10 +30,11 @@ class Window(MainLayout):
     def autoSelect(self):
         # self.openFile("data/self/3lines_500_2.txt")
         # self.openFile("data/self/3lines_500_3.txt")
-        # self.number_sample = [2, 1, 3]
-        self.createPlotLayout(len(self.number_sample))
-        self.regr_num = 9
+        self.number_sample = [i for i in range(6)]
+        self.createPlotLayout()
+        # self.regr_num = 9
         self.sampleChanged()
+        # self.PCA()
 
     def openFile(self, file_name: str):
         if file_name == '':
@@ -81,16 +81,23 @@ class Window(MainLayout):
             return self.datas_act
 
     def editSampleEvent(self):
-        act = Edit(dict_edit[self.sender().text()])
-        if act == Edit.TRANSFORM:
+        edit_num = self.index_in_menu(self.get_edit_menu(), self.sender())
+        if edit_num == 0:
             [self.datas[i].toLogarithmus10() for i in self.number_sample]
-        elif act == Edit.STANDARTIZATION:
+        elif edit_num == 1:
             [self.datas[i].toStandardization() for i in self.number_sample]
-        elif act == Edit.SLIDE:
+        elif edit_num == 2:
+            [self.datas[i].toCentralization() for i in self.number_sample]
+        elif edit_num == 3:
             [self.datas[i].toSlide() for i in self.number_sample]
-        elif act == Edit.DELETE_ANOMALY:
+        elif edit_num == 4:
             if not self.autoRemoveAnomaly():
                 return
+        elif edit_num == 5:
+            if self.is2d():
+                self.d2.toIndependet()
+            elif self.isNd():
+                self.datas_act.toIndependet()
         self.sampleChanged()
 
     def duplicateSample(self):
@@ -120,14 +127,22 @@ class Window(MainLayout):
         if self.datas_active == sel or \
            self.d2_active == sel:
             return
-        self.createPlotLayout(len(sel))
         self.number_sample = sel
+        self.createPlotLayout()
         self.d2_active = [-1, -1]
         self.datas_active = []
         self.regr_num = -1
         self.silentChangeNumberClasses(0)
         self.setMaximumColumnNumber(max(len(d._x) for d in self.datas.samples))
         self.selectSampleOrReproduction()
+
+    def createPlotLayout(self):
+        if self.is1d():
+            self.plot_widget.create1DPlot()
+        elif self.is2d():
+            self.plot_widget.create2DPlot()
+        else:
+            self.plot_widget.createNDPlot(len(self.number_sample))
 
     def deleteSamples(self):
         sel = self.getSelectedRows()
@@ -152,7 +167,7 @@ class Window(MainLayout):
         return len(self.number_sample) >= 2
 
     def setReproductionSeries(self):
-        self.regr_num = dict_regression[self.sender().text()]
+        self.regr_num = self.index_in_menu(self.get_regr_menu(), self.sender())
         self.selectSampleOrReproduction()
 
     def changeTrust(self, trust: float):
@@ -218,7 +233,7 @@ class Window(MainLayout):
             self.datas_act = SamplingDatas(samples)
             self.datas_act.toCalculateCharacteristic()
             self.plot_widget.plotND(self.datas_act, number_column)
-            if self.regr_num == 9:
+            if self.regr_num == 11:
                 self.plot_widget.plotDiagnosticDiagram(self.datas_act)
 
     def drawReproductionSeries1D(self):
@@ -359,6 +374,13 @@ class Window(MainLayout):
                 sel[0], sel[1], sel[2:])
             self.criterion_protocol.setText(text)
 
+    def PCA(self):
+        w = self.pCA_number.value()
+        ind, retn = self.datas_act.principalComponentAnalysis(w)
+        self.datas.appendSamples(ind.samples)
+        self.datas.appendSamples(retn.samples)
+        self.writeTable()
+
 
 def applicationLoadFromFile(file: str = ''):
     app = QApplication(sys.argv)
@@ -378,5 +400,6 @@ if __name__ == "__main__":
     # applicationLoadFromFile("data/self/3lines_500_1.txt")
     # applicationLoadFromFile("data/self/line.txt")
     # applicationLoadFromFile("data/self/parable_n5000.txt")
-    applicationLoadFromFile("data/6har.dat")
+    # applicationLoadFromFile("data/6har.dat")
     # applicationLoadFromFile("data/500/norm3n.txt")
+    applicationLoadFromFile("data/Воки_собаки.txt.txt")

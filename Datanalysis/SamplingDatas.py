@@ -34,6 +34,9 @@ class SamplingDatas(SamplesCriteria):
     def appendSample(self, s: SamplingData):
         self.samples.append(s)
 
+    def appendSamples(self, samples):
+        self.samples += samples
+
     @timer
     def append(self, not_ranked_series_str: list[str]):
         vectors = readVectors(not_ranked_series_str)
@@ -44,7 +47,21 @@ class SamplingDatas(SamplesCriteria):
         for v in vectors:
             s = SamplingData(v)
             rankAndCalc(s)
-            self.samples.append(s)
+            self.appendSample(s)
+
+    def copy(self) -> 'SamplingDatas':
+        samples = [s.copy() for s in self.samples]
+        new_sample = SamplingDatas(samples, self.trust)
+        if hasattr(self, 'DC'):
+            new_sample.DC = self.DC
+            new_sample.R = self.R
+            new_sample.R_Kendala = self.R_Kendala
+            new_sample.r_multi = self.r_multi
+            new_sample.DC_eigenval = self.DC_eigenval
+            new_sample.DC_eigenvects = self.DC_eigenvects
+            new_sample.DC_eigenval_part = self.DC_eigenval_part
+            new_sample.DC_eigenval_accum = self.DC_eigenval_accum
+        return new_sample
 
     def __len__(self) -> int:
         return len(self.samples)
@@ -91,6 +108,15 @@ class SamplingDatas(SamplesCriteria):
         self.r_multi = [self.multipleCorrelationCoefficient(i)
                         for i in range(n)]
 
+        self.DC_eigenval, self.DC_eigenvects = func.EigenvalueJacob(self.DC)
+        eigen_sum = sum(self.DC_eigenval)
+        self.DC_eigenval_part = [val / eigen_sum for val in self.DC_eigenval]
+        self.DC_eigenval_accum = [0.0] * n
+        self.DC_eigenval_accum[0] = self.DC_eigenval_part[0]
+        for i in range(n):
+            self.DC_eigenval_accum[i] = \
+                self.DC_eigenval_accum[i - 1] + self.DC_eigenval_part[i]
+
     def coeficientOfCorrelation(self, i, j, cd):
         if len(cd) >= 1:
             d = cd[-1]
@@ -134,13 +160,13 @@ class SamplingDatas(SamplesCriteria):
         self.coeficientOfCorrelationIntervals(self.partial_r, len(cd) + 2)
         self.coeficientOfCorrelationTTest(self.partial_r, len(cd) + 2)
         addForm("Частковий коефіцієнт кореляції",
-                f"{self.det_less_partial_r:.5}",
-                f"{self.partial_r:.5}",
-                f"{self.det_more_partial_r:.5}")
+                self.det_less_partial_r,
+                self.partial_r,
+                self.det_more_partial_r)
         addForm("Т-тест",
-                f"{self.partial_r_signif_t_test:.5}",
+                self.partial_r_signif_t_test,
                 "≤",
-                f"{self.partial_r_signif_t_quant:.5}")
+                self.partial_r_signif_t_quant)
         return "\n".join(info_protocol)
 
     def coeficientOfRangeCorrelation(self, i, j, cd):
@@ -165,6 +191,44 @@ class SamplingDatas(SamplesCriteria):
         signif_r_k = (N - n - 1) / n * r_k ** 2 / (1 - r_k ** 2)
         f = func.QuantileFisher(1 - self.trust, n, N - n - 1)
         return r_k, signif_r_k, f
+
+    def toIndependet(self):
+        N = self.getMaxDepthRawData()
+        n = len(self)
+        vects = self.DC_eigenvects
+        new_x = []
+        def raw(i): return self[i].getRaw()
+        for k in range(n):
+            self[k].toCentralization()
+            new_x.append([sum([vects[v, k] * raw(v)[i] for v in range(n)])
+                          for i in range(N)])
+        [s.setSeries(new_x[i]) for i, s in enumerate(self.samples)]
+
+    def toReturnFromIndependet(self, w=0):
+        n = len(self)
+        if w == 0:
+            w == n
+        N = self.getMaxDepthRawData()
+        vects = self.DC_eigenvects
+        part = self.DC_eigenval_part
+        old_x = [[]] * n
+
+        sorted_by_disp = sorted([[part[i], i] for i in range(n)],
+                                key=lambda i: i[0], reverse=True)
+
+        def raw(i): return self[sorted_by_disp[i][1]].getRaw()
+        def vect(i, k): return vects[i, sorted_by_disp[k][1]]
+        for k in range(n):
+            old_x[k] = [sum([vect(k, v) * raw(v)[i] for v in range(w)])
+                        for i in range(N)]
+        [s.setSeries(old_x[i]) for i, s in enumerate(self.samples)]
+
+    def principalComponentAnalysis(self, w):
+        independet_sample = self.copy()
+        independet_sample.toIndependet()
+        newold_sample = independet_sample.copy()
+        newold_sample.toReturnFromIndependet(w)
+        return independet_sample, newold_sample
 
     def toCreateLinearRegressionMNK(self, yi: int):
         self.line_R, self.line_R_f_test, self.line_R_f_quant = \
@@ -237,87 +301,96 @@ class SamplingDatas(SamplesCriteria):
         return less_f, more_f
 
     def getProtocol(self) -> str:
-        info_protocol = []
+        inf_protocol = []
+        def add_text(text=""): inf_protocol.append(text)
+        def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
 
-        def addForm(title, *args):
-            info_protocol.append(formRowNV(title, *args))
-
-        def addIn(text=""): info_protocol.append(text)
-
-        addIn("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
+        add_text("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
         addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
-        addIn()
+        add_text()
 
         for i, s in enumerate(self.samples):
             addForm(f"Сер Арифметичне X{i+1}",
-                    f"{s.x_-s.det_x_:.5}",
-                    f"{s.x_:.5}",
-                    f"{s.x_+s.det_x_:.5}",
-                    f"{s.det_x_:.5}")
+                    s.x_ - s.det_x_,
+                    s.x_,
+                    s.x_ + s.det_x_,
+                    s.det_x_)
             addForm(f"Сер квадратичне X{i+1}",
-                    f"{s.Sigma-s.det_Sigma:.5}",
-                    f"{s.Sigma:.5}",
-                    f"{s.Sigma+s.det_Sigma:.5}",
-                    f"{s.det_Sigma:.5}")
+                    s.Sigma - s.det_Sigma,
+                    s.Sigma,
+                    s.Sigma + s.det_Sigma,
+                    s.det_Sigma)
 
-        addIn()
-        addIn("Оцінка дисперсійно-коваріаційної матриці DC:")
+        add_text()
+        add_text("Оцінка дисперсійно-коваріаційної матриці DC:")
         n = len(self.samples)
         addForm("", *[f"X{i+1}" for i in range(n)])
-        addIn()
+        add_text()
         for i in range(n):
-            addForm(f"X{i+1}", *[f"{self.DC[i][j]:.5}" for j in range(n)])
+            addForm(f"X{i+1}", *[self.DC[i][j] for j in range(n)])
 
-        addIn()
-        addIn("Оцінка кореляційної матриці R:")
+        add_text()
+        add_text("Оцінка кореляційної матриці R:")
         addForm("", *[f"X{i+1}" for i in range(n)])
-        addIn()
+        add_text()
         for i in range(n):
-            addForm(f"X{i+1}", *[f"{self.R[i][j]:.5}" for j in range(n)])
+            addForm(f"X{i+1}", *[self.R[i][j] for j in range(n)])
 
-        addIn()
+        add_text()
         for i in range(n):
             addForm(f"Множинний коефіцієнт кореляції X{i+1}",
-                    "", f"{self.r_multi[i][0]:.5}")
+                    "", self.r_multi[i][0])
             addForm("Т-тест коефіцієнту",
-                    f"{self.r_multi[i][1]:.5}",
+                    self.r_multi[i][1],
                     "≥",
-                    f"{self.r_multi[i][2]:.5}")
+                    self.r_multi[i][2])
 
-        addIn()
+        add_text()
+        add_text("Власні вектори")
+        addForm("", *[f"F{i+1}" for i in range(n)])
+        for i in range(n):
+            sum_xk = sum([self.DC_eigenvects[i][j] ** 2 for j in range(n)])
+            addForm(f"X{i+1}", *([self.DC_eigenvects[i][j] for j in range(n)] +
+                                 [sum_xk]))
+        add_text()
+        addForm("Власні числа", *[self.DC_eigenval[i] for i in range(n)])
+        addForm("Частка %", *[self.DC_eigenval_part[i] for i in range(n)])
+        addForm("Накопичена", *[self.DC_eigenval_accum[i] for i in range(n)])
+
+        add_text()
         if hasattr(self, "line_A"):
-            addIn("Параметри лінійної регресії: Y = AX")
-            addIn("-" * 16)
+            add_text("Параметри лінійної регресії: Y = AX")
+            add_text("-" * 16)
             addForm("Коефіцієнт детермінації", "",
-                    f"{self.line_R:.5}")
+                    self.line_R)
             addForm("Перевірка значущості регресії",
-                    f"{self.line_R_f_test:.5}",
+                    self.line_R_f_test,
                     ">",
-                    f"{self.line_R_f_quant:.5}")
-            addIn()
+                    self.line_R_f_quant)
+            add_text()
             addForm("Стандартна похибка регресії",
-                    f"{self.det_less_line_Sigma:.5}",
-                    f"{self.line_S_slide:.5}",
-                    f"{self.det_more_line_Sigma:.5}")
+                    self.det_less_line_Sigma,
+                    self.line_S_slide,
+                    self.det_more_line_Sigma)
             addForm("σ^2 = σˆ^2",
-                    f"{self.line_sigma_signif_f_test:.5}",
+                    self.line_sigma_signif_f_test,
                     "≤",
-                    f"{self.line_sigma_signif_f_quant:.5}")
-            addIn()
-            addForm(f"Параметр a{0}", "", f"{self.line_A0:.5}")
-            addIn()
+                    self.line_sigma_signif_f_quant)
+            add_text()
+            addForm(f"Параметр a{0}", "", self.line_A0)
+            add_text()
             for k, a in enumerate(self.line_A):
                 addForm(f"Параметр a{k+1}",
-                        f"{a - self.line_det_A[k]:.5}",
-                        f"{a:.5}",
-                        f"{a + self.line_det_A[k]:.5}",
-                        f"{self.line_det_A[k]:.5}")
+                        a - self.line_det_A[k],
+                        a,
+                        a + self.line_det_A[k],
+                        self.line_det_A[k])
                 addForm(f"T-Тест a{k+1}",
-                        f"{self.line_A_t_test[k]:.5}",
+                        self.line_A_t_test[k],
                         "≤",
-                        f"{self.line_A_t_quant:.5}")
+                        self.line_A_t_quant)
                 addForm(f"Стандартизований параметр a{k+1}", '',
-                        f"{self.line_stand_A[k]:.5}")
-                addIn()
+                        self.line_stand_A[k])
+                add_text()
 
-        return "\n".join(info_protocol)
+        return "\n".join(inf_protocol)

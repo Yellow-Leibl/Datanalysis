@@ -105,7 +105,7 @@ class SamplingData:
         return self._x[i]
 
     def copy(self):
-        t = SamplingData(self.getRaw())
+        t = SamplingData(list(self.getRaw()))
         if len(self.probabilityX) > 0:
             t.toRanking()
             t.toCalculateCharacteristic()
@@ -169,7 +169,7 @@ class SamplingData:
 
         self.MED_Walsh = MED(xl)
 
-        self.x_ = sum(self._x) / N
+        self.x_ = sum(self.raw) / len(self.raw)
 
         nu2 = 0.0
         u2 = 0.0
@@ -344,6 +344,9 @@ class SamplingData:
 
     def toTransform(self, f_tr):
         self.setSeries([f_tr(x) for x in self.getRaw()])
+
+    def toCentralization(self):
+        self.toSlide(-self.x_)
 # end edit
 
     def toCreateNormalFunc(self) -> tuple:
@@ -678,5 +681,8 @@ def formatValue(v: str) -> str:
 def formRowNV(name: str, *args) -> str:
     row = formatName(name)
     for arg in args:
-        row += formatValue(arg)
+        if type(arg) is str:
+            row += formatValue(arg)
+        else:
+            row += formatValue(f"{arg:.5}")
     return row
