@@ -12,13 +12,13 @@ from mainlayout import MainLayout
 class Window(MainLayout):
     def __init__(self, file: str, is_file_name: bool = True):
         super().__init__()  # layout here
-        self.datas = SamplingDatas()
-        self.number_sample: list[int] = []
-        self.reproduction_1d_F = None
-        self.d2_active: list[int] = []
-        self.datas_active: list[int] = []
+        self.all_datas = SamplingDatas()
+        self.sel_indexes: list[int] = []
+        self.d2_indexes: list[int] = []
+        self.datas_displayed_indexes: list[int] = []
         self.datas_crits: list[list] = []
-        self.regr_num = -1
+        self.selected_regr_num = -1
+        self.d1_regr_F = None
         if is_file_name:
             self.openFile(file)
         else:
@@ -30,7 +30,7 @@ class Window(MainLayout):
     def autoSelect(self):
         # self.openFile("data/self/3lines_500_2.txt")
         # self.openFile("data/self/3lines_500_3.txt")
-        self.number_sample = [i for i in range(6)]
+        self.sel_indexes = [i for i in range(6)]
         self.createPlotLayout()
         # self.regr_num = 9
         self.sampleChanged()
@@ -47,7 +47,7 @@ class Window(MainLayout):
             print(f"\"{file_name}\" not found")
 
     def loadFromData(self, all_file: list[str]):
-        self.datas.append(all_file)
+        self.all_datas.append(all_file)
         self.writeTable()
 
     def saveFileAct(self):
@@ -57,9 +57,9 @@ class Window(MainLayout):
             def safe_access(lst: list, i):
                 return str(lst[i]) if len(lst) > i else ''
             file.write('\n'.join(
-                [' '.join([safe_access(self.datas[j].getRaw(), i)
-                           for j in range(len(self.datas))])
-                 for i in range(self.datas.getMaxDepthRawData())]))
+                [' '.join([safe_access(self.all_datas[j].raw, i)
+                           for j in range(len(self.all_datas))])
+                 for i in range(self.all_datas.getMaxDepthRawData())]))
 
     def sampleChanged(self):
         self.updateGraphics(self.getNumberClasses())
@@ -74,22 +74,22 @@ class Window(MainLayout):
 
     def getActiveSamples(self):
         if self.is1d():
-            return self.datas[self.number_sample[0]]
+            return self.all_datas[self.sel_indexes[0]]
         elif self.is2d():
             return self.d2
         elif self.isNd():
-            return self.datas_act
+            return self.datas_displayed
 
     def editSampleEvent(self):
         edit_num = self.index_in_menu(self.get_edit_menu(), self.sender())
         if edit_num == 0:
-            [self.datas[i].toLogarithmus10() for i in self.number_sample]
+            [self.all_datas[i].toLogarithmus10() for i in self.sel_indexes]
         elif edit_num == 1:
-            [self.datas[i].toStandardization() for i in self.number_sample]
+            [self.all_datas[i].toStandardization() for i in self.sel_indexes]
         elif edit_num == 2:
-            [self.datas[i].toCentralization() for i in self.number_sample]
+            [self.all_datas[i].toCentralization() for i in self.sel_indexes]
         elif edit_num == 3:
-            [self.datas[i].toSlide() for i in self.number_sample]
+            [self.all_datas[i].toSlide() for i in self.sel_indexes]
         elif edit_num == 4:
             if not self.autoRemoveAnomaly():
                 return
@@ -97,43 +97,46 @@ class Window(MainLayout):
             if self.is2d():
                 self.d2.toIndependet()
             elif self.isNd():
-                self.datas_act.toIndependet()
+                self.datas_displayed.toIndependet()
         self.sampleChanged()
 
     def duplicateSample(self):
         sel = self.getSelectedRows()
         for i in sel:
-            self.datas.appendSample(self.datas[i].copy())
+            self.all_datas.appendSample(self.all_datas[i].copy())
         self.writeTable()
 
     def removeAnomaly(self):
         if self.is1d():
             minmax = self.getMinMax()
-            self.datas[self.number_sample[0]].remove(minmax[0], minmax[1])
+            self.all_datas[self.sel_indexes[0]].remove(minmax[0], minmax[1])
             self.sampleChanged()
 
     def autoRemoveAnomaly(self) -> bool:
         if self.is1d():
-            return self.datas[self.number_sample[0]].autoRemoveAnomaly()
+            return self.all_datas[self.sel_indexes[0]].autoRemoveAnomaly()
         elif self.is2d():
             hist_data = self.d2.get_histogram_data(self.getNumberClasses())
             return self.d2.autoRemoveAnomaly(hist_data)
+        elif self.isNd():
+            return self.datas_displayed.autoRemoveAnomaly(
+                self.getNumberClasses())
         return False
 
     def drawSamples(self):
         sel = self.getSelectedRows()
-        if 0 == len(sel) or sel == self.number_sample:
+        if 0 == len(sel) or sel == self.sel_indexes:
             return
-        if self.datas_active == sel or \
-           self.d2_active == sel:
+        if self.datas_displayed_indexes == sel or \
+           self.d2_indexes == sel:
             return
-        self.number_sample = sel
+        self.sel_indexes = sel
         self.createPlotLayout()
-        self.d2_active = [-1, -1]
-        self.datas_active = []
-        self.regr_num = -1
+        self.d2_indexes = [-1, -1]
+        self.datas_displayed_indexes = []
+        self.selected_regr_num = -1
         self.silentChangeNumberClasses(0)
-        self.setMaximumColumnNumber(max(len(d._x) for d in self.datas.samples))
+        self.setMaximumColumnNumber(self.all_datas.getMaxDepthRangeData())
         self.selectSampleOrReproduction()
 
     def createPlotLayout(self):
@@ -142,32 +145,33 @@ class Window(MainLayout):
         elif self.is2d():
             self.plot_widget.create2DPlot()
         else:
-            self.plot_widget.createNDPlot(len(self.number_sample))
+            self.plot_widget.createNDPlot(len(self.sel_indexes))
 
     def deleteSamples(self):
         sel = self.getSelectedRows()
         p = 0
         for i in sel:
-            if i - p in self.number_sample:
-                self.number_sample = []
-            self.datas.pop(i - p)
+            if i - p in self.sel_indexes:
+                self.sel_indexes = []
+            self.all_datas.pop(i - p)
             p += 1
         self.writeTable()
 
     def is1d(self) -> bool:
-        return len(self.number_sample) == 1
+        return len(self.sel_indexes) == 1
 
     def is2d(self) -> bool:
-        return len(self.number_sample) == 2
+        return len(self.sel_indexes) == 2
 
     def is3d(self) -> bool:
-        return len(self.number_sample) == 3
+        return len(self.sel_indexes) == 3
 
     def isNd(self) -> bool:
-        return len(self.number_sample) >= 2
+        return len(self.sel_indexes) >= 2
 
     def setReproductionSeries(self):
-        self.regr_num = self.index_in_menu(self.get_regr_menu(), self.sender())
+        self.selected_regr_num = \
+            self.index_in_menu(self.get_regr_menu(), self.sender())
         self.selectSampleOrReproduction()
 
     def changeTrust(self, trust: float):
@@ -178,11 +182,11 @@ class Window(MainLayout):
 
     def writeTable(self):
         self.table.clear()
-        self.table.setColumnCount(self.datas.getMaxDepthRangeData() + 1)
-        self.table.setRowCount(len(self.datas))
-        for s in range(len(self.datas)):
-            d = self.datas[s]
-            self.table.setItem(s, 0, QTableWidgetItem(f"N={len(d.getRaw())}"))
+        self.table.setColumnCount(self.all_datas.getMaxDepthRangeData() + 1)
+        self.table.setRowCount(len(self.all_datas))
+        for s in range(len(self.all_datas)):
+            d = self.all_datas[s]
+            self.table.setItem(s, 0, QTableWidgetItem(f"N={len(d.raw)}"))
             for i, e in enumerate(d._x):
                 self.table.setItem(s, i + 1, QTableWidgetItem(f"{e:.5}"))
         self.table.resizeColumnsToContents()
@@ -198,11 +202,11 @@ class Window(MainLayout):
 
     def writeCritetion(self):
         if self.is1d():
-            if self.reproduction_1d_F is None:
+            if self.d1_regr_F is None:
                 return
-            d = self.datas[self.number_sample[0]]
+            d = self.all_datas[self.sel_indexes[0]]
             self.criterion_protocol.setText(self.writeCritetion1DSample(
-                d, self.reproduction_1d_F))
+                d, self.d1_regr_F))
         elif self.is2d():
             isNormal = self.d2.xiXiTest(self.hist_data_2d)
             self.criterion_protocol.setText(self.d2.xiXiTestProtocol(isNormal))
@@ -211,16 +215,16 @@ class Window(MainLayout):
 
     def updateGraphics(self, number_column: int = 0):
         if self.is1d():
-            d = self.datas[self.number_sample[0]]
+            d = self.all_datas[self.sel_indexes[0]]
             self.setMinMax(d.min, d.max)
             hist_data = d.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(hist_data))
             self.plot_widget.plot1D(d, hist_data)
             self.drawReproductionSeries1D()
         elif self.is2d():
-            self.d2_active = self.number_sample
-            x = self.datas[self.number_sample[0]]
-            y = self.datas[self.number_sample[1]]
+            self.d2_indexes = self.sel_indexes
+            x = self.all_datas[self.sel_indexes[0]]
+            y = self.all_datas[self.sel_indexes[1]]
             self.d2 = DoubleSampleData(x, y)
             self.d2.toCalculateCharacteristic()
             self.hist_data_2d = self.d2.get_histogram_data(number_column)
@@ -228,20 +232,20 @@ class Window(MainLayout):
             self.plot_widget.plot2D(self.d2, self.hist_data_2d)
             self.drawReproductionSeries2D()
         elif self.isNd():
-            samples = [self.datas[i] for i in self.number_sample]
-            self.datas_active = self.number_sample
-            self.datas_act = SamplingDatas(samples)
-            self.datas_act.toCalculateCharacteristic()
-            self.plot_widget.plotND(self.datas_act, number_column)
-            if self.regr_num == 11:
-                self.plot_widget.plotDiagnosticDiagram(self.datas_act)
+            samples = [self.all_datas[i] for i in self.sel_indexes]
+            self.datas_displayed_indexes = self.sel_indexes
+            self.datas_displayed = SamplingDatas(samples)
+            self.datas_displayed.toCalculateCharacteristic()
+            self.plot_widget.plotND(self.datas_displayed, number_column)
+            if self.selected_regr_num == 11:
+                self.plot_widget.plotDiagnosticDiagram(self.datas_displayed)
 
     def drawReproductionSeries1D(self):
-        d = self.datas[self.number_sample[0]]
-        f, lF, F, hF = self.toCreateReproductionFunc(d, self.regr_num)
+        d = self.all_datas[self.sel_indexes[0]]
+        f, lF, F, hF = self.toCreateReproductionFunc(d, self.selected_regr_num)
         if f is None:
             return
-        self.reproduction_1d_F = F
+        self.d1_regr_F = F
         self.plot_widget.plot1DReproduction(d, f, lF, F, hF)
 
     def toCreateReproductionFunc(self, d: SamplingData, func_num):
@@ -273,7 +277,7 @@ class Window(MainLayout):
 
     def drawReproductionSeries2D(self):
         tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-            self.toCreateReproductionFunc2D(self.d2, self.regr_num)
+            self.toCreateReproductionFunc2D(self.d2, self.selected_regr_num)
         self.plot_widget.plot2DReproduction(
             self.d2, tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f)
 
@@ -295,13 +299,13 @@ class Window(MainLayout):
         return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
 
     def drawReproductionSeries3D(self):
-        self.plot_widget.plot3DReproduction(self.datas_act)
+        self.plot_widget.plot3DReproduction(self.datas_displayed)
 
     def linearModelsCrit(self, trust: float):
         sel = self.getSelectedRows()
         if len(sel) == 4:
-            res = self.datas.ident2ModelsLine(
-                [self.datas[i] for i in sel], trust)
+            res = self.all_datas.ident2ModelsLine(
+                [self.all_datas[i] for i in sel], trust)
             title = "Лінійна регресія"
             descr = "Моделі регресійних прямих\n" + \
                 f"({sel[0]}, {sel[1]}) і ({sel[2]}, {sel[3]})"
@@ -317,7 +321,7 @@ class Window(MainLayout):
     def homogeneityAndIndependence(self, trust: float):
         sel = self.getSelectedRows()
         if len(sel) == 1:
-            P = self.datas[sel[0]].critetionAbbe()
+            P = self.all_datas[sel[0]].critetionAbbe()
             title = "Критерій Аббе"
             if P > trust:
                 self.showMessageBox(title, f"{P:.5} > {trust}" +
@@ -326,12 +330,13 @@ class Window(MainLayout):
                 self.showMessageBox(title, f"{P:.5} < {trust}" +
                                     "\nСпостереження залежні")
         elif len(sel) == 2:
-            if self.datas.ident2Samples(sel[0], sel[1], trust):
+            if self.all_datas.ident2Samples(sel[0], sel[1], trust):
                 self.showMessageBox("Вибірки однорідні", "")
             else:
                 self.showMessageBox("Вибірки неоднорідні", "")
         else:
-            if self.datas.identKSamples([self.datas[i] for i in sel], trust):
+            if self.all_datas.identKSamples([self.all_datas[i] for i in sel],
+                                            trust):
                 self.showMessageBox("Вибірки однорідні", "")
             else:
                 self.showMessageBox("Вибірки неоднорідні", "")
@@ -343,8 +348,8 @@ class Window(MainLayout):
         if len(sel) == 0:
             if len(self.datas_crits) < 2:
                 return
-            text = self.datas.homogeneityProtocol(
-                [[self.datas[j] for j in i] for i in self.datas_crits])
+            text = self.all_datas.homogeneityProtocol(
+                [[self.all_datas[j] for j in i] for i in self.datas_crits])
             self.showMessageBox(title, text)
             self.datas_crits = []
         elif sel not in self.datas_crits:
@@ -353,7 +358,7 @@ class Window(MainLayout):
                 return self.showMessageBox(
                     "Помилка",
                     f"Потрібен {len(self.datas_crits[0])}-вимірний розподіл")
-            norm_test = [self.datas[i].isNormal() for i in sel]
+            norm_test = [self.all_datas[i].isNormal() for i in sel]
             if False in norm_test:
                 return self.showMessageBox(
                     "Помилка", "Не є нормальним розподілом:" +
@@ -368,7 +373,7 @@ class Window(MainLayout):
         sel = self.getSelectedRows()
         w = len(sel)
         if w > 2:
-            datas = SamplingDatas([self.datas.samples[i] for i in sel])
+            datas = SamplingDatas([self.all_datas.samples[i] for i in sel])
             datas.toCalculateCharacteristic()
             text = datas.partialCoeficientOfCorrelationProtocol(
                 sel[0], sel[1], sel[2:])
@@ -376,9 +381,9 @@ class Window(MainLayout):
 
     def PCA(self):
         w = self.pCA_number.value()
-        ind, retn = self.datas_act.principalComponentAnalysis(w)
-        self.datas.appendSamples(ind.samples)
-        self.datas.appendSamples(retn.samples)
+        ind, retn = self.datas_displayed.principalComponentAnalysis(w)
+        self.all_datas.appendSamples(ind.samples)
+        self.all_datas.appendSamples(retn.samples)
         self.writeTable()
 
 

@@ -13,14 +13,14 @@ def printHistogram(hist: np.ndarray, N):
 
 class DoubleSampleData(DoubleSampleRegression):
     def __init__(self, x: SamplingData, y: SamplingData, trust: float = 0.05):
-        if len(x.getRaw()) != len(y.getRaw()):
+        if len(x.raw) != len(y.raw):
             raise Exception('X and Y are independet samples')
         self.x = x
         self.y = y
         self.trust = trust
 
     def __len__(self):
-        return len(self.x.getRaw())
+        return len(self.x.raw)
 
     def setTrust(self, trust: float):
         self.trust = trust
@@ -45,7 +45,6 @@ class DoubleSampleData(DoubleSampleRegression):
         self.r = N / (N - 1) * (xy_ - self.x.x_ * self.y.x_) / (
             self.x.Sigma * self.y.Sigma)
 
-
         self.r_signif = self.r * (N - 2) ** 0.5 / (
             1 - self.r ** 2) ** 0.5
 
@@ -58,7 +57,7 @@ class DoubleSampleData(DoubleSampleRegression):
         N = len(self)
         dx = calc_reproduction_dx(self.x.min, self.x.max, k)
         def x(i): return self.x.min + (i - 0.5) * dx
-        xy = [(self.x.getRaw()[i], self.y.getRaw()[i]) for i in range(N)]
+        xy = [(self.x.raw[i], self.y.raw[i]) for i in range(N)]
         for i in range(1, k + 1):
             yi = []
             rm_i = 0
@@ -208,8 +207,8 @@ class DoubleSampleData(DoubleSampleRegression):
 
     def rangeCorrelation(self):
         N = len(self)
-        x_raw = self.x.getRaw()
-        y_raw = self.y.getRaw()
+        x_raw = self.x.raw
+        y_raw = self.y.raw
         x = [[i, 0] for i in x_raw]
         y = [[i, 0] for i in y_raw]
         x.sort()
@@ -302,14 +301,13 @@ class DoubleSampleData(DoubleSampleRegression):
 
     def get_histogram_data(self, column_number: int = 0):
         if column_number <= 0:
-            column_number = SamplingData.calculateM(len(self.x.getRaw()))
-
+            column_number = SamplingData.calculateM(len(self.x.raw))
         self.probability_table = np.zeros((column_number, column_number))
         N = len(self)
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number
-        x = self.x.getRaw()
-        y = self.y.getRaw()
+        x = self.x.raw
+        y = self.y.raw
 
         for i in range(N):
             c = math.floor((x[i] - self.x.min) / h_x)
@@ -361,8 +359,9 @@ class DoubleSampleData(DoubleSampleRegression):
                                     h_x, h_y,)
                     is_item_del = True
 
-        self.x.setSeries(self.x.raw)
-        self.y.setSeries(self.y.raw)
+        if is_item_del:
+            self.x.setSeries(self.x.raw)
+            self.y.setSeries(self.y.raw)
 
         return is_item_del
 
@@ -370,8 +369,8 @@ class DoubleSampleData(DoubleSampleRegression):
         N = len(self)
         phi = math.atan(2 * self.r * self.x.Sigma * self.y.Sigma /
                         (self.x.S - self.y.S)) / 2
-        eps = self.x.getRaw()
-        eta = self.y.getRaw()
+        eps = self.x.raw
+        eta = self.y.raw
         new_eps = [eps[i] * math.cos(phi) +
                    eta[i] * math.sin(phi) for i in range(N)]
         new_eta = [-eps[i] * math.sin(phi) +

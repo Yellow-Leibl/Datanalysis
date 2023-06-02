@@ -224,7 +224,7 @@ class SamplesCriteria:
 
         x: list[list] = []
         for i in range(k):
-            x += [[j, 0, i] for j in samples[i].getRaw()]
+            x += [[j, 0, i] for j in samples[i].raw]
         x.sort()
         N_G = len(x)
 
@@ -255,8 +255,8 @@ class SamplesCriteria:
                       y_sample: SamplingData,
                       trust: float = 0.05):
         N = len(x_sample)
-        x = x_sample.getRaw()
-        y = y_sample.getRaw()
+        x = x_sample.raw
+        y = y_sample.raw
         S = 0
         for i in range(N):
             if x[i] - y[i] > 0:
@@ -271,9 +271,9 @@ class SamplesCriteria:
     def critetionKohrena(self, samples: list[SamplingData],
                          trust: float = 0.05) -> bool:
         k = len(samples)
-        N = len(samples[0].getRaw())
-        def u(i): return sum([samples[j].getRaw()[i] for j in range(k)])
-        def T(j): return sum(samples[j].getRaw())
+        N = len(samples[0].raw)
+        def u(i): return sum([samples[j].raw[i] for j in range(k)])
+        def T(j): return sum(samples[j].raw)
         T_ = sum([T(j) for j in range(k)]) / k
         Q = k * (k - 1) * sum([(T(j) - T_) ** 2 for j in range(k)]) / (
             k * sum([u(i) for i in range(N)]) -
@@ -404,10 +404,10 @@ class SamplesCriteria:
 
     def identAvrIfIdentDC2Samples(self, samples1: list[SamplingData],
                                   samples2: list[SamplingData]):
-        def x(i, j): return samples1[i].getRaw()[j]
-        def y(i, j): return samples2[i].getRaw()[j]
-        N1 = len(samples1[0].getRaw())
-        N2 = len(samples2[0].getRaw())
+        def x(i, j): return samples1[i].raw[j]
+        def y(i, j): return samples2[i].raw[j]
+        N1 = len(samples1[0].raw)
+        N2 = len(samples2[0].raw)
         n = len(samples1)
 
         S0 = np.zeros((n, n))
@@ -453,7 +453,7 @@ class SamplesCriteria:
         def x_(d: int): return x__cache[d]
 
         def X(d: int, i: int):
-            return np.array([[s.getRaw()[i]] for s in samples[d]])
+            return np.array([[s.raw[i]] for s in samples[d]])
 
         def S(d: int): return 1 / (N(d) - 1) * sum(
             [(X(d, i) - x_(d)) @ np.transpose(X(d, i) - x_(d))
@@ -489,7 +489,7 @@ class SamplesCriteria:
         def x_(d: int): return x__cache[d]
 
         def X(d: int, i: int):
-            return np.array([[s.getRaw()[i]] for s in samples[d]])
+            return np.array([[s.raw[i]] for s in samples[d]])
 
         def S(d: int): return 1 / (N(d) - 1) * sum(
             [(X(d, i) - x_(d)) @ np.transpose(X(d, i) - x_(d))

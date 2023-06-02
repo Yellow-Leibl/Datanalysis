@@ -238,7 +238,7 @@ class PlotWidget(QStackedWidget):
     def plot2D(self, d2: DoubleSampleData, hist_data, corr_plot=None):
         x = d2.x
         y = d2.y
-        if len(x.getRaw()) != len(y.getRaw()):
+        if len(x.raw) != len(y.raw):
             return
 
         histogram_image = pg.ImageItem(hist_data)
@@ -250,7 +250,7 @@ class PlotWidget(QStackedWidget):
             corr_plot = self.corr_plot
         corr_plot.clear()
         corr_plot.addItem(histogram_image)
-        corr_plot.plot(x.getRaw(), y.getRaw(),
+        corr_plot.plot(x.raw, y.raw,
                        symbolBrush=(30, 120, 180),
                        symbolPen=(0, 0, 0, 200), symbolSize=6,
                        pen=None)
@@ -282,9 +282,9 @@ class PlotWidget(QStackedWidget):
         self.corr_plot.plot(x_gen, y, pen=newPen((255, 0, 0), 3))
 
     def plot3D(self, d3: list[SamplingData]):
-        x1_raw = d3[0].getRaw()
-        x2_raw = d3[1].getRaw()
-        x3_raw = d3[2].getRaw()
+        x1_raw = d3[0].raw
+        x2_raw = d3[1].raw
+        x3_raw = d3[2].raw
         self.__3d_plot.clear()
         self.__3d_plot.set(xlabel="$X1$", ylabel="$X2$", zlabel="$X3$")
         self.__3d_plot.scatter(x1_raw, x2_raw, x3_raw)
@@ -336,10 +336,10 @@ class PlotWidget(QStackedWidget):
 
     def plotParallelCoordinates(self, dn: list[SamplingData]):
         n = len(dn)
-        N = len(dn[0].getRaw())
+        N = len(dn[0].raw)
 
         def tr2v(d: SamplingData, i):
-            return (d.getRaw()[i] - d.min) / (
+            return (d.raw[i] - d.min) / (
                 d.max - d.min)
         self.__parallel_plot.clear()
         x_data = []
@@ -355,9 +355,9 @@ class PlotWidget(QStackedWidget):
 
     def plotHeatMap(self, dn: SamplingDatas):
         n = len(dn)
-        N = len(dn[0].getRaw())
+        N = len(dn[0].raw)
         histogram_image = pg.ImageItem()
-        values_image = np.array([s.getRaw() for s in dn.samples])
+        values_image = np.array([s.raw for s in dn.samples])
         for i, row in enumerate(values_image):
             values_image[i] = (row - dn[i].min) / (dn[i].max - dn[i].min)
         histogram_image.setImage(values_image.transpose())
@@ -367,9 +367,9 @@ class PlotWidget(QStackedWidget):
         self.__heatmap_plot.getAxis("left").setTicks((t, []))
 
     def plotBubleDiagram(self, dn: list[SamplingData]):
-        x_raw = dn[0].getRaw()
-        y_raw = dn[1].getRaw()
-        z_raw = dn[2].getRaw()
+        x_raw = dn[0].raw
+        y_raw = dn[1].raw
+        z_raw = dn[2].raw
         sz = dn[2]
         def f_norm(z): return (z - sz.min) / (sz.max - sz.min)
         z_norm = [f_norm(z) * 25 + 2 for z in z_raw]
@@ -379,9 +379,9 @@ class PlotWidget(QStackedWidget):
                                symbolSize=z_norm, alphaHint=0.6, pen=None)
 
     def plotGlyphDiagram(self, dn: list[SamplingData], col):
-        x_raw = dn[0].getRaw()
-        y_raw = dn[1].getRaw()
-        z_raw = dn[2].getRaw()
+        x_raw = dn[0].raw
+        y_raw = dn[1].raw
+        z_raw = dn[2].raw
         x = dn[0]
         y = dn[1]
         if col == 0:

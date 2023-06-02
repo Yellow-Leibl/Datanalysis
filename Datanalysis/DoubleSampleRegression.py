@@ -28,7 +28,6 @@ class DoubleSampleRegression:
         return True
 
     def toCreateLinearRegressionMNK(self):
-
         b = self.r * self.y.Sigma / self.x.Sigma
         a = self.y.x_ - b * self.x.x_
 
@@ -51,8 +50,8 @@ class DoubleSampleRegression:
             print("The initial conditions arent correct for linear regression")
             # return
 
-        x = self.x.getRaw().copy()
-        y = self.y.getRaw().copy()
+        x = self.x.raw.copy()
+        y = self.y.raw.copy()
         x.sort()
         y.sort()
 
@@ -81,8 +80,8 @@ class DoubleSampleRegression:
 
     def accuracyLineParameters(self, a, b):
         N = len(self)
-        x = self.x.getRaw()
-        y = self.y.getRaw()
+        x = self.x.raw
+        y = self.y.raw
         def f(x): return a + b * x
 
         S_zal = sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
@@ -115,8 +114,8 @@ class DoubleSampleRegression:
 
     def linearTrustIntervals(self, f):
         N = len(self)
-        xl = self.x.getRaw()
-        y = self.y.getRaw()
+        xl = self.x.raw
+        y = self.y.raw
         x_ = self.x.x_
 
         S_zal = sum([(y[i] - f(xl[i])) ** 2 for i in range(N)]
@@ -143,8 +142,8 @@ class DoubleSampleRegression:
     def toCreateParabolicRegression(self):
         x_ = self.x.x_
         y_ = self.y.x_
-        xl = self.x.getRaw()
-        y = self.y.getRaw()
+        xl = self.x.raw
+        y = self.y.raw
         N = len(self)
         a = y_
         b = sum([(xl[i] - x_) * y[i] for i in range(N)]) / sum(
@@ -178,8 +177,8 @@ class DoubleSampleRegression:
 
     def accuracyParabolaParameters(self, a, b, c, phi2):
         N = len(self)
-        xl = self.x.getRaw()
-        y = self.y.getRaw()
+        xl = self.x.raw
+        y = self.y.raw
         a = self.parab_a
         b = self.parab_b
         c = self.parab_c
@@ -205,8 +204,8 @@ class DoubleSampleRegression:
     def parabolaTolerantIntervals(self, f):
         N = len(self)
         t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
-        x = self.x.getRaw()
-        y = self.y.getRaw()
+        x = self.x.raw
+        y = self.y.raw
         S_zal = (sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
                      ) / (N - 2)) ** 0.5
 
@@ -218,8 +217,8 @@ class DoubleSampleRegression:
     def parabolaTrustIntervals(self, f, phi1, phi2):
         N = len(self)
         t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
-        x = self.x.getRaw()
-        y = self.y.getRaw()
+        x = self.x.raw
+        y = self.y.raw
         sigma_x = self.x.Sigma
         S_zal = (sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
                      ) / (N - 2)) ** 0.5
@@ -249,8 +248,8 @@ class DoubleSampleRegression:
 
     def toCreateKvazi8(self):
         N = len(self)
-        x = self.x.getRaw()
-        y = self.y.getRaw()
+        x = self.x.raw
+        y = self.y.raw
         def phi(i): return x[i]
         def kappa(i): return math.log(y[i])
         def lambda_(i): return y[i] ** 2
@@ -285,8 +284,8 @@ class DoubleSampleRegression:
 
     def accuracyKvaziParameters(self, A, B):
         N = len(self)
-        x = self.x.getRaw()
-        y = [math.log(yi) for yi in self.y.getRaw()]
+        x = self.x.raw
+        y = [math.log(yi) for yi in self.y.raw]
         def f(x): return A * math.exp(x * B)
 
         S_zal = sum([(y[i] - f(x[i])) ** 2 for i in range(N)]
@@ -319,8 +318,8 @@ class DoubleSampleRegression:
 
     def kvaziTrustIntervals(self, f):
         N = len(self)
-        xl = self.x.getRaw()
-        y = [math.log(yi) for yi in self.y.getRaw()]
+        xl = self.x.raw
+        y = [math.log(yi) for yi in self.y.raw]
         x_ = self.x.x_
 
         S_zal = sum([(y[i] - f(xl[i])) ** 2 for i in range(N)]
@@ -346,8 +345,8 @@ class DoubleSampleRegression:
     def coefficientOfDetermination(self, f):
         S_zal = 0
         N = len(self)
-        x = self.x.getRaw()
-        y = self.y.getRaw()
+        x = self.x.raw
+        y = self.y.raw
         for i in range(N):
             S_zal += (y[i] - f(x[i])) ** 2
         S_zal /= N - 2

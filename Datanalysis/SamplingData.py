@@ -28,11 +28,12 @@ def timer(function):
 def calc_reproduction_dx(x_start: float,
                          x_end: float,
                          n=500) -> float:
+    dx = x_end - x_start
     while n > 1:
-        if (x_end - x_start) / n > 0:
+        if dx / n > 0:
             break
         n -= 1
-    return (x_end - x_start) / n
+    return dx / n
 
 
 def toCalcRankSeries(x):  # (xl, rx)
@@ -105,14 +106,11 @@ class SamplingData:
         return self._x[i]
 
     def copy(self):
-        t = SamplingData(list(self.getRaw()))
+        t = SamplingData(list(self.raw))
         if len(self.probabilityX) > 0:
             t.toRanking()
             t.toCalculateCharacteristic()
         return t
-
-    def getRaw(self) -> np.ndarray:
-        return self.raw
 
     @staticmethod  # number of classes
     def calculateM(n: int) -> int:
@@ -277,8 +275,8 @@ class SamplingData:
 
 # edit sample
     def remove(self, minimum: float, maximum: float):
-        new_raw_x = [x for x in self.getRaw() if minimum <= x <= maximum]
-        if len(new_raw_x) != len(self.getRaw()):
+        new_raw_x = [x for x in self.raw if minimum <= x <= maximum]
+        if len(new_raw_x) != len(self.raw):
             self.setSeries(new_raw_x)
 
     def autoRemoveAnomaly(self) -> bool:
@@ -325,25 +323,25 @@ class SamplingData:
         return is_item_del
 
     def toLogarithmus10(self):
-        self.setSeries([math.log10(x) for x in self.getRaw()])
+        self.setSeries([math.log10(x) for x in self.raw])
 
     def toExp(self):
-        self.setSeries([math.exp(x) for x in self.getRaw()])
+        self.setSeries([math.exp(x) for x in self.raw])
 
     def toStandardization(self):
-        self.setSeries([(x - self.x_) / self.Sigma for x in self.getRaw()])
+        self.setSeries([(x - self.x_) / self.Sigma for x in self.raw])
 
     def toSlide(self, value: float = 1):
-        self.setSeries([x + value for x in self.getRaw()])
+        self.setSeries([x + value for x in self.raw])
 
     def toMultiply(self, value: float = 1):
-        self.setSeries([x * value for x in self.getRaw()])
+        self.setSeries([x * value for x in self.raw])
 
     def toBinarization(self, x_):
-        self.setSeries([1 if x > x_ else 0 for x in self.getRaw()])
+        self.setSeries([1 if x > x_ else 0 for x in self.raw])
 
     def toTransform(self, f_tr):
-        self.setSeries([f_tr(x) for x in self.getRaw()])
+        self.setSeries([f_tr(x) for x in self.raw])
 
     def toCentralization(self):
         self.toSlide(-self.x_)
@@ -559,15 +557,12 @@ class SamplingData:
             return "Відтворення неадекватне за критерієм" \
                 f" Пірсона: {crits}"
 
-    def get_histogram_data(self, number_of_column: int) -> list:
+    def get_histogram_data(self, column_number=0) -> list:
         n = len(self._x)
-        M: int = 0
-        if number_of_column > 0:
-            M = number_of_column
-        elif number_of_column <= len(self._x):
-            M = SamplingData.calculateM(n)
-        h = abs(self.max - self.min) / M
-        hist_list = [0.0] * M
+        if column_number <= 0:
+            column_number = SamplingData.calculateM(n)
+        h = (self.max - self.min) / column_number
+        hist_list = [0.0] * column_number
         for i in range(n - 1):
             j = math.floor((self._x[i] - self.min) / h)
             hist_list[j] += self.probabilityX[i]

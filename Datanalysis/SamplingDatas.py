@@ -80,7 +80,7 @@ class SamplingDatas(SamplesCriteria):
     def getMaxDepthRawData(self) -> int:
         if len(self.samples) == 0:
             return 0
-        return max([len(i.getRaw()) for i in self.samples])
+        return max([len(i.raw) for i in self.samples])
 
     def setTrust(self, trust):
         self.trust = trust
@@ -131,7 +131,7 @@ class SamplingDatas(SamplesCriteria):
             return self.R[i][j]
 
     def coeficientOfCorrelationTTest(self, r_ij_c, w):
-        N = len(self.samples[0].getRaw())
+        N = len(self.samples[0].raw)
         signif_r_ij_c = r_ij_c * (N - w - 2) ** 0.5 / (1 - r_ij_c ** 2) ** 0.5
         t = func.QuantileTStudent(1 - self.trust / 2, N - w - 2)
         self.partial_r_signif_t_test = signif_r_ij_c
@@ -139,7 +139,7 @@ class SamplingDatas(SamplesCriteria):
         return signif_r_ij_c <= t
 
     def coeficientOfCorrelationIntervals(self, r_ij_c, w):
-        N = len(self.samples[0].getRaw())
+        N = len(self.samples[0].raw)
         u = func.QuantileNorm(self.trust / 2)
         v1 = 1 / 2 * math.log((1 + r_ij_c) / (1 - r_ij_c)) - u / (N - w - 3)
         v2 = 1 / 2 * math.log((1 + r_ij_c) / (1 - r_ij_c)) + u / (N - w - 3)
@@ -187,17 +187,51 @@ class SamplingDatas(SamplesCriteria):
         Rkk = [[self.R[i][j] for j in range(n) if j != k]
                for i in range(n) if i != k]
         r_k = (1 - abs(np.linalg.det(self.R) / np.linalg.det(Rkk))) ** 0.5
-        N = len(self.samples[0].getRaw())
+        N = len(self.samples[0].raw)
         signif_r_k = (N - n - 1) / n * r_k ** 2 / (1 - r_k ** 2)
         f = func.QuantileFisher(1 - self.trust, n, N - n - 1)
         return r_k, signif_r_k, f
+
+    def fast_remove(self, k, start, dt):
+        N = len(self[k].raw)
+        del_ind = []
+        for i in range(N):
+            if k == 5:
+                print(f"{start} <= {self[k].raw[i]} <= {start + dt}")
+            if start <= self[k].raw[i] <= start + dt:
+                del_ind.append(i)
+
+        samples_raw = [list(s.raw) for s in self.samples]
+        for i in del_ind[::-1]:
+            [row.pop(i) for row in samples_raw]
+        for s, s_raw in zip(self.samples, samples_raw):
+            s.raw = s_raw
+
+    def autoRemoveAnomaly(self, column_number=0):
+        N = self.getMaxDepthRawData()
+        if column_number <= 0:
+            column_number = SamplingData.calculateM(N)
+        h = [(s.max - s.min) / column_number for s in self.samples]
+        hist_list = [s.get_histogram_data(column_number) for s in self.samples]
+        is_item_del = False
+        for i, hist in enumerate(hist_list):
+            for j, p in enumerate(hist):
+                if p <= self.trust:
+                    self.fast_remove(i, self[i].min + j * h[i], h[i])
+                    is_item_del = True
+
+        if is_item_del:
+            for s in self.samples:
+                s.setSeries(s.raw)
+
+        return is_item_del
 
     def toIndependet(self):
         N = self.getMaxDepthRawData()
         n = len(self)
         vects = self.DC_eigenvects
         new_x = []
-        def raw(i): return self[i].getRaw()
+        def raw(i): return self[i].raw
         for k in range(n):
             self[k].toCentralization()
             new_x.append([sum([vects[v, k] * raw(v)[i] for v in range(n)])
@@ -216,7 +250,7 @@ class SamplingDatas(SamplesCriteria):
         sorted_by_disp = sorted([[part[i], i] for i in range(n)],
                                 key=lambda i: i[0], reverse=True)
 
-        def raw(i): return self[sorted_by_disp[i][1]].getRaw()
+        def raw(i): return self[sorted_by_disp[i][1]].raw
         def vect(i, k): return vects[i, sorted_by_disp[k][1]]
         for k in range(n):
             old_x[k] = [sum([vect(k, v) * raw(v)[i] for v in range(w)])
@@ -236,9 +270,9 @@ class SamplingDatas(SamplesCriteria):
         self.line_R *= self.line_R
         n = len(self) - 1
         x_ = np.array([s.x_ for s in self.samples])
-        X_x = np.array([[x - x_[i] for x in s.getRaw()]
+        X_x = np.array([[x - x_[i] for x in s.raw]
                         for i, s in enumerate(self.samples) if i != yi])
-        Y_T = np.array(self.samples[yi].getRaw())
+        Y_T = np.array(self.samples[yi].raw)
         y_ = self.samples[yi].x_
         A_ = np.linalg.inv(X_x @ np.transpose(X_x)) @ (X_x) @ Y_T
         self.line_A = A_
@@ -251,9 +285,9 @@ class SamplingDatas(SamplesCriteria):
 
     def lineAccuracyParameters(self, f, yi: int):
         n = len(self) - 1
-        N = len(self.samples[0].getRaw())
-        Y = self.samples[yi].getRaw()
-        X = np.array([self.samples[i].getRaw()
+        N = len(self.samples[0].raw)
+        Y = self.samples[yi].raw
+        X = np.array([self.samples[i].raw
                       for i in range(len(self)) if i != yi])
         self.line_Y = Y
         self.line_X = X
@@ -288,7 +322,7 @@ class SamplingDatas(SamplesCriteria):
 
     def lineTrustIntervals(self, f):
         n = len(self) - 1
-        N = len(self.samples[0].getRaw())
+        N = len(self.samples[0].raw)
         t = func.QuantileTStudent(1 - self.trust / 2, N - n)
         C = self.line_C
 

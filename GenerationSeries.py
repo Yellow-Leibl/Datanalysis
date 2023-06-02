@@ -13,7 +13,7 @@ def generateNormal(m=0, sigma=1, N: int = 1000):
     x.toCalculateCharacteristic()
     x.toStandardization()
     x.toTransform(lambda z: m + sigma * z)
-    return x.getRaw()
+    return x.raw
 
 
 def generateUniform(N: int = 1000):
@@ -53,7 +53,7 @@ def binaryData(N=1000):
     x.toRanking()
     x.toCalculateCharacteristic()
     x.toBinarization(x.x_)
-    return x.getRaw()
+    return x.raw
 
 
 def generateLine(m1=0.0, m2=0.0, sigma1=1.0, sigma2=1.0, r_x_y=0.75,
@@ -72,7 +72,7 @@ def generateParable(r: float = 0.01, N: int = 1000):
     x = generateUniform(N=N)
     xx = SamplingData(x)
     xx.toSlide(-0.5)
-    x = xx.getRaw()
+    x = xx.raw
     e = generateNormal(N=N)
     y = [x[i] ** 2 + r * e[i] - 0.5 for i in range(N)]
     return x, y
