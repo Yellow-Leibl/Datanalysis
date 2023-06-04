@@ -54,6 +54,16 @@ def test_multiplyCoeficient():
         print(datas.multipleCorrelationCoefficient(i))
 
 
+def test_find_el_from_1d_to_nd():
+    import numpy as np
+    t_a = np.arange(3 * 5 * 4 * 2)
+    t_a_r = t_a.reshape((3, 5, 4, 2))
+    print(t_a_r)
+    print(t_a)
+    i = 35
+    print(t_a_r[i // (5 * 4 * 2) % 3, i // (4 * 2) % 5, i // (2) % 4, i % 2])
+
+
 # test_calc_characteristic()
 # test_coeficientCorrelation()
 test_multiplyCoeficient()

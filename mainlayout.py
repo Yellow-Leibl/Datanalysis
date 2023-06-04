@@ -210,13 +210,13 @@ class MainLayout(QMainWindow):
         crit_menu = menuBar.addMenu("&Критерії")
         def setTrust(func): return lambda: func(self.__trust_value.value())
         addAction(crit_menu, "Перевірка однорідності/незалежності",
-                  setTrust(self.homogeneityAndIndependence), "Ctrl+I")
+                  setTrust(self.homogeneityAndIndependence), "Ctrl+Shift+I")
         addAction(crit_menu, "Порівняння лінійних регресій",
-                  setTrust(self.linearModelsCrit), "Ctrl+E")
+                  setTrust(self.linearModelsCrit), "Ctrl+Shift+E")
         addAction(crit_menu, "Перевірка однорідності сукупностей (Нормальні)",
-                  self.homogeneityNSamples, "Ctrl+N")
+                  self.homogeneityNSamples, "Ctrl+Shift+N")
         addAction(crit_menu, "Частковий коефіцієнт кореляції",
-                  self.partialCorrelation, "Ctrl+P")
+                  self.partialCorrelation, "Ctrl+Shift+P")
 
         anal_menu = menuBar.addMenu("К&омпонентний та факторний аналіз")
         addAction(anal_menu, "Метод головних компонент",

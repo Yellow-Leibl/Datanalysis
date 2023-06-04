@@ -24,17 +24,12 @@ class Window(MainLayout):
         else:
             all_file = file.split('\n')
             self.loadFromData(all_file)
-        # temp
-        self.autoSelect()
+        self.autoSelect()  # temp
 
     def autoSelect(self):
-        # self.openFile("data/self/3lines_500_2.txt")
-        # self.openFile("data/self/3lines_500_3.txt")
         self.sel_indexes = [i for i in range(6)]
         self.createPlotLayout()
-        # self.regr_num = 9
         self.sampleChanged()
-        # self.PCA()
 
     def openFile(self, file_name: str):
         if file_name == '':
@@ -115,12 +110,13 @@ class Window(MainLayout):
     def autoRemoveAnomaly(self) -> bool:
         if self.is1d():
             return self.all_datas[self.sel_indexes[0]].autoRemoveAnomaly()
-        elif self.is2d():
-            hist_data = self.d2.get_histogram_data(self.getNumberClasses())
-            return self.d2.autoRemoveAnomaly(hist_data)
-        elif self.isNd():
-            return self.datas_displayed.autoRemoveAnomaly(
-                self.getNumberClasses())
+        elif self.is2d() or self.isNd():
+            act_sample = self.getActiveSamples()
+            hist_data = act_sample.get_histogram_data(self.getNumberClasses())
+            deleted_items = act_sample.autoRemoveAnomaly(hist_data)
+            self.showMessageBox("Видалення аномалій",
+                                f"Було видалено {deleted_items} аномалій")
+            return deleted_items
         return False
 
     def drawSamples(self):
@@ -402,9 +398,4 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    # applicationLoadFromFile("data/self/3lines_500_1.txt")
-    # applicationLoadFromFile("data/self/line.txt")
-    # applicationLoadFromFile("data/self/parable_n5000.txt")
-    # applicationLoadFromFile("data/6har.dat")
-    # applicationLoadFromFile("data/500/norm3n.txt")
-    applicationLoadFromFile("data/Воки_собаки.txt.txt")
+    applicationLoadFromFile("data/6har.dat")

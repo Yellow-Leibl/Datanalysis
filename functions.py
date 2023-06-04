@@ -104,8 +104,10 @@ def QuantilePearson(alpha, nu):
 
 
 def QuantileFisher(alpha, nu1, nu2):
-    sigma = 1 / nu1 + 1 / nu2
-    delta = 1 / nu1 - 1 / nu2
+    dod1 = 0 if nu1 == 0 else 1 / nu1
+    dod2 = 0 if nu2 == 0 else 1 / nu2
+    sigma = dod1 + dod2
+    delta = dod1 - dod2
     u = QuantileNorm(alpha)
 
     z = u * (sigma / 2) ** 0.5 - 1 / 6 * delta * (u ** 2 + 2) + \

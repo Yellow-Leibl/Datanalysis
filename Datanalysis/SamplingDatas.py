@@ -192,13 +192,21 @@ class SamplingDatas(SamplesCriteria):
         f = func.QuantileFisher(1 - self.trust, n, N - n - 1)
         return r_k, signif_r_k, f
 
-    def fast_remove(self, k, start, dt):
-        N = len(self[k].raw)
+    def fast_remove(self, ranges):
+        def in_space(p, ranges):
+            k = len(ranges)
+            for i in range(k):
+                start = ranges[i][0]
+                end = ranges[i][1]
+                if not (start <= p[i] <= end):
+                    return False
+            return True
+
+        N = self.getMaxDepthRawData()
         del_ind = []
         for i in range(N):
-            if k == 5:
-                print(f"{start} <= {self[k].raw[i]} <= {start + dt}")
-            if start <= self[k].raw[i] <= start + dt:
+            p = [s.raw[i] for s in self.samples]
+            if in_space(p, ranges):
                 del_ind.append(i)
 
         samples_raw = [list(s.raw) for s in self.samples]
@@ -207,24 +215,67 @@ class SamplingDatas(SamplesCriteria):
         for s, s_raw in zip(self.samples, samples_raw):
             s.raw = s_raw
 
-    def autoRemoveAnomaly(self, column_number=0):
-        N = self.getMaxDepthRawData()
+    def get_histogram_data(self, column_number=0):
+        n = len(self)
         if column_number <= 0:
-            column_number = SamplingData.calculateM(N)
+            column_number = SamplingData.calculateM(
+                self.getMaxDepthRangeData())
+        self.probability_table = np.zeros(
+            tuple(column_number for i in range(n)))
+        N = self.getMaxDepthRawData()
         h = [(s.max - s.min) / column_number for s in self.samples]
-        hist_list = [s.get_histogram_data(column_number) for s in self.samples]
-        is_item_del = False
-        for i, hist in enumerate(hist_list):
-            for j, p in enumerate(hist):
-                if p <= self.trust:
-                    self.fast_remove(i, self[i].min + j * h[i], h[i])
-                    is_item_del = True
+        pos = [0] * n
+        for i in range(N):
+            for j, s in enumerate(self.samples):
+                pos[j] = math.floor((s.raw[i] - s.min) / h[j])
+                if pos[j] == column_number:
+                    pos[j] -= 1
+            self.probability_table[tuple(pos)] += 1
+        # print(self.probability_table)
+        return self.probability_table
 
-        if is_item_del:
+    def autoRemoveAnomaly(self, hist_data: np.ndarray):
+        def product(a):
+            p = 1
+            for e in a:
+                p *= e
+            return p
+        hist_shape = hist_data.shape
+        n_samples = len(hist_shape)
+        h = [(s.max - s.min) / n for n, s in zip(hist_shape, self.samples)]
+
+        def ranges(i):
+            r = []
+            for j, n in enumerate(hist_shape):
+                s = self.samples[j]
+                col_ind = (i // product(
+                    [hist_shape[m] for m in range(j + 1, n_samples)])) % n
+                start = s.min + col_ind * h[j]
+                end = s.min + (col_ind + 1) * h[j]
+                if col_ind + 1 == n:
+                    end = s.max
+                r.append([start, end])
+            return r
+
+        N = self.getMaxDepthRawData()
+        hist_data = hist_data.reshape((product(hist_data.shape)))
+        item_del_count = 0
+        for i, ni in enumerate(hist_data):
+            p = ni / N
+            if p <= self.trust and ni != 0:
+                self.fast_remove(ranges(i))
+                item_del_count += 1
+        hist_data = hist_data.reshape(hist_shape)
+
+        if item_del_count + len(self[0].raw) != N:
+            raise
+
+        if item_del_count > 0:
+            print(f"Deleted observe {item_del_count}")
             for s in self.samples:
                 s.setSeries(s.raw)
 
-        return is_item_del
+        return item_del_count
 
     def toIndependet(self):
         N = self.getMaxDepthRawData()

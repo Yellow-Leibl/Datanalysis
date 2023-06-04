@@ -103,7 +103,6 @@ class PlotWidget(QStackedWidget):
             self.setDisabled3d()
         self.createScatterPlot(n)
         self.createParallelPlot(n)
-        self.createHeatmapPlot(n)
         self.setCurrentIndex(1)
 
     def createScatterPlot(self, n):
@@ -355,6 +354,7 @@ class PlotWidget(QStackedWidget):
 
     def plotHeatMap(self, dn: SamplingDatas):
         n = len(dn)
+        self.createHeatmapPlot(n)
         N = len(dn[0].raw)
         histogram_image = pg.ImageItem()
         values_image = np.array([s.raw for s in dn.samples])
