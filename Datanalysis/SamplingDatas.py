@@ -214,6 +214,7 @@ class SamplingDatas(SamplesCriteria):
             [row.pop(i) for row in samples_raw]
         for s, s_raw in zip(self.samples, samples_raw):
             s.raw = s_raw
+        return len(del_ind)
 
     def get_histogram_data(self, column_number=0):
         n = len(self)
@@ -263,12 +264,8 @@ class SamplingDatas(SamplesCriteria):
         for i, ni in enumerate(hist_data):
             p = ni / N
             if p <= self.trust and ni != 0:
-                self.fast_remove(ranges(i))
-                item_del_count += 1
+                item_del_count += self.fast_remove(ranges(i))
         hist_data = hist_data.reshape(hist_shape)
-
-        if item_del_count + len(self[0].raw) != N:
-            raise
 
         if item_del_count > 0:
             print(f"Deleted observe {item_del_count}")

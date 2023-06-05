@@ -264,6 +264,9 @@ class MainLayout(QMainWindow):
     def getNumberClasses(self) -> int:
         return self.__spin_number_column.value()
 
+    def getTrust(self):
+        return self.__trust_value.value()
+
     def silentChangeNumberClasses(self, n: int):
         self.__spin_number_column.blockSignals(True)
         self.__spin_number_column.setValue(n)

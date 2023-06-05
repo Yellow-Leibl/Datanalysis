@@ -171,10 +171,7 @@ class Window(MainLayout):
         self.selectSampleOrReproduction()
 
     def changeTrust(self, trust: float):
-        s = self.getActiveSamples()
-        if s is not None:
-            s.setTrust(trust)
-            self.sampleChanged()
+        self.sampleChanged()
 
     def writeTable(self):
         self.table.clear()
@@ -212,6 +209,7 @@ class Window(MainLayout):
     def updateGraphics(self, number_column: int = 0):
         if self.is1d():
             d = self.all_datas[self.sel_indexes[0]]
+            d.setTrust(self.getTrust())
             self.setMinMax(d.min, d.max)
             hist_data = d.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(hist_data))
@@ -221,7 +219,7 @@ class Window(MainLayout):
             self.d2_indexes = self.sel_indexes
             x = self.all_datas[self.sel_indexes[0]]
             y = self.all_datas[self.sel_indexes[1]]
-            self.d2 = DoubleSampleData(x, y)
+            self.d2 = DoubleSampleData(x, y, self.getTrust())
             self.d2.toCalculateCharacteristic()
             self.hist_data_2d = self.d2.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(self.hist_data_2d))
@@ -230,7 +228,7 @@ class Window(MainLayout):
         elif self.isNd():
             samples = [self.all_datas[i] for i in self.sel_indexes]
             self.datas_displayed_indexes = self.sel_indexes
-            self.datas_displayed = SamplingDatas(samples)
+            self.datas_displayed = SamplingDatas(samples, self.getTrust())
             self.datas_displayed.toCalculateCharacteristic()
             self.plot_widget.plotND(self.datas_displayed, number_column)
             if self.selected_regr_num == 11:
