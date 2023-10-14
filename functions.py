@@ -22,8 +22,12 @@ def EigenvalueJacob(A: np.ndarray, eps=0.00001):
         return u
 
     def S(A):
-        return sum([sum([A[i, j] ** 2 for j in range(n) if j != i])
-                    for i in range(n)])
+        sum = 0.0
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    sum += A[i, j] ** 2
+        return sum
 
     def max(A):
         mi, mj, max_a = 0, 1, abs(A[0, 1])

@@ -6,35 +6,35 @@ from Datanalysis.SamplesCriteria import SamplesCriteria
 from Datanalysis.DoubleSampleData import DoubleSampleData
 import functions as func
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-def readVectors(text: list[str]) -> list:
+
+def readVectors(text: list[str]):
     if ',' in text[0]:
-        def to_float(x: str): return float(x.replace(',', '.'))
+        def to_corr_form(s: str): return s.replace(',', '.')
     else:
-        def to_float(x: str): return float(x)
+        def to_corr_form(s: str): return s
 
-    def splitAndRemoveEmpty(s: str) -> list:
-        return list(filter(lambda x: not x.isspace(), s.split()))
+    n = len(np.fromstring(to_corr_form(text[0]), dtype=float, sep=' '))
 
-    n = len(splitAndRemoveEmpty(text[0]))
-    vectors = [[0.0] * len(text) for i in range(n)]
+    vectors = np.empty((len(text), n), dtype=float)
     for j, line in enumerate(text):
-        for i, str_num in enumerate(splitAndRemoveEmpty(line)):
-            vectors[i][j] = to_float(str_num)
-    return vectors
+        vectors[j] = np.fromstring(to_corr_form(line), dtype=float, sep=' ')
+    return vectors.transpose()
 
 
 class SamplingDatas(SamplesCriteria):
     def __init__(self, samples: list[SamplingData] = [], trust=0.05):
         super().__init__()
-        if type(samples) == list:
-            [self.appendSample(s) for s in samples]
+        self.appendSamples(samples)
         self.trust = trust
 
     def appendSample(self, s: SamplingData):
         self.samples.append(s)
 
-    def appendSamples(self, samples):
+    def appendSamples(self, samples: list[SamplingData]):
         self.samples += samples
 
     @timer
@@ -69,8 +69,14 @@ class SamplingDatas(SamplesCriteria):
     def pop(self, i: int) -> SamplingData:
         return self.samples.pop(i)
 
-    def __getitem__(self, i: int) -> SamplingData:
-        return self.samples[i]
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return self.samples[i]
+        if isinstance(i, int):
+            return self.samples[i]
+
+    def __iter__(self):
+        return iter(self.samples)
 
     def getMaxDepthRangeData(self) -> int:
         if len(self.samples) == 0:
@@ -109,13 +115,149 @@ class SamplingDatas(SamplesCriteria):
                         for i in range(n)]
 
         self.DC_eigenval, self.DC_eigenvects = func.EigenvalueJacob(self.DC)
-        eigen_sum = sum(self.DC_eigenval)
-        self.DC_eigenval_part = [val / eigen_sum for val in self.DC_eigenval]
-        self.DC_eigenval_accum = [0.0] * n
+        self.DC_eigenval_part = self.DC_eigenval.copy() / sum(self.DC_eigenval)
+        self.DC_eigenval_accum = np.empty(n, dtype=float)
         self.DC_eigenval_accum[0] = self.DC_eigenval_part[0]
-        for i in range(n):
+        for i in range(1, n):
             self.DC_eigenval_accum[i] = \
                 self.DC_eigenval_accum[i - 1] + self.DC_eigenval_part[i]
+
+        self.toCalculateExploratoryDataAnalysis()
+
+    def toCalculateExploratoryDataAnalysis(self):
+        n = len(self)
+
+        def max_corr_method(R: np.ndarray):
+            Red = R.copy()
+            for k in range(n):
+                max = np.nan
+                for v in range(n):
+                    if v != k and (np.isnan(max) or max < abs(Red[k, v])):
+                        max = abs(Red[k, v])
+                Red[k, k] = max
+            return Red
+
+        def triads_method(R: np.ndarray):
+            Red = max_corr_method(R)
+            for k in range(n):
+                for v in range(n):
+                    Red[k, k] = abs(Red[k, v])
+            return Red
+
+        def average_method(R: np.ndarray):
+            Red = R.copy()
+            for k in range(n):
+                Red[k, k] = 0.0
+                for v in range(n):
+                    Red[k, k] += abs(Red[k, v])
+                Red[k, k] /= n - 1
+            return Red
+
+        def center_method(R: np.ndarray):
+            Red = max_corr_method(R)
+            sum_r = np.sum(abs(Red))
+            hk_2 = np.empty(n, dtype=float)
+            for k in range(n):
+                hk = 0.0
+                for v in range(n):
+                    hk += abs(Red[k, v])
+                hk_2[k] = (hk ** 2) / sum_r
+
+            for k in range(n):
+                Red[k, k] = hk_2[k]
+            return Red
+
+        def averoid_method(R: np.ndarray):
+            Red = R.copy()
+            for k in range(n):
+                for v in range(n):
+                    Red[k, k] += abs(Red[k, v])
+                sum_r = 0.0
+                for i in range(n):
+                    for j in range(n):
+                        if k == i or i == j:
+                            continue
+                        sum_r += abs(Red[i, j])
+                Red[k, k] = n / (n - 1) * (Red[k, k] ** 2) / sum_r
+            return Red
+
+        def pca_method(R: np.ndarray, w: int):
+            Red = R.copy()
+            for k in range(n):
+                for v in range(w):
+                    Red[k, k] += self.DC_eigenvects[v, k] ** 2
+            return Red
+
+        Red_mats = [
+            max_corr_method(self.R), triads_method(self.R),
+            average_method(self.R), center_method(self.R),
+            averoid_method(self.R), pca_method(self.R, n)]
+
+        eigens_red = [func.EigenvalueJacob(Red) for Red in Red_mats]
+
+        def calc_f(redu: np.ndarray, evec_redu: np.ndarray):
+            r_rest = redu - evec_redu @ evec_redu.transpose()
+
+            f = 0.0
+            for v in range(n):
+                for q in range(n):
+                    if v != q:
+                        f += r_rest[v, q] ** 2
+            return f
+
+        f_all = [calc_f(Rh, A) for Rh, (_, A) in zip(Red_mats, eigens_red)]
+
+        min_f = min(f_all)
+        min_f_index = f_all.index(min_f)
+        Red = Red_mats[min_f_index]
+        eval_redu, evec_redu = eigens_red[min_f_index]
+
+        eval_R, _ = func.EigenvalueJacob(self.R)
+        minimum_w = len(eval_R[eval_R > 1])
+
+        def calc_w(eval_redu: np.ndarray):
+            maximum_w = len(eval_redu[eval_redu > np.average(eval_redu)])
+            return max(minimum_w, maximum_w)
+        w = calc_w(eval_redu)
+
+        f_prev = min_f
+        prev_a = evec_redu.copy()
+
+        def calc_dif_a(prev_a, a): return np.sum((a - prev_a) ** 2)
+
+        def hk_2_less_1(hk): return True in (hk <= 1)
+
+        def calc_hk(evec_redu: np.ndarray, w: int):
+            hk = np.zeros(n)
+            for k in range(n):
+                for v in range(w):
+                    hk[k] += evec_redu[k, v] ** 2
+            return hk
+
+        def calc_redu(Red: np.ndarray, hk):
+            for k in range(n):
+                Red[k, k] = hk[k]
+
+        eps = 0.00001
+
+        while True:
+            hk = calc_hk(evec_redu, w)
+            calc_redu(Red, hk)
+            eval_redu, evec_redu = func.EigenvalueJacob(Red)
+            f = calc_f(Red, evec_redu)
+            w = calc_w(eval_redu)
+            if f_prev < f and \
+                calc_dif_a(prev_a, evec_redu) > eps and \
+                    hk_2_less_1(hk):
+                continue
+            break
+
+        major_f_ind = [(i, eval) for i, eval in enumerate(eval_redu)]
+        major_f_ind.sort(key=lambda i: i[1], reverse=True)
+        self.fact_mat = evec_redu[:, [major_f_ind[i][0] for i in range(w)]]
+
+        logger.debug(f"Eigen value matrix:\n{eval_redu}")
+        logger.debug(f"Eigen vector matrix:\n{evec_redu}")
 
     def coeficientOfCorrelation(self, i, j, cd):
         if len(cd) >= 1:
@@ -236,11 +378,6 @@ class SamplingDatas(SamplesCriteria):
         return self.probability_table
 
     def autoRemoveAnomaly(self, hist_data: np.ndarray):
-        def product(a):
-            p = 1
-            for e in a:
-                p *= e
-            return p
         hist_shape = hist_data.shape
         n_samples = len(hist_shape)
         h = [(s.max - s.min) / n for n, s in zip(hist_shape, self.samples)]
@@ -249,7 +386,7 @@ class SamplingDatas(SamplesCriteria):
             r = []
             for j, n in enumerate(hist_shape):
                 s = self.samples[j]
-                col_ind = (i // product(
+                col_ind = (i // np.prod(
                     [hist_shape[m] for m in range(j + 1, n_samples)])) % n
                 start = s.min + col_ind * h[j]
                 end = s.min + (col_ind + 1) * h[j]
@@ -259,7 +396,7 @@ class SamplingDatas(SamplesCriteria):
             return r
 
         N = self.getMaxDepthRawData()
-        hist_data = hist_data.reshape((product(hist_data.shape)))
+        hist_data = hist_data.reshape((np.prod(hist_data.shape)))
         item_del_count = 0
         for i, ni in enumerate(hist_data):
             p = ni / N
@@ -268,7 +405,7 @@ class SamplingDatas(SamplesCriteria):
         hist_data = hist_data.reshape(hist_shape)
 
         if item_del_count > 0:
-            print(f"Deleted observe {item_del_count}")
+            logger.debug(f"Deleted observe {item_del_count}")
             for s in self.samples:
                 s.setSeries(s.raw)
 
@@ -278,13 +415,17 @@ class SamplingDatas(SamplesCriteria):
         N = self.getMaxDepthRawData()
         n = len(self)
         vects = self.DC_eigenvects
-        new_x = []
-        def raw(i): return self[i].raw
+        new_serieses = []
         for k in range(n):
             self[k].toCentralization()
-            new_x.append([sum([vects[v, k] * raw(v)[i] for v in range(n)])
-                          for i in range(N)])
-        [s.setSeries(new_x[i]) for i, s in enumerate(self.samples)]
+            new_series = np.zeros(N, dtype=float)
+            for i in range(N):
+                for v in range(n):
+                    new_series[i] += vects[v, k] * self[v].raw[i]
+            new_serieses.append(new_series)
+        for new_raw, s in zip(new_serieses, self.samples):
+            s.setSeries(new_raw)
+        return self
 
     def toReturnFromIndependet(self, w=0):
         n = len(self)
@@ -293,7 +434,7 @@ class SamplingDatas(SamplesCriteria):
         N = self.getMaxDepthRawData()
         vects = self.DC_eigenvects
         part = self.DC_eigenval_part
-        old_x = [[]] * n
+        old_serieses = []
 
         sorted_by_disp = sorted([[part[i], i] for i in range(n)],
                                 key=lambda i: i[0], reverse=True)
@@ -301,15 +442,20 @@ class SamplingDatas(SamplesCriteria):
         def raw(i): return self[sorted_by_disp[i][1]].raw
         def vect(i, k): return vects[i, sorted_by_disp[k][1]]
         for k in range(n):
-            old_x[k] = [sum([vect(k, v) * raw(v)[i] for v in range(w)])
-                        for i in range(N)]
-        [s.setSeries(old_x[i]) for i, s in enumerate(self.samples)]
+            old_series = np.zeros(N, dtype=float)
+            for i in range(N):
+                for v in range(w):
+                    old_series[i] += vect(k, v) * raw(v)[i]
+            old_serieses.append(old_series)
+        for old_raw, s in zip(old_serieses, self.samples):
+            s.setSeries(old_raw)
+        return self
 
     def principalComponentAnalysis(self, w):
-        independet_sample = self.copy()
-        independet_sample.toIndependet()
-        newold_sample = independet_sample.copy()
-        newold_sample.toReturnFromIndependet(w)
+        v_x_ = [s.x_ for s in self.samples]
+        independet_sample = self.copy().toIndependet()
+        newold_sample = independet_sample.copy().toReturnFromIndependet(w)
+        [s.toSlide(x_) for s, x_ in zip(newold_sample.samples, v_x_)]
         return independet_sample, newold_sample
 
     def toCreateLinearRegressionMNK(self, yi: int):
@@ -322,7 +468,7 @@ class SamplingDatas(SamplesCriteria):
                         for i, s in enumerate(self.samples) if i != yi])
         Y_T = np.array(self.samples[yi].raw)
         y_ = self.samples[yi].x_
-        A_ = np.linalg.inv(X_x @ np.transpose(X_x)) @ (X_x) @ Y_T
+        A_ = np.linalg.inv(X_x @ X_x.transpose()) @ (X_x) @ Y_T
         self.line_A = A_
         a0 = y_ - sum([A_[k] * x_[k] for k in range(n)])
         self.line_A0 = a0
@@ -337,12 +483,9 @@ class SamplingDatas(SamplesCriteria):
         Y = self.samples[yi].raw
         X = np.array([self.samples[i].raw
                       for i in range(len(self)) if i != yi])
-        self.line_Y = Y
-        self.line_X = X
         C = np.linalg.inv(X @ X.transpose())
         self.line_C = C
         E = Y - f(*X)
-        self.line_E = E
         S_2 = E @ np.transpose(E)
         sigma = (S_2 / (N - n)) ** 0.5
         sigma_2 = (S_2 / (N - n))
@@ -382,6 +525,43 @@ class SamplingDatas(SamplesCriteria):
         def more_f(*X): return f(*X) + det_f(np.array(X))
         return less_f, more_f
 
+    def toCreateLinearVariationPlane(self):
+        n = len(self)
+        m = n - 1
+        _, newold_sample = self.principalComponentAnalysis(m)
+        def x(k, i): return newold_sample[k].raw[i]
+        N = len(newold_sample[0].raw)
+        rand_ind = [np.random.randint(0, N-1)]
+        while len(rand_ind) < n:
+            rnd = np.random.randint(0, N-1)
+            if rnd not in rand_ind:
+                rand_ind.append(rnd)
+        ind_p0 = rand_ind[0]
+        mat = np.empty((n, m))
+        for k in range(n):
+            for i, ind_pi in enumerate(rand_ind[1:]):
+                mat[k, i] = x(k, ind_pi) - x(k, ind_p0)
+
+        def det_minor(i): return np.linalg.det(np.delete(mat, i, 0))
+
+        # 0,  1,  2,  ... n-1, n
+        # x1, x2, x3, ... xn, d
+        line_var_par = np.empty((n + 1))
+        line_var_par[n] = 0.0
+        for i in range(n):
+            det_from_minor_i = det_minor(i) * (-1) ** i
+            line_var_par[i] = det_from_minor_i
+            line_var_par[n] -= x(i, ind_p0) * det_from_minor_i
+
+        self.line_var_par = -(line_var_par / line_var_par[m])
+        self.line_var_par = np.delete(self.line_var_par, m)
+
+        def line_var_f(*x):
+            return sum([self.line_var_par[i] * x[i] for i in range(m)]
+                       ) + self.line_var_par[m]
+
+        return None, line_var_f, None
+
     def getProtocol(self) -> str:
         inf_protocol = []
         def add_text(text=""): inf_protocol.append(text)
@@ -407,14 +587,12 @@ class SamplingDatas(SamplesCriteria):
         add_text("Оцінка дисперсійно-коваріаційної матриці DC:")
         n = len(self.samples)
         addForm("", *[f"X{i+1}" for i in range(n)])
-        add_text()
         for i in range(n):
             addForm(f"X{i+1}", *[self.DC[i][j] for j in range(n)])
 
         add_text()
         add_text("Оцінка кореляційної матриці R:")
         addForm("", *[f"X{i+1}" for i in range(n)])
-        add_text()
         for i in range(n):
             addForm(f"X{i+1}", *[self.R[i][j] for j in range(n)])
 
@@ -429,7 +607,7 @@ class SamplingDatas(SamplesCriteria):
 
         add_text()
         add_text("Власні вектори")
-        addForm("", *[f"F{i+1}" for i in range(n)])
+        addForm("", *[f"F{i+1}" for i in range(n)] + ["Сума"])
         for i in range(n):
             sum_xk = sum([self.DC_eigenvects[i][j] ** 2 for j in range(n)])
             addForm(f"X{i+1}", *([self.DC_eigenvects[i][j] for j in range(n)] +
@@ -438,6 +616,13 @@ class SamplingDatas(SamplesCriteria):
         addForm("Власні числа", *[self.DC_eigenval[i] for i in range(n)])
         addForm("Частка %", *[self.DC_eigenval_part[i] for i in range(n)])
         addForm("Накопичена", *[self.DC_eigenval_accum[i] for i in range(n)])
+
+        add_text()
+        add_text("Факторний аналіз")
+        w = self.fact_mat.shape[1]
+        addForm("", *[f"F{i+1}" for i in range(w)])
+        for i in range(n):
+            addForm(f"X{i+1}", *([self.fact_mat[i][j] for j in range(w)]))
 
         add_text()
         if hasattr(self, "line_A"):
@@ -459,6 +644,14 @@ class SamplingDatas(SamplesCriteria):
                     "≤",
                     self.line_sigma_signif_f_quant)
             add_text()
+            ak_text = ""
+            for k, a in enumerate(self.line_A):
+                if a > 0:
+                    ak_text += f" + {a:.5}x{k+1}"
+                else:
+                    ak_text += f" - {-a:.5}x{k+1}"
+            add_text(f"y = {self.line_A0:.5}" + ak_text)
+            add_text()
             addForm(f"Параметр a{0}", "", self.line_A0)
             add_text()
             for k, a in enumerate(self.line_A):
@@ -473,6 +666,24 @@ class SamplingDatas(SamplesCriteria):
                         self.line_A_t_quant)
                 addForm(f"Стандартизований параметр a{k+1}", '',
                         self.line_stand_A[k])
+                add_text()
+
+        if hasattr(self, "line_var_par"):
+            add_text("Параметри лінійного різноманіття:")
+            add_text("-" * 16)
+            ak_text = ""
+            for k, a in enumerate(self.line_var_par[:-1]):
+                if a > 0:
+                    ak_text += f" + {a:.5}x{k+1}"
+                else:
+                    ak_text += f" - {-a:.5}x{k+1}"
+            add_text()
+            add_text(f"y = {self.line_var_par[-1]:.5}" + ak_text)
+            add_text()
+            addForm(f"Параметр a{0}", "", self.line_var_par[-1])
+            add_text()
+            for k, a in enumerate(self.line_var_par[:-1]):
+                addForm(f"Параметр a{k+1}", "", a)
                 add_text()
 
         return "\n".join(inf_protocol)

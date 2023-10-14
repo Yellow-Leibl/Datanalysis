@@ -1,14 +1,32 @@
 import math
 import numpy as np
 import functions as func
-from Datanalysis.SamplingData import (SamplingData, formRowNV,
-                                      toCalcRankSeries, calc_reproduction_dx)
+from Datanalysis.SamplingData import (
+    SamplingData, formRowNV, toCalcRankSeries, calc_reproduction_dx, timer)
 from Datanalysis.DoubleSampleRegression import DoubleSampleRegression
 
 
 def printHistogram(hist: np.ndarray, N):
     print(np.array([[hist[i, j] / N for j in range(hist.shape[1])]
                     for i in range(hist.shape[0] - 1, -1, -1)]))
+
+
+def binaryFind(ranking_array, v):
+    left = 0
+    right = len(ranking_array) - 1
+    if ranking_array[left][0] == v:
+        return left
+    if ranking_array[right][0] == v:
+        return right
+    while left != right:
+        m = (left + right) // 2
+        if ranking_array[m][0] == v:
+            return m
+        elif ranking_array[m][0] > v:
+            right = m
+        else:
+            left = m
+    return -1
 
 
 class DoubleSampleData(DoubleSampleRegression):
@@ -25,6 +43,7 @@ class DoubleSampleData(DoubleSampleRegression):
     def setTrust(self, trust: float):
         self.trust = trust
 
+    @timer
     def toCalculateCharacteristic(self):
         self.x_ = (self.x.x_, self.y.x_)
         self.pearsonCorrelationСoefficient()
@@ -40,8 +59,11 @@ class DoubleSampleData(DoubleSampleRegression):
     def pearsonCorrelationСoefficient(self):
         N = len(self)
 
-        xy_ = 1 / N * sum([self.x.raw[i] * self.y.raw[i]
-                           for i in range(N)])
+        xy_ = 0.0
+        for i in range(N):
+            xy_ += self.x.raw[i] * self.y.raw[i]
+        xy_ /= N
+
         self.r = N / (N - 1) * (xy_ - self.x.x_ * self.y.x_) / (
             self.x.Sigma * self.y.Sigma)
 
@@ -51,6 +73,7 @@ class DoubleSampleData(DoubleSampleRegression):
         self.r_det_v = self.r + self.r * (1 - self.r ** 2) / (2 * N)
         self.det_r = func.QuantileNorm(1 - self.trust / 2
                                        ) * (1 - self.r ** 2) / (N - 1) ** 0.5
+        return self.r
 
     def generateMas3Dot3(self, k):
         y = []
@@ -76,9 +99,14 @@ class DoubleSampleData(DoubleSampleRegression):
         def m(i): return len(y[i])
         def _y_(i): return sum(y[i]) / m(i) if m(i) != 0 else 0
         y_ = self.y.x_
-        self.po_2 = sum([m(i) * (_y_(i) - y_) ** 2 for i in range(k)]) / sum(
-            [sum([(y[i][j] - y_) ** 2 for j in range(m(i))])
-             for i in range(k)])
+        self.po_2 = 0.0
+        po_2_second_div = 0.0
+        for i in range(k):
+            self.po_2 += m(i) * (_y_(i) - y_) ** 2
+        for i in range(k):
+            for j in range(m(i)):
+                po_2_second_div += (y[i][j] - _y_(i)) ** 2
+        self.po_2 /= po_2_second_div
 
         nu1 = round((k - 1 + N * self.po_2) ** 2 /
                     (k - 1 + 2 * N * self.po_2))
@@ -211,27 +239,10 @@ class DoubleSampleData(DoubleSampleRegression):
         y_raw = self.y.raw
         x = [[i, 0] for i in x_raw]
         y = [[i, 0] for i in y_raw]
-        x.sort()
-        y.sort()
+        x.sort(key=lambda k: k[0])
+        y.sort(key=lambda k: k[0])
         toCalcRankSeries(x)
         toCalcRankSeries(y)
-
-        def binaryFind(ranking_array, v):
-            left = 0
-            right = N - 1
-            if ranking_array[left][0] == v:
-                return left
-            if ranking_array[right][0] == v:
-                return right
-            while left != right:
-                m = (left + right) // 2
-                if ranking_array[m][0] == v:
-                    return m
-                elif ranking_array[m][0] > v:
-                    right = m
-                else:
-                    left = m
-            return -1
 
         r = []
         for i in range(N):
@@ -243,8 +254,10 @@ class DoubleSampleData(DoubleSampleRegression):
         def ry(i): return r[i][1]
         def d(i): return rx(i) - ry(i)
 
-        self.teta_c = 1 - 6 / (N * (N ** 2 - 1)) * sum(
-            [d(i) ** 2 for i in range(N)])
+        teta_c_mn = 0.0
+        for i in range(N):
+            teta_c_mn += d(i) ** 2
+        self.teta_c = 1 - 6 / (N * (N ** 2 - 1)) * teta_c_mn
 
         # A = 0
         # prev = x[0][0] - 1
@@ -286,7 +299,10 @@ class DoubleSampleData(DoubleSampleRegression):
 
         def v(i, j):
             return 1 if ry(i) < ry(j) else (-1 if ry(i) > ry(j) else 0)
-        S = sum([sum([v(i, j) for j in range(N)]) for i in range(N - 1)])
+        S = 0.0
+        for i in range(N - 1):
+            for j in range(i + 1, N):
+                S += v(i, j)
         self.teta_k = 2 * S / (N * (N - 1))
         self.teta_k_signif = 3 * self.teta_k * (N * (N - 1)) ** 0.5 / (
             2 * (2 * N + 5)) ** 0.5
@@ -302,7 +318,8 @@ class DoubleSampleData(DoubleSampleRegression):
     def get_histogram_data(self, column_number: int = 0):
         if column_number <= 0:
             column_number = SamplingData.calculateM(len(self.x.raw))
-        self.probability_table = np.zeros((column_number, column_number))
+        self.probability_table = np.zeros((column_number, column_number),
+                                          dtype=int)
         N = len(self)
         h_x = (self.x.max - self.x.min) / column_number
         h_y = (self.y.max - self.y.min) / column_number
@@ -366,15 +383,12 @@ class DoubleSampleData(DoubleSampleRegression):
         return is_item_del
 
     def toIndependet(self):
-        N = len(self)
         phi = math.atan(2 * self.r * self.x.Sigma * self.y.Sigma /
                         (self.x.S - self.y.S)) / 2
         eps = self.x.raw
         eta = self.y.raw
-        new_eps = [eps[i] * math.cos(phi) +
-                   eta[i] * math.sin(phi) for i in range(N)]
-        new_eta = [-eps[i] * math.sin(phi) +
-                   eta[i] * math.cos(phi) for i in range(N)]
+        new_eps = eps * math.cos(phi) + eta * math.sin(phi)
+        new_eta = -eps * math.sin(phi) + eta * math.cos(phi)
         self.x.setSeries(new_eps)
         self.y.setSeries(new_eta)
         self.toCalculateCharacteristic()

@@ -1,7 +1,8 @@
 import math
 
-from Datanalysis.SamplingData import SamplingData, MED, calc_reproduction_dx
+from Datanalysis.SamplingData import SamplingData, MED
 import functions as func
+import numpy as np
 
 
 class DoubleSampleRegression:
@@ -10,10 +11,10 @@ class DoubleSampleRegression:
         self.y = y
         self.trust = trust
 
-# DoubleSampleData
+    # DoubleSampleData
     def identDispersionBarlet(self, samples, trust: float = 0.05) -> bool:
         print("AbstractMethod")
-        return True
+        raise NotImplementedError
 
 # line regression
     def initialConditionLine(self) -> bool:
@@ -37,10 +38,8 @@ class DoubleSampleRegression:
 
         def f(x): return a + b * x
 
-        tl_lf, tl_mf = self.linearTolerantIntervals(f)
-        tr_lf, tr_mf, tr_f_lf, tr_f_mf = self.linearTrustIntervals(f)
-
-        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
+        return *self.linearTolerantIntervals(f), \
+            *self.linearTrustIntervals(f), f
 
     def toCreateLinearRegressionMethodTeila(self):
         if not (self.x.isNormal() and self.y.isNormal() and
@@ -56,15 +55,17 @@ class DoubleSampleRegression:
         y.sort()
 
         N = len(x)
-        b_l = [0] * (N * (N - 1) // 2)
+        b_l = np.empty(N * (N - 1) // 2, dtype=float)
         ll = 0
-        for i in range(N):
-            for j in range(i + 1, N):
+        for i in np.arange(N):
+            for j in np.arange(i + 1, N):
                 b_l[ll] = (y[i] - y[j]) / (x[i] - x[j])
                 ll += 1
         b = MED(b_l)
 
-        a_l = [y[i] - b * x[i] for i in range(N)]
+        a_l = np.empty(N, dtype=float)
+        for i in range(N):
+            a_l[i] = y[i] - b * x[i]
         a = MED(a_l)
 
         self.line_a = a
@@ -73,10 +74,8 @@ class DoubleSampleRegression:
 
         def f(x): return a + b * x
 
-        tl_lf, tl_mf = self.linearTolerantIntervals(f)
-        tr_lf, tr_mf, tr_f_lf, tr_f_mf = self.linearTrustIntervals(f)
-
-        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
+        return *self.linearTolerantIntervals(f), \
+            *self.linearTrustIntervals(f), f
 
     def accuracyLineParameters(self, a, b):
         N = len(self)
@@ -169,11 +168,8 @@ class DoubleSampleRegression:
 
         self.accuracyParabolaParameters(a, b, c, phi2)
 
-        tl_lf, tl_mf = self.parabolaTolerantIntervals(f)
-        tr_lf, tr_mf, tr_f_lf, tr_f_mf = \
-            self.parabolaTrustIntervals(f, phi1, phi2)
-
-        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
+        return *self.parabolaTolerantIntervals(f), \
+            *self.parabolaTrustIntervals(f, phi1, phi2), f
 
     def accuracyParabolaParameters(self, a, b, c, phi2):
         N = len(self)
@@ -277,10 +273,7 @@ class DoubleSampleRegression:
 
         self.accuracyKvaziParameters(A, B)
 
-        tl_lf, tl_mf = self.kvaziTolerantIntervals(f)
-        tr_lf, tr_mf, tr_f_lf, tr_f_mf = self.kvaziTrustIntervals(f)
-
-        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
+        return *self.kvaziTolerantIntervals(f), *self.kvaziTrustIntervals(f), f
 
     def accuracyKvaziParameters(self, A, B):
         N = len(self)
@@ -353,19 +346,3 @@ class DoubleSampleRegression:
 
         self.R_2 = (1 - S_zal / self.y.Sigma) * 100
         print(f"{self.R_2} {self.r * 100}")
-
-    def toGenerateReproduction(self, f) -> list:
-        x_gen = []
-        dx = calc_reproduction_dx(self.x.min, self.x.max)
-        x = self.x.min
-        while x < self.x.max:
-            if f(x) is not None:
-                x_gen.append(x)
-            x += dx
-
-        if len(x_gen) > 0 and x_gen[-1] != self.x.max:
-            x = self.x.max
-            if f(x) is not None:
-                x_gen.append(x)
-
-        return x_gen

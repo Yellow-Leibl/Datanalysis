@@ -143,7 +143,8 @@ class MainLayout(QMainWindow):
     def createMenuBar(self):
         def addAction(menu: QMenu, title, action, shortcut):
             act = menu.addAction(title, action)
-            act.setShortcut(keySequence(shortcut))
+            if act is not None:
+                act.setShortcut(keySequence(shortcut))
         # File menu
         menuBar = self.menuBar()
         file_menu = menuBar.addMenu("&Файл")
@@ -202,6 +203,8 @@ class MainLayout(QMainWindow):
         regr_menu.addSeparator()
         addAction(regr_menu, "Лінійна МНК", self.setReproductionSeries,
                   "Ctrl+Alt+V")
+        addAction(regr_menu, "Лінійне різноманіття",
+                  self.setReproductionSeries, "Ctrl+Alt+R")
         regr_menu.addSeparator()
         addAction(regr_menu, "&Очистити", self.setReproductionSeries,
                   "Ctrl+Alt+C")

@@ -51,13 +51,14 @@ class PlotWidget(QStackedWidget):
         self.__glyph_bar = pg.ColorBarItem(colorMap=colorMap)
         #  N canvas
         self.__nd_widget = QTabWidget()
-        self.__nd_widget.addTab(__parallel_widget, "Паралельні координати")
+        self.__nd_widget.addTab(__E_widget, "Діагностична діаграма")
         self.__nd_widget.addTab(__scatter_widget, "Діаграма розкиду")
         self.__nd_widget.addTab(__heatmap_widget, "Теплова карта")
-        self.__nd_widget.addTab(__E_widget, "Діагностична діаграма")
+        self.__nd_widget.addTab(__parallel_widget, "Паралельні координати")
         self.__nd_widget.addTab(__3d_widget, "3-вимірний простір")
         self.__nd_widget.addTab(__buble_widget, "Бульбашкова діаграма")
         self.__nd_widget.addTab(__glyph_widget, "Гліф діаграма")
+        self.__nd_widget.setCurrentIndex(3)
         self.__nd_widget.currentChanged.connect(self.updateCharts)
         #  General canvas
         self.addWidget(__2d_widget)
@@ -165,18 +166,16 @@ class PlotWidget(QStackedWidget):
     def plot1DHist(self, d: SamplingData, hist_data: list,
                    hist_plot: pg.PlotItem = None):
         h = abs(d.max - d.min) / len(hist_data)
-        x = []
-        y = []
+        x = np.empty(len(hist_data) * 3, dtype=float)
+        y = np.empty(len(hist_data) * 3, dtype=float)
         y_max: float = hist_data[0]
         for p, i in enumerate(hist_data):
             if y_max < i:
                 y_max = i
-            x.append(d.min + p * h)
-            x.append(d.min + p * h)
-            x.append(d.min + (p + 1) * h)
-            y.append(0)
-            y.append(i)
-            y.append(i)
+            x[p*3] = x[p*3+1] = d.min + p * h
+            x[p*3+2] = d.min + (p + 1) * h
+            y[p*3] = 0
+            y[p*3+1] = y[p*3+2] = i
 
         if hist_plot is None:
             hist_plot = self.hist_plot
@@ -187,47 +186,42 @@ class PlotWidget(QStackedWidget):
 
     def plot1DEmp(self, d: SamplingData, hist_data: list):
         h = abs(d.max - d.min) / len(hist_data)
-        x_class = []
-        y_class = []
+        x_class = np.empty(len(hist_data) * 3, dtype=float)
+        y_class = np.empty(len(hist_data) * 3, dtype=float)
         col_height = 0.0
         for p, i in enumerate(hist_data):
             if col_height > 1:
                 col_height = 1
-            x_class.append(d.min + p * h)
-            x_class.append(d.min + p * h)
-            x_class.append(d.min + (p + 1) * h)
-            y_class.append(col_height)
-            y_class.append(col_height + i)
-            y_class.append(col_height + i)
+            x_class[p*3] = x_class[p*3+1] = (d.min + p * h)
+            x_class[p*3+2] = d.min + (p + 1) * h
+            y_class[p*3] = col_height
+            y_class[p*3+1] = y_class[p*3+2] = col_height + i
             col_height += i
 
-        x_stat = []
-        y_stat = []
-        sum_ser = 0.0
-        for i in range(len(d.probabilityX)):
-            sum_ser += d.probabilityX[i]
-            x_stat.append(d._x[i])
-            y_stat.append(sum_ser)
+        y_stat = np.empty(len(d.probabilityX), dtype=float)
+        y_stat[0] = d.probabilityX[0]
+        for i, prob in enumerate(d.probabilityX[1:]):
+            y_stat[i + 1] = y_stat[i] + prob
 
         self.emp_plot.clear()
         self.emp_plot.plot(x_class, y_class,
                            pen=newPen((255, 0, 0), 2))
-        self.emp_plot.plot(x_stat, y_stat,
+        self.emp_plot.plot(d._x, y_stat,
                            pen=newPen((0, 255, 0), 2))
 
     def plot1DReproduction(self, d: SamplingData, f, lF, F, hF):
         if f is None:
             return
         x_gen = d.toGenerateReproduction(f)
-        y_hist = []
-        y_low = []
-        y_emp = []
-        y_high = []
-        for x in x_gen:
-            y_hist.append(f(x))
-            y_low.append(lF(x))
-            y_emp.append(F(x))
-            y_high.append(hF(x))
+        y_hist = np.empty(len(x_gen), dtype=float)
+        y_low = np.empty(len(x_gen), dtype=float)
+        y_emp = np.empty(len(x_gen), dtype=float)
+        y_high = np.empty(len(x_gen), dtype=float)
+        for i, x in enumerate(x_gen):
+            y_hist[i] = f(x)
+            y_low[i] = lF(x)
+            y_emp[i] = F(x)
+            y_high[i] = hF(x)
 
         self.hist_plot.plot(x_gen, y_hist, pen=newPen((255, 0, 0), 3))
         self.emp_plot.plot(x_gen, y_low, pen=newPen((0, 128, 128), 2))
@@ -256,31 +250,16 @@ class PlotWidget(QStackedWidget):
 
     def plot2DReproduction(self, d2: DoubleSampleData,
                            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f):
-        if f is None:
-            return
-        x_gen = d2.toGenerateReproduction(f)
-        y_tl_lf, y_tl_mf = [], []
-        y_tr_lf, y_tr_mf = [], []
-        y_tr_f_lf, y_tr_f_mf = [], []
-        y = []
-        for x in x_gen:
-            y_tl_lf.append(tl_lf(x))
-            y_tl_mf.append(tl_mf(x))
-            y_tr_lf.append(tr_lf(x))
-            y_tr_mf.append(tr_mf(x))
-            y_tr_f_lf.append(tr_f_lf(x))
-            y_tr_f_mf.append(tr_f_mf(x))
-            y.append(f(x))
+        x = np.linspace(d2.x.min, d2.x.max, 500, dtype=float)
+        self.corr_plot.plot(x, tl_lf(x), pen=newPen((0, 128, 128), 3))
+        self.corr_plot.plot(x, tl_mf(x), pen=newPen((0, 128, 128), 3))
+        self.corr_plot.plot(x, tr_lf(x), pen=newPen((255, 0, 255), 3))
+        self.corr_plot.plot(x, tr_mf(x), pen=newPen((255, 0, 255), 3))
+        self.corr_plot.plot(x, tr_f_lf(x), pen=newPen((0, 255, 128), 3))
+        self.corr_plot.plot(x, tr_f_mf(x), pen=newPen((0, 255, 128), 3))
+        self.corr_plot.plot(x, f(x), pen=newPen((255, 0, 0), 3))
 
-        self.corr_plot.plot(x_gen, y_tl_lf, pen=newPen((0, 128, 128), 3))
-        self.corr_plot.plot(x_gen, y_tl_mf, pen=newPen((0, 128, 128), 3))
-        self.corr_plot.plot(x_gen, y_tr_lf, pen=newPen((255, 0, 255), 3))
-        self.corr_plot.plot(x_gen, y_tr_mf, pen=newPen((255, 0, 255), 3))
-        self.corr_plot.plot(x_gen, y_tr_f_lf, pen=newPen((0, 255, 128), 3))
-        self.corr_plot.plot(x_gen, y_tr_f_mf, pen=newPen((0, 255, 128), 3))
-        self.corr_plot.plot(x_gen, y, pen=newPen((255, 0, 0), 3))
-
-    def plot3D(self, d3: list[SamplingData]):
+    def plot3D(self, d3: SamplingDatas):
         x1_raw = d3[0].raw
         x2_raw = d3[1].raw
         x3_raw = d3[2].raw
@@ -289,35 +268,38 @@ class PlotWidget(QStackedWidget):
         self.__3d_plot.scatter(x1_raw, x2_raw, x3_raw)
         self.update_3d()
 
-    def plotDiagnosticDiagram(self, dn: SamplingDatas):
-        tr_l_f, f, tr_m_f = dn.toCreateLinearRegressionMNK(len(dn) - 1)
-        self.__diagnostic_plot.plot(dn.line_Y, dn.line_E,
+    def plotDiagnosticDiagram(self, dn: SamplingDatas, tr_l_f, f, tr_m_f):
+        Y = dn[-1].raw
+        X = [d.raw for d in dn[:-1]]
+        self.__diagnostic_plot.plot(Y, f(*X),
                                     symbolBrush=(30, 120, 180),
                                     symbolPen=(0, 0, 0, 200), symbolSize=7,
                                     pen=None)
         if len(dn) == 3:
+            self.plot3D(dn)
             self.plot3DReproduction(dn, tr_l_f, f, tr_m_f)
 
     def plot3DReproduction(self, d3: SamplingDatas, tr_l_f, f, tr_m_f):
         x1 = d3[0]
         x2 = d3[1]
-        x1_min = x1.min
-        x1_max = x1.max
-        x1_plane = [x1_min, x1_max, x1_min, x1_max]
-        x2_min = x2.min
-        x2_max = x2.max
-        x2_plane = [x2_min, x2_max, x2_min, x2_max]
-        X1, X2 = np.meshgrid(x1_plane, x2_plane)
-        zs_f = np.array(f(np.ravel(X1), np.ravel(X2)))
-        zs_tr_l_f = np.array(tr_l_f(np.ravel(X1), np.ravel(X2)))
-        zs_tr_m_f = np.array(tr_m_f(np.ravel(X1), np.ravel(X2)))
-        X3 = zs_f.reshape(X1.shape)
-        X3_l = zs_tr_l_f.reshape(X1.shape)
-        X3_m = zs_tr_m_f.reshape(X1.shape)
-        self.__3d_plot.plot_surface(X1, X2, X3, alpha=0.1, color='red')
-        self.__3d_plot.plot_surface(X1, X2, X3_l, alpha=0.05, color='purple')
-        self.__3d_plot.plot_surface(X1, X2, X3_m, alpha=0.05, color='purple')
+        x1_lin = np.linspace(x1.min, x1.max, 2)
+        x2_lin = np.linspace(x2.min, x2.max, 2)
+        X1, X2 = np.meshgrid(x1_lin, x2_lin)
+        X3 = self.__make_plane_mesh(X1, X2, f)
+        self.__3d_plot.plot_surface(X1, X2, X3, alpha=0.65, color='red')
+        if tr_l_f is not None:
+            X3_l = self.__make_plane_mesh(X1, X2, tr_l_f)
+            X3_m = self.__make_plane_mesh(X1, X2, tr_m_f)
+            self.__3d_plot.plot_surface(
+                X1, X2, X3_l, alpha=0.25, color='purple')
+            self.__3d_plot.plot_surface(
+                X1, X2, X3_m, alpha=0.25, color='purple')
         self.update_3d()
+
+    def __make_plane_mesh(self, X1, X2, f):
+        x3 = np.array(f(np.ravel(X1), np.ravel(X2)))
+        X3 = x3.reshape(X1.shape)
+        return X3
 
     def plotScatterDiagram(self, dn: list[SamplingData], col):
         n = len(dn)
@@ -433,14 +415,14 @@ class PlotWidget(QStackedWidget):
         if self.cache_graphics[index]:
             return
         self.cache_graphics[index] = True
-        if index == 0:
-            self.plotParallelCoordinates(self.datas.samples)
         if index == 1:
             self.plotScatterDiagram(self.datas.samples, self.column_count)
         if index == 2:
             self.plotHeatMap(self.datas)
+        if index == 3:
+            self.plotParallelCoordinates(self.datas.samples)
         if index == 4:
-            self.plot3D(self.datas.samples)
+            self.plot3D(self.datas)
         if index == 5:
             self.plotBubleDiagram(self.datas.samples)
         if index == 6:

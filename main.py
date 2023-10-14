@@ -1,12 +1,16 @@
 import sys
 import os
+import logging
 
 from PyQt6.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
+from PyQt6 import QtGui
 
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from Datanalysis.SamplingData import SamplingData
 from mainlayout import MainLayout
+
+logging.basicConfig(level=logging.INFO)
 
 
 class Window(MainLayout):
@@ -26,11 +30,6 @@ class Window(MainLayout):
             self.loadFromData(all_file)
         self.autoSelect()  # temp
 
-    def autoSelect(self):
-        self.sel_indexes = [i for i in range(6)]
-        self.createPlotLayout()
-        self.sampleChanged()
-
     def openFile(self, file_name: str):
         if file_name == '':
             file_name, _ = QFileDialog().getOpenFileName(
@@ -39,7 +38,7 @@ class Window(MainLayout):
             with open(file_name, 'r') as file:
                 self.loadFromData(file.readlines())
         except FileNotFoundError:
-            print(f"\"{file_name}\" not found")
+            logging.error(f"\"{file_name}\" not found")
 
     def loadFromData(self, all_file: list[str]):
         self.all_datas.append(all_file)
@@ -84,7 +83,7 @@ class Window(MainLayout):
         elif edit_num == 2:
             [self.all_datas[i].toCentralization() for i in self.sel_indexes]
         elif edit_num == 3:
-            [self.all_datas[i].toSlide() for i in self.sel_indexes]
+            [self.all_datas[i].toSlide(1.0) for i in self.sel_indexes]
         elif edit_num == 4:
             if not self.autoRemoveAnomaly():
                 return
@@ -134,6 +133,7 @@ class Window(MainLayout):
         self.silentChangeNumberClasses(0)
         self.setMaximumColumnNumber(self.all_datas.getMaxDepthRangeData())
         self.selectSampleOrReproduction()
+        self.coloredTable(self.sel_indexes)
 
     def createPlotLayout(self):
         if self.is1d():
@@ -184,6 +184,15 @@ class Window(MainLayout):
                 self.table.setItem(s, i + 1, QTableWidgetItem(f"{e:.5}"))
         self.table.resizeColumnsToContents()
         self.table.resizeRowsToContents()
+        self.coloredTable(self.sel_indexes)
+
+    def coloredTable(self, sel_indexes: list[int]):
+        for i in range(self.table.rowCount()):
+            color = QtGui.QColor()
+            if i in sel_indexes:
+                color = QtGui.QColor(30, 150, 0)
+            for j in range(len(self.all_datas[i]._x) + 1):
+                self.table.item(i, j).setBackground(color)
 
     def numberColumnChanged(self):
         self.selectSampleOrReproduction()
@@ -224,40 +233,36 @@ class Window(MainLayout):
             self.hist_data_2d = self.d2.get_histogram_data(number_column)
             self.silentChangeNumberClasses(len(self.hist_data_2d))
             self.plot_widget.plot2D(self.d2, self.hist_data_2d)
-            self.drawReproductionSeries2D()
+            self.drawReproductionSeries2D(self.d2)
         elif self.isNd():
             samples = [self.all_datas[i] for i in self.sel_indexes]
             self.datas_displayed_indexes = self.sel_indexes
             self.datas_displayed = SamplingDatas(samples, self.getTrust())
             self.datas_displayed.toCalculateCharacteristic()
             self.plot_widget.plotND(self.datas_displayed, number_column)
-            if self.selected_regr_num == 11:
-                self.plot_widget.plotDiagnosticDiagram(self.datas_displayed)
+            self.drawReproductionSeriesND(self.datas_displayed)
 
     def drawReproductionSeries1D(self):
         d = self.all_datas[self.sel_indexes[0]]
-        f, lF, F, hF = self.toCreateReproductionFunc(d, self.selected_regr_num)
+        f = self.toCreateReproductionFunc(d, self.selected_regr_num)
         if f is None:
             return
-        self.d1_regr_F = F
-        self.plot_widget.plot1DReproduction(d, f, lF, F, hF)
+        h = abs(d.max - d.min) / self.getNumberClasses()
+        f = d.toCreateTrustIntervals(*(*f, h))
+        self.d1_regr_F = f[2]
+        self.plot_widget.plot1DReproduction(d, *f)
 
     def toCreateReproductionFunc(self, d: SamplingData, func_num):
         if func_num == 0:
-            f, F, DF = d.toCreateNormalFunc()
+            return d.toCreateNormalFunc()
         elif func_num == 1:
-            f, F, DF = d.toCreateUniformFunc()
+            return d.toCreateUniformFunc()
         elif func_num == 2:
-            f, F, DF = d.toCreateExponentialFunc()
+            return d.toCreateExponentialFunc()
         elif func_num == 3:
-            f, F, DF = d.toCreateWeibullFunc()
+            return d.toCreateWeibullFunc()
         elif func_num == 4:
-            f, F, DF = d.toCreateArcsinFunc()
-        else:
-            return None, None, None, None
-
-        h = abs(d.max - d.min) / self.getNumberClasses()
-        return d.toCreateTrustIntervals(f, F, DF, h)
+            return d.toCreateArcsinFunc()
 
     def writeCritetion1DSample(self, d: SamplingData, F):
         criterion_text = d.kolmogorovTestProtocol(d.kolmogorovTest(F))
@@ -269,31 +274,33 @@ class Window(MainLayout):
         criterion_text += '\n' + d.xiXiTestProtocol(xi_test_result)
         return criterion_text
 
-    def drawReproductionSeries2D(self):
-        tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-            self.toCreateReproductionFunc2D(self.d2, self.selected_regr_num)
-        self.plot_widget.plot2DReproduction(
-            self.d2, tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f)
+    def drawReproductionSeries2D(self, d2):
+        f = self.toCreateReproductionFunc2D(d2, self.selected_regr_num)
+        if f is None:
+            return
+        self.plot_widget.plot2DReproduction(d2, *f)
 
     def toCreateReproductionFunc2D(self, d_d: DoubleSampleData, func_num):
-        if func_num == 5:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateLinearRegressionMNK()
-        elif func_num == 6:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateLinearRegressionMethodTeila()
+        if func_num == 6:
+            return d_d.toCreateLinearRegressionMNK()
         elif func_num == 7:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateParabolicRegression()
+            return d_d.toCreateLinearRegressionMethodTeila()
         elif func_num == 8:
-            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f = \
-                d_d.toCreateKvazi8()
-        else:
-            return None, None, None, None, None, None, None
-        return tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f
+            return d_d.toCreateParabolicRegression()
+        elif func_num == 9:
+            return d_d.toCreateKvazi8()
 
-    def drawReproductionSeries3D(self):
-        self.plot_widget.plot3DReproduction(self.datas_displayed)
+    def drawReproductionSeriesND(self, datas):
+        f = self.toCreateReproductionFuncND(datas, self.selected_regr_num)
+        if f is None:
+            return
+        self.plot_widget.plotDiagnosticDiagram(datas, *f)
+
+    def toCreateReproductionFuncND(self, datas: SamplingDatas, func_num):
+        if func_num == 11:
+            return datas.toCreateLinearRegressionMNK(len(datas) - 1)
+        elif func_num == 12:
+            return datas.toCreateLinearVariationPlane()
 
     def linearModelsCrit(self, trust: float):
         sel = self.getSelectedRows()
@@ -303,12 +310,12 @@ class Window(MainLayout):
             title = "Лінійна регресія"
             descr = "Моделі регресійних прямих\n" + \
                 f"({sel[0]}, {sel[1]}) і ({sel[2]}, {sel[3]})"
-            if type(res) == bool:
+            if type(res) is bool:
                 if res:
                     self.showMessageBox(title, descr + " - ідентичні")
                 else:
                     self.showMessageBox(title, descr + " - неідентичні")
-            elif type(res) == str:
+            elif type(res) is str:
                 self.showMessageBox(title, descr +
                                     " - мають випадкову різницю регресій")
 
@@ -380,6 +387,12 @@ class Window(MainLayout):
         self.all_datas.appendSamples(retn.samples)
         self.writeTable()
 
+    def autoSelect(self):
+        # self.sel_indexes = range(len(self.all_datas))
+        self.sel_indexes = range(3)
+        self.createPlotLayout()
+        self.sampleChanged()
+
 
 def applicationLoadFromFile(file: str = ''):
     app = QApplication(sys.argv)
@@ -396,4 +409,6 @@ def applicationLoadFromStr(file: str = ''):
 
 
 if __name__ == "__main__":
-    applicationLoadFromFile("data/6har.dat")
+    # applicationLoadFromFile("data/iris_fish.txt")
+    applicationLoadFromFile("data/500/norm3n.txt")
+    # applicationLoadFromFile("data/self/line.txt")

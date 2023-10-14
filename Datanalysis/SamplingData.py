@@ -10,6 +10,12 @@ from functions import (
     FExp, fExp, fExp_d_lamda,
     DF1Parametr, DF2Parametr)
 
+
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+
 NM_SMBLS = 32
 VL_SMBLS = 16
 
@@ -21,7 +27,7 @@ def timer(function):
             function()
         else:
             function(*args)
-        print(f"{function.__name__}={time() - t}sec")
+        logger.debug(f"{function.__name__}={time() - t}sec")
     return wrapper
 
 
@@ -78,10 +84,9 @@ def MED(r):
 
 
 class SamplingData:
-    def __init__(self, not_ranked_series_x: list[float], trust: float = 0.05):
-        self.raw = np.array(not_ranked_series_x)
-        self._x = not_ranked_series_x.copy()
-        self.countX: list[int] = []
+    def __init__(self, not_ranked_series_x: np.ndarray, trust: float = 0.05):
+        self.raw = not_ranked_series_x.copy()
+        self._x = not_ranked_series_x
         self.trust = trust
         self.min = 0.0
         self.max = 0.0
@@ -106,10 +111,12 @@ class SamplingData:
         return self._x[i]
 
     def copy(self):
-        t = SamplingData(list(self.raw))
+        t = SamplingData(self.raw.copy(), self.trust)
         if len(self.probabilityX) > 0:
-            t.toRanking()
-            t.toCalculateCharacteristic()
+            t.probabilityX = self.probabilityX.copy()
+            t._x = self._x.copy()
+            t.MED_Walsh = self.MED_Walsh
+            t.toCalculateCharacteristic(False)
         return t
 
     @staticmethod  # number of classes
@@ -125,28 +132,22 @@ class SamplingData:
 
     def toRanking(self):
         self._x.sort()
-        prev = self._x[0] - 1
-        number_all_observ = 0
-        number_of_deleted_items = 0
-        self.countX = []
-        for i in range(len(self._x)):
-            if prev == self._x[i - number_of_deleted_items]:
-                self._x.pop(i - number_of_deleted_items)
-                number_of_deleted_items += 1
-            else:
-                self.countX.append(0)
-            self.countX[-1] += 1
-            prev = self._x[i - number_of_deleted_items]
-            number_all_observ += 1
-        self.probabilityX = [c / number_all_observ for c in self.countX]
+        self.probabilityX = np.zeros(len(self._x), dtype=float)
+        j = -1
+        prev = None
+        for x in self._x:
+            if prev != x:
+                j += 1
+                prev = x
+            self.probabilityX[j] += 1.0
+        self.probabilityX = self.probabilityX[:j + 1] / len(self._x)
+        self._x = np.unique(self._x)
 
     def setTrust(self, trust: float):
         self.trust = trust
 
-    def toCalculateCharacteristic(self):
+    def toCalculateCharacteristic(self, MED_Walsh=True):
         N = len(self._x)
-
-        self.Sigma = 0.0  # stand_dev
 
         self.min = self._x[0]
         self.max = self._x[-1]
@@ -154,18 +155,15 @@ class SamplingData:
         self.MED = MED(self._x)
         self.MAD = 1.483 * self.MED
 
-        PERCENT_USICH_SER = self.trust
-        k = int(PERCENT_USICH_SER * N)
-        self.x_a = sum([self._x[i] for i in range(k + 1, N - k)]) / (N - 2 * k)
+        k = int(self.trust * N)
 
-        xl = [0.0] * (N * (N - 1) // 2)
-        ll = 0
-        for i in range(N):
-            for j in range(i, N - 1):
-                xl[ll] = 0.5 * (self._x[i] * self._x[j])
-                ll += 1
+        self.x_a = 0.0
+        for i in np.arange(k + 1, N - k):
+            self.x_a += self._x[i]
+        self.x_a /= N - 2 * k
 
-        self.MED_Walsh = MED(xl)
+        if MED_Walsh:
+            self.MED_Walsh = self.toCalcMEDWalsh()
 
         self.x_ = sum(self.raw) / len(self.raw)
 
@@ -176,7 +174,7 @@ class SamplingData:
         u5 = 0.0
         u6 = 0.0
         u8 = 0.0
-        for i in range(N):
+        for i in np.arange(N):
             nu2 += self._x[i] ** 2 * self.probabilityX[i]
             x_x_ = self._x[i] - self.x_
             u2 += x_x_ ** 2 * self.probabilityX[i]
@@ -225,7 +223,7 @@ class SamplingData:
         # ...       ...     ...     ...     ...
         # 0.825     0.85    0.875   0.9     0.925
         # 0.95      0.975   1.000
-        for i in range(N):
+        for i in np.arange(N):
             p += self.probabilityX[i]
             while ip + step_quant < p:
                 ip += step_quant
@@ -268,7 +266,18 @@ class SamplingData:
 
         self.vanga_x_ = self.Sigma * math.sqrt(1 + 1 / N) * QUANT_I
 
-    def setSeries(self, not_ranked_series_x):
+    def toCalcMEDWalsh(self):
+        N = len(self._x)
+        xl = np.empty(N * (N - 1) // 2, dtype=float)
+        ll = 0
+        for i in np.arange(N):
+            for j in np.arange(i, N - 1):
+                xl[ll] = 0.5 * (self._x[i] * self._x[j])
+                ll += 1
+
+        return MED(xl)
+
+    def setSeries(self, not_ranked_series_x: np.ndarray):
         SamplingData.__init__(self, not_ranked_series_x)
         self.toRanking()
         self.toCalculateCharacteristic()
@@ -277,7 +286,7 @@ class SamplingData:
     def remove(self, minimum: float, maximum: float):
         new_raw_x = [x for x in self.raw if minimum <= x <= maximum]
         if len(new_raw_x) != len(self.raw):
-            self.setSeries(new_raw_x)
+            self.setSeries(np.array(new_raw_x))
 
     def autoRemoveAnomaly(self) -> bool:
         N = len(self._x)
@@ -319,29 +328,29 @@ class SamplingData:
                 break
 
         if is_item_del:
-            self.setSeries(raw_x)
+            self.setSeries(np.array(raw_x))
         return is_item_del
 
     def toLogarithmus10(self):
-        self.setSeries([math.log10(x) for x in self.raw])
+        self.setSeries(np.log10(self.raw))
 
     def toExp(self):
-        self.setSeries([math.exp(x) for x in self.raw])
+        self.setSeries(np.exp(self.raw))
 
     def toStandardization(self):
-        self.setSeries([(x - self.x_) / self.Sigma for x in self.raw])
+        self.setSeries((self.raw - self.x_) / self.Sigma)
 
-    def toSlide(self, value: float = 1):
-        self.setSeries([x + value for x in self.raw])
+    def toSlide(self, value):
+        self.setSeries(self.raw + value)
 
-    def toMultiply(self, value: float = 1):
-        self.setSeries([x * value for x in self.raw])
+    def toMultiply(self, value):
+        self.setSeries(self.raw * value)
 
     def toBinarization(self, x_):
-        self.setSeries([1 if x > x_ else 0 for x in self.raw])
+        self.setSeries(np.array([1 if x > x_ else 0 for x in self.raw]))
 
     def toTransform(self, f_tr):
-        self.setSeries([f_tr(x) for x in self.raw])
+        self.setSeries(f_tr(self.raw))
 
     def toCentralization(self):
         self.toSlide(-self.x_)

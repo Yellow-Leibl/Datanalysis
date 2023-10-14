@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import logging
 
 from Datanalysis.SamplingData import (
     SamplingData, toCalcRankSeries, calc_reproduction_dx)
@@ -24,8 +25,8 @@ class SamplesCriteria:
         S = sum([(zl - z_) ** 2 for zl in z]) / (N - 1)
         t = z_ * N ** 0.5 / S ** 0.5
 
-        print("середні залежні: t <= t_nu: "
-              f"{abs(t)} <= {QuantileTStudent(1 - trust / 2, N - 2)}")
+        logging.debug("середні залежні: t <= t_nu: "
+                      f"{abs(t)} <= {QuantileTStudent(1 - trust / 2, N - 2)}")
         return abs(t) <= QuantileTStudent(1 - trust / 2, N - 2)
 
     def identAvrTtestIndependent(self,
@@ -42,10 +43,9 @@ class SamplesCriteria:
 
         t = (x.x_ - y.x_) / math.sqrt(S)
 
-        print("середні незалежні: t <= t_nu: "
-              f"{abs(t)} <= "
-              f"{QuantileTStudent(1 - trust / 2, N1 + N2 - 2)}")
-        return abs(t) <= QuantileTStudent(1 - trust / 2, N1 + N2 - 2)
+        quant_t = QuantileTStudent(1 - trust / 2, N1 + N2 - 2)
+        logging.debug(f"середні незалежні: t <= t_nu: {abs(t)} <= {quant_t}")
+        return abs(t) <= quant_t
 
     def identDispersionFtest(self,
                              x: SamplingData,
@@ -58,9 +58,9 @@ class SamplesCriteria:
         else:
             f = y.S / x.S
 
-        print("дисперсії f-test: "
-              f"{f} <= {QuantileFisher(1 - trust / 2, N1 - 1, N2 - 2)}")
-        return f <= QuantileFisher(1 - trust / 2, N1 - 1, N2 - 2)
+        quant_f = QuantileFisher(1 - trust / 2, N1 - 1, N2 - 1)
+        logging.debug(f"дисперсії f-test: {f} <= {quant_f}")
+        return f <= quant_f
 
     def identDispersionBarlet(self, samples, trust: float = 0.05) -> bool:
         k = len(samples)
@@ -76,9 +76,9 @@ class SamplesCriteria:
                                      - 1 / sum([(N(i) - 1) for i in range(k)]))
         X = B / C
 
-        print("дисперсії Бартлета: "
-              f"{X} <= {QuantilePearson(1 - trust / 2, k - 1)}")
-        return X <= QuantilePearson(1 - trust / 2, k - 1)
+        quant_pearson = QuantilePearson(1 - trust / 2, k - 1)
+        logging.debug(f"дисперсії Бартлета: {X} <= {quant_pearson}")
+        return X <= quant_pearson
 
     def identAvrFtest(self, samples, trust: float = 0.05) -> bool:
         k = len(samples)
@@ -96,9 +96,9 @@ class SamplesCriteria:
 
         F = S_M / S_B
 
-        print("однофакторно дисп аналіз, середні: "
-              f"{F} <= {QuantileFisher(1 - trust / 2, k - 1, N_g - k)}")
-        return F <= QuantileFisher(1 - trust / 2, k - 1, N_g - k)
+        quant_f = QuantileFisher(1 - trust / 2, k - 1, N_g - k)
+        logging.debug(f"однофакторно дисп аналіз, середні: {F} <= {quant_f}")
+        return F <= quant_f
 
     def critetionSmirnovKolmogorov(self,
                                    x: SamplingData,
@@ -122,8 +122,9 @@ class SamplesCriteria:
         N2 = len(y)
         N = min(N1, N2)
 
-        print(f"Колмогорова: 1 - L(z) = {1 - L(N ** 0.5 * z, N)} > {trust}")
-        return 1 - L(N ** 0.5 * z, N) > trust
+        func_l = L(N ** 0.5 * z, N)
+        logging.debug(f"Колмогорова: 1 - L(z) = {1 - func_l} > {trust}")
+        return 1 - func_l > trust
 
     def critetionWilcoxon(self,
                           x: SamplingData,
@@ -166,9 +167,9 @@ class SamplesCriteria:
 
         w = (W - E_W) / (D_W) ** 0.5
 
-        print("w ="
-              f"{abs(w)} <= {QuantileNorm(1 - trust / 2)}")
-        return abs(w) <= QuantileNorm(1 - trust / 2)
+        quant_n = QuantileNorm(1 - trust / 2)
+        logging.debug(f"w ={abs(w)} <= {quant_n}")
+        return abs(w) <= quant_n
 
     def critetionUtest(self,
                        x: SamplingData,
@@ -187,9 +188,9 @@ class SamplesCriteria:
 
         u = (U - E_U) / (D_U) ** 0.5
 
-        print("u ="
-              f"{abs(u)} <= {QuantileNorm(1 - trust / 2)}")
-        return abs(u) <= QuantileNorm(1 - trust / 2)
+        quant_n = QuantileNorm(1 - trust / 2)
+        logging.debug(f"u ={abs(u)} <= {quant_n}")
+        return abs(u) <= quant_n
 
     def critetionDiffAvrRanges(self,
                                x: SamplingData,
@@ -213,9 +214,9 @@ class SamplesCriteria:
 
         nu = (rx - ry) / (N * ((N + 1) / (12 * N1 * N2)) ** 0.5)
 
-        print("nu="
-              f"{abs(nu)} <= {QuantileNorm(1 - trust / 2)}")
-        return abs(nu) <= QuantileNorm(1 - trust / 2)
+        quant_n = QuantileNorm(1 - trust / 2)
+        logging.debug(f"nu ={abs(nu)} <= {quant_n}")
+        return abs(nu) <= quant_n
 
 # Критерій Крускала Уоліса
     def critetionKruskalaUolisa(self, samples: list[SamplingData],
@@ -245,9 +246,9 @@ class SamplesCriteria:
         for i in range(k):
             H += (W[i] - E_W) ** 2 / D_W(i) * (1 - N(i) / N_G)
 
-        print("H ="
-              f"{H} <= {QuantilePearson(1 - trust, k - 1)}")
-        return H <= QuantilePearson(1 - trust, k - 1)
+        quant_p = QuantilePearson(1 - trust, k - 1)
+        logging.debug(f"H ={H} <= {quant_p}")
+        return H <= quant_p
 
 # Критерій знаків
     def critetionSign(self,
@@ -263,9 +264,9 @@ class SamplesCriteria:
                 S += 1
         S = (2 * S - 1 - N) / N ** 0.5
 
-        print("S*="
-              f"{S} < {QuantileNorm(1 - trust)}")
-        return S < QuantileNorm(1 - trust)
+        quant_n = QuantileNorm(1 - trust / 2)
+        logging.debug(f"S ={abs(S)} <= {quant_n}")
+        return abs(S) <= quant_n
 
 # Критерій Кохрена
     def critetionKohrena(self, samples: list[SamplingData],
@@ -279,8 +280,9 @@ class SamplesCriteria:
             k * sum([u(i) for i in range(N)]) -
             sum([u(i) ** 2 for i in range(N)]))
 
-        print(f"Q ={Q} <= {QuantilePearson(1 - trust, k - 1)}")
-        return Q <= QuantilePearson(1 - trust, k - 1)
+        quant_p = QuantilePearson(1 - trust, k - 1)
+        logging.debug(f"Q ={Q} <= {quant_p}")
+        return Q <= quant_p
 
     def ident2Samples(self, row1: int, row2: int, trust: float = 0.05) -> bool:
         x, y = self.samples[row1], self.samples[row2]
@@ -399,8 +401,10 @@ class SamplesCriteria:
         x_2 = sum([(N(i) - 3) * z(i) ** 2 for i in range(k)]) - sum(
             [(N(i) - 3) * z(i) for i in range(k)]) ** 2 / sum(
                 [N(i) - 3 for i in range(k)])
-        print(f"{x_2} <= {QuantilePearson(1 - trust, k - 1)}")
-        return x_2 <= QuantilePearson(1 - trust, k - 1)
+
+        quant_p = QuantilePearson(1 - trust, k - 1)
+        logging.debug(f"Кореляційний зв'язок: {x_2} <= {quant_p}")
+        return x_2 <= quant_p
 
     def identAvrIfIdentDC2Samples(self, samples1: list[SamplingData],
                                   samples2: list[SamplingData]):
