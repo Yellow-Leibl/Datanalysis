@@ -1,9 +1,24 @@
 import math
 import numpy as np
 import functions as func
-from Datanalysis.SamplingData import (
-    SamplingData, formRowNV, toCalcRankSeries, calc_reproduction_dx, timer)
+from Datanalysis.SamplingData import SamplingData
 from Datanalysis.DoubleSampleRegression import DoubleSampleRegression
+from Datanalysis.SamplesTools import timer, toCalcRankSeries
+
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+
+def calc_reproduction_dx(x_start: float,
+                         x_end: float,
+                         n=500) -> float:
+    dx = x_end - x_start
+    while n > 1:
+        if dx / n > 0:
+            break
+        n -= 1
+    return dx / n
 
 
 def printHistogram(hist: np.ndarray, N):
@@ -418,9 +433,9 @@ class DoubleSampleData(DoubleSampleRegression):
                                      - 1 / sum([(N(i) - 1) for i in range(k)]))
         X = B / C
 
-        print("дисперсії Бартлета: "
-              f"{X} <= {func.QuantilePearson(1 - trust / 2, k - 1)}")
-        return X <= func.QuantilePearson(1 - trust / 2, k - 1)
+        quant_p = func.QuantilePearson(1 - trust / 2, k - 1)
+        logger.debug(f"дисперсії Бартлета: {X} <= {quant_p}")
+        return X <= quant_p
 
     def xiXiTest(self, hist_data) -> tuple[bool, str]:
         f = self.toCreateNormalFunc()
@@ -449,188 +464,3 @@ class DoubleSampleData(DoubleSampleRegression):
             return f"Відтворення двовимірного розподілу адекватне: {crits}"
         else:
             return f"Відтворення двовимірного розподілу неадекватне: {crits}"
-
-    def getProtocol(self) -> str:
-        inf_protocol = []
-        def add_text(text=""): inf_protocol.append(text)
-        def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
-
-        add_text("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
-        addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
-        add_text()
-
-        addForm("Сер арифметичне X",
-                f"{self.x.x_-self.x.det_x_:.5}",
-                f"{self.x.x_:.5}",
-                f"{self.x.x_+self.x.det_x_:.5}",
-                f"{self.x.det_x_:.5}")
-        addForm("Сер арифметичне Y",
-                f"{self.y.x_-self.y.det_x_:.5}",
-                f"{self.y.x_:.5}",
-                f"{self.y.x_+self.y.det_x_:.5}",
-                f"{self.y.det_x_:.5}")
-
-        add_text()
-        addForm("Коефіціент кореляції",
-                f"{self.r_det_v - self.det_r:.5}",
-                f"{self.r:.5}",
-                f"{self.r_det_v + self.det_r:.5}",
-                f"{self.det_r:.5}")
-
-        addForm("Коеф кореляційного відношення p",
-                f"{self.det_less_po:.5}",
-                f"{self.po_2:.5}",
-                f"{self.det_more_po:.5}", "")
-
-        add_text()
-        addForm("Ранговий коеф кореляції Спірмена",
-                f"{self.teta_c - self.det_teta_c:.5}",
-                f"{self.teta_c:.5}",
-                f"{self.teta_c + self.det_teta_c:.5}",
-                f"{self.det_teta_c:.5}")
-
-        addForm("Ранговий коефіцієнт Кендалла",
-                f"{self.teta_k - self.det_teta_k:.5}",
-                f"{self.teta_k:.5}",
-                f"{self.teta_k + self.det_teta_k:.5}",
-                f"{self.det_teta_k:.5}")
-
-        addForm("Коефіцієнт сполучень Пірсона",
-                "", f"{self.C_Pearson:.5}", "", "")
-
-        addForm("Міра звʼязку Кендалла",
-                f"{self.teta_b - self.det_teta_b:.5}",
-                f"{self.teta_b:.5}",
-                f"{self.teta_b + self.det_teta_b:.5}",
-                f"{self.det_teta_b:.5}")
-
-        add_text()
-        addForm("Індекс Фехнера", "",
-                f"{self.ind_F:.5}", "")
-        addForm("Індекс сполучень", "",
-                f"{self.ind_Fi:.5}", "")
-
-        addForm("Коефіцієнт зв’язку Юла Q", "",
-                f"{self.ind_Q:.5}", "")
-        addForm("Коефіцієнт зв’язку Юла Y", "",
-                f"{self.ind_Y:.5}", "")
-
-        add_text()
-        N = len(self)
-        nu = N - 2
-        alpha = 1 - self.trust
-        addForm("Значимість коефіцієнта кореліції",
-                f"{self.r_signif:.5}",
-                "<=",
-                f"{func.QuantileTStudent(alpha, nu):.5}")
-        addForm("Значимість коефіцієнта p, t-test",
-                f"{abs(self.po_signif_t):.5}",
-                "<=",
-                f"{func.QuantileTStudent(1 - self.trust, nu):.5}")
-        try:
-            f_po = func.QuantileFisher(1 - self.trust,
-                                       self.po_k - 1,
-                                       N - self.po_k)
-        except TypeError:
-            print("Error while calculate quantile fisher")
-            f_po = 0.0
-        addForm("Значимість коефіцієнта p, f-test",
-                f"{self.po_signif_f:.5}",
-                "<=",
-                f"{f_po:.5}")
-        addForm("Значимість коефіцієнта Фі",
-                f"{self.ind_F_signif:.5}",
-                ">=",
-                f"{func.QuantilePearson(1 - self.trust, 1):.5}")
-        addForm("Значимість коефіцієнта Юла Q",
-                f"{abs(self.ind_Q_signif):.5}",
-                "<=",
-                f"{func.QuantileNorm(1 - self.trust / 2):.5}")
-        addForm("Значимість коефіцієнта Юла Y",
-                f"{abs(self.ind_Y_signif):.5}",
-                "<=",
-                f"{func.QuantileNorm(1 - self.trust / 2):.5}")
-        addForm("Значимість коефіцієнта Спірмена",
-                f"{abs(self.teta_c_signif):.5}",
-                "<=",
-                f"{func.QuantileTStudent(1 - self.trust / 2, nu):.5}")
-        addForm("Значим рангового коеф Кендалла",
-                f"{abs(self.teta_k_signif):.5}",
-                "<=",
-                f"{func.QuantileNorm(1 - self.trust / 2):.5}")
-        addForm("Значимість коефіцієнта Пірсона",
-                f"{self.C_Pearson_signif:.5}",
-                "<=",
-                f"{func.QuantilePearson(1 - self.trust, 10):.5}")
-        addForm("Значимість коеф Кендалла",
-                f"{abs(self.teta_b_signif):.5}",
-                "<=",
-                f"{func.QuantileNorm(1 - self.trust / 2):.5}")
-
-        if hasattr(self, "line_a"):
-            add_text()
-            add_text("Параметри лінійної регресії: a + bx")
-            add_text("-" * 16)
-            addForm("Параметр a",
-                    f"{self.line_a - self.det_line_a:.5}",
-                    f"{self.line_a:.5}",
-                    f"{self.line_a + self.det_line_a:.5}")
-            addForm("Параметр b",
-                    f"{self.line_b - self.det_line_b:.5}",
-                    f"{self.line_b:.5}",
-                    f"{self.line_b + self.det_line_b:.5}")
-
-            add_text()
-
-            f = func.QuantileFisher(1 - self.trust, N - 1, N - 3)
-            addForm("Адекватність відтвореної моделі регресії",
-                    f"{self.line_f_signif:.5}",
-                    "<=",
-                    f"{f:.5}")
-
-        if hasattr(self, "parab_a"):
-            add_text()
-            add_text("Параметри параболічної регресії: a + bx + cx^2")
-            add_text("-" * 16)
-
-            addForm("Параметр a",
-                    f"{self.parab_a - self.det_parab_a:.5}",
-                    f"{self.parab_a:.5}",
-                    f"{self.parab_a + self.det_parab_a:.5}")
-            addForm("Параметр b",
-                    f"{self.parab_b - self.det_parab_b:.5}",
-                    f"{self.parab_b:.5}",
-                    f"{self.parab_b + self.det_parab_b:.5}")
-            addForm("Параметр c",
-                    f"{self.parab_c - self.det_parab_c:.5}",
-                    f"{self.parab_c:.5}",
-                    f"{self.parab_c + self.det_parab_c:.5}")
-
-            add_text()
-            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
-            addForm("Значущість параметра a",
-                    f"{self.parab_a_t:.5}", "<=",
-                    f"{t:.5}")
-            addForm("Значущість параметра b",
-                    f"{self.parab_b_t:.5}", "<=",
-                    f"{t:.5}")
-            addForm("Значущість параметра c",
-                    f"{self.parab_c_t:.5}", "<=",
-                    f"{t:.5}")
-
-        if hasattr(self, "kvaz_a"):
-            t = func.QuantileTStudent(1 - self.trust / 2, N - 3)
-            add_text()
-            add_text("Параметри квазілійнійної регресії: a * exp(bx)")
-            add_text("-" * 16)
-
-            addForm("Параметр a",
-                    f"{self.kvaz_a - self.det_kvaz_a:.5}",
-                    f"{self.kvaz_a:.5}",
-                    f"{self.kvaz_a + self.det_kvaz_a:.5}")
-            addForm("Параметр b",
-                    f"{self.kvaz_b - self.det_kvaz_b:.5}",
-                    f"{self.kvaz_b:.5}",
-                    f"{self.kvaz_b + self.det_kvaz_b:.5}")
-
-        return "\n".join(inf_protocol)

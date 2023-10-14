@@ -8,6 +8,7 @@ from PyQt6 import QtGui
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from Datanalysis.SamplingData import SamplingData
+from Datanalysis.ProtocolGenerator import ProtocolGenerator
 from mainlayout import MainLayout
 
 logging.basicConfig(level=logging.INFO)
@@ -200,7 +201,7 @@ class Window(MainLayout):
     def writeProtocol(self):
         s = self.getActiveSamples()
         if s is not None:
-            self.protocol.setText(s.getProtocol())
+            self.protocol.setText(ProtocolGenerator.getProtocol(s))
 
     def writeCritetion(self):
         if self.is1d():

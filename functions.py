@@ -37,11 +37,16 @@ def EigenvalueJacob(A: np.ndarray, eps=0.00001):
                     mi, mj, max_a = i, j, abs(A[i, j])
         return mi, mj
 
+    def diff_eigenvalue(A: np.ndarray, prev_eigenvalue: np.ndarray):
+        return abs(A.diagonal() - prev_eigenvalue).max()
+
     e_vect = np.identity(n)
-    while S(A) > eps:
+    prev_eigenvalue = A.diagonal() + 2 * eps
+    while S(A) > eps and diff_eigenvalue(A, prev_eigenvalue) > eps:
         i, j = max(A)
         U_ = U(i, j)
         e_vect = e_vect @ U_
+        prev_eigenvalue = A.diagonal()
         A = U_.transpose() @ A @ U_
     return A.diagonal(), e_vect
 

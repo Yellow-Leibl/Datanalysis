@@ -1,4 +1,3 @@
-from time import time
 import numpy as np
 import math
 from functions import (
@@ -9,78 +8,7 @@ from functions import (
     FWeibull, fWeibull, fWeibull_d_alpha, fWeibull_d_beta,
     FExp, fExp, fExp_d_lamda,
     DF1Parametr, DF2Parametr)
-
-
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-
-NM_SMBLS = 32
-VL_SMBLS = 16
-
-
-def timer(function):
-    def wrapper(*args):
-        t = time()
-        if len(args) == 0:
-            function()
-        else:
-            function(*args)
-        logger.debug(f"{function.__name__}={time() - t}sec")
-    return wrapper
-
-
-def calc_reproduction_dx(x_start: float,
-                         x_end: float,
-                         n=500) -> float:
-    dx = x_end - x_start
-    while n > 1:
-        if dx / n > 0:
-            break
-        n -= 1
-    return dx / n
-
-
-def toCalcRankSeries(x):  # (xl, rx)
-    N_G = len(x)
-    prev = x[0][0]
-    x[0][1] = 1
-    i = 1
-    avr_r = 0
-    avr_i = 0
-    for i in range(1, N_G):
-        if prev == x[i][0]:
-            avr_r += i
-            avr_i += 1
-        else:
-            x[i][1] = i + 1
-            if avr_r != 0:
-                avr_r = avr_r / avr_i
-                j = i - 1
-                while x[j][1] != 0:
-                    x[j][1] = avr_r
-                    j -= 1
-                avr_r = 0
-                avr_i = 0
-        prev = x[i][0]
-    return x
-
-
-def MED(r):
-    N = len(r)
-    if N == 1:
-        med = r[0]
-    elif N == 2:
-        med = (r[0] + r[1]) / 2
-    else:
-        k = N // 2
-        if 2 * k == N:
-            med = (r[k] + r[k + 1]) / 2
-        else:
-            med = r[k + 1]
-
-    return med
+from Datanalysis.SamplesTools import MED
 
 
 class SamplingData:
@@ -168,12 +96,7 @@ class SamplingData:
         self.x_ = sum(self.raw) / len(self.raw)
 
         nu2 = 0.0
-        u2 = 0.0
-        u3 = 0.0
-        u4 = 0.0
-        u5 = 0.0
-        u6 = 0.0
-        u8 = 0.0
+        u2 = u3 = u4 = u5 = u6 = u8 = 0.0
         for i in np.arange(N):
             nu2 += self._x[i] ** 2 * self.probabilityX[i]
             x_x_ = self._x[i] - self.x_
@@ -401,8 +324,7 @@ class SamplingData:
         a11 = N - 1
         a12 = a21 = 0.0
         a22 = 0.0
-        b1 = 0.0
-        b2 = 0.0
+        b1 = b2 = 0.0
         emp_func = 0.0
         for i in range(N - 1):
             emp_func += self.probabilityX[i]
@@ -452,22 +374,6 @@ class SamplingData:
                                             math.sqrt(a_ ** 2 - x ** 2)),
                                       a_ ** 4 / (8 * N))
         return f, F, DF
-
-    def toGenerateReproduction(self, f) -> list:
-        x_gen = []
-        dx = calc_reproduction_dx(self.min, self.max)
-        x = self.min
-        while x < self.max:
-            if f(x) is not None:
-                x_gen.append(x)
-            x += dx
-
-        if len(x_gen) > 0 and x_gen[-1] != self.max:
-            x = self.max
-            if f(x) is not None:
-                x_gen.append(x)
-
-        return x_gen
 
     def toCreateTrustIntervals(self, f, F, DF, h):
         u = QuantileNorm(1 - self.trust / 2)
@@ -578,87 +484,6 @@ class SamplingData:
         hist_list[-1] += self.probabilityX[-1]
         return hist_list
 
-    def getProtocol(self) -> str:
-        info_protocol = []
-
-        def add(text): info_protocol.append(text)
-        add("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
-        add(formatName('Характеристика') +
-            formatValue('INF') + formatValue('Значення') +
-            formatValue('SUP') + formatValue('SKV') + "\n")
-
-        add(formatName("Сер арифметичне") +
-            formatValue(f"{self.x_-self.det_x_:.5}") +
-            formatValue(f"{self.x_:.5}") +
-            formatValue(f"{self.x_+self.det_x_:.5}") +
-            formatValue(f"{self.det_x_:.5}"))
-
-        add(formatName("Дисперсія") +
-            formatValue(f"{self.S - self.det_S:.5}") +
-            formatValue(f"{self.S:.5}") +
-            formatValue(f"{self.S + self.det_S:.5}") +
-            formatValue(f"{self.det_S:.5}"))
-
-        add(formatName("Сер квадратичне") +
-            formatValue(f"{self.Sigma - self.det_Sigma:.5}") +
-            formatValue(f"{self.Sigma:.5}") +
-            formatValue(f"{self.Sigma + self.det_Sigma:.5}") +
-            formatValue(f"{self.det_Sigma:.5}"))
-
-        add(formatName("Коеф. асиметрії") +
-            formatValue(f"{self.A - self.det_A:.5}") +
-            formatValue(f"{self.A:.5}") +
-            formatValue(f"{self.A + self.det_A:.5}") +
-            formatValue(f"{self.det_A:.5}"))
-
-        add(formatName("коеф. ексцесу") +
-            formatValue(f"{self.E - self.det_E:.5}") +
-            formatValue(f"{self.E:.5}") +
-            formatValue(f"{self.E + self.det_E:.5}") +
-            formatValue(f"{self.det_E:.5}"))
-
-        add(formatName("коеф. контрексцесу") +
-            formatValue(f"{self.c_E - self.det_c_E:.5}") +
-            formatValue(f"{self.c_E:.5}") +
-            formatValue(f"{self.c_E + self.det_c_E:.5}") +
-            formatValue(f"{self.det_c_E:.5}"))
-
-        add(formatName("коеф. варіації Пірсона") +
-            formatValue(f"{self.W_ - self.det_W_:.5}") +
-            formatValue(f"{self.W_:.5}") +
-            formatValue(f"{self.W_ + self.det_W_:.5}") +
-            formatValue(f"{self.det_W_:.5}"))
-
-        add("")
-
-        add(formatName("MED") + formatValue(f"{self.MED:.5}"))
-        add(formatName("усіченне середнє") +
-            formatValue(f"{self.x_a:.5}"))
-        add(formatName("MED Уолша") +
-            formatValue(f"{self.MED_Walsh:.5}"))
-        add(formatName("MAD") + formatValue(f"{self.MAD:.5}"))
-        add(formatName("непарам. коеф. варіацій") +
-            formatValue(f"{self.Wp:.5}"))
-        add(formatName("коеф. інтер. розмаху") +
-            formatValue(f"{self.inter_range:.5}"))
-
-        add("")
-
-        add(formatName("мат спод.інтерв.передбачення") +
-            formatValue(f"{self.x_ - self.vanga_x_:.5}") +
-            formatValue(f"{self.x_ + self.vanga_x_:.5}"))
-
-        add("")
-
-        add("Квантилі\n" + "-" * VL_SMBLS * 2 + "\n" +
-            formatValue("Ймовірність") + formatValue("X"))
-        for i in range(len(self.quant)):
-            step_quant = 1 / len(self.quant)
-            add(formatValue(f"{step_quant * (i + 1):.3}") +
-                formatValue(f"{self.quant[i]:.5}"))
-
-        return "\n".join(info_protocol)
-
     def critetionAbbe(self) -> float:
         N = len(self.raw)
         d2 = 1 / (N - 1) * sum([(self.raw[i + 1] -
@@ -672,21 +497,3 @@ class SamplingData:
         U = (q - E_q) / D_q ** 0.5
         P = FNorm(U)
         return P
-
-
-def formatName(n: str) -> str:
-    return n.ljust(NM_SMBLS)
-
-
-def formatValue(v: str) -> str:
-    return v.center(VL_SMBLS)
-
-
-def formRowNV(name: str, *args) -> str:
-    row = formatName(name)
-    for arg in args:
-        if type(arg) is str:
-            row += formatValue(arg)
-        else:
-            row += formatValue(f"{arg:.5}")
-    return row

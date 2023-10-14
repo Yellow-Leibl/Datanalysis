@@ -1,9 +1,10 @@
 import numpy as np
 import math
 
-from Datanalysis.SamplingData import SamplingData, timer, formRowNV
+from Datanalysis.SamplingData import SamplingData
 from Datanalysis.SamplesCriteria import SamplesCriteria
 from Datanalysis.DoubleSampleData import DoubleSampleData
+from Datanalysis.SamplesTools import formRowNV, timer
 import functions as func
 
 import logging
@@ -561,129 +562,3 @@ class SamplingDatas(SamplesCriteria):
                        ) + self.line_var_par[m]
 
         return None, line_var_f, None
-
-    def getProtocol(self) -> str:
-        inf_protocol = []
-        def add_text(text=""): inf_protocol.append(text)
-        def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
-
-        add_text("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
-        addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
-        add_text()
-
-        for i, s in enumerate(self.samples):
-            addForm(f"Сер Арифметичне X{i+1}",
-                    s.x_ - s.det_x_,
-                    s.x_,
-                    s.x_ + s.det_x_,
-                    s.det_x_)
-            addForm(f"Сер квадратичне X{i+1}",
-                    s.Sigma - s.det_Sigma,
-                    s.Sigma,
-                    s.Sigma + s.det_Sigma,
-                    s.det_Sigma)
-
-        add_text()
-        add_text("Оцінка дисперсійно-коваріаційної матриці DC:")
-        n = len(self.samples)
-        addForm("", *[f"X{i+1}" for i in range(n)])
-        for i in range(n):
-            addForm(f"X{i+1}", *[self.DC[i][j] for j in range(n)])
-
-        add_text()
-        add_text("Оцінка кореляційної матриці R:")
-        addForm("", *[f"X{i+1}" for i in range(n)])
-        for i in range(n):
-            addForm(f"X{i+1}", *[self.R[i][j] for j in range(n)])
-
-        add_text()
-        for i in range(n):
-            addForm(f"Множинний коефіцієнт кореляції X{i+1}",
-                    "", self.r_multi[i][0])
-            addForm("Т-тест коефіцієнту",
-                    self.r_multi[i][1],
-                    "≥",
-                    self.r_multi[i][2])
-
-        add_text()
-        add_text("Власні вектори")
-        addForm("", *[f"F{i+1}" for i in range(n)] + ["Сума"])
-        for i in range(n):
-            sum_xk = sum([self.DC_eigenvects[i][j] ** 2 for j in range(n)])
-            addForm(f"X{i+1}", *([self.DC_eigenvects[i][j] for j in range(n)] +
-                                 [sum_xk]))
-        add_text()
-        addForm("Власні числа", *[self.DC_eigenval[i] for i in range(n)])
-        addForm("Частка %", *[self.DC_eigenval_part[i] for i in range(n)])
-        addForm("Накопичена", *[self.DC_eigenval_accum[i] for i in range(n)])
-
-        add_text()
-        add_text("Факторний аналіз")
-        w = self.fact_mat.shape[1]
-        addForm("", *[f"F{i+1}" for i in range(w)])
-        for i in range(n):
-            addForm(f"X{i+1}", *([self.fact_mat[i][j] for j in range(w)]))
-
-        add_text()
-        if hasattr(self, "line_A"):
-            add_text("Параметри лінійної регресії: Y = AX")
-            add_text("-" * 16)
-            addForm("Коефіцієнт детермінації", "",
-                    self.line_R)
-            addForm("Перевірка значущості регресії",
-                    self.line_R_f_test,
-                    ">",
-                    self.line_R_f_quant)
-            add_text()
-            addForm("Стандартна похибка регресії",
-                    self.det_less_line_Sigma,
-                    self.line_S_slide,
-                    self.det_more_line_Sigma)
-            addForm("σ^2 = σˆ^2",
-                    self.line_sigma_signif_f_test,
-                    "≤",
-                    self.line_sigma_signif_f_quant)
-            add_text()
-            ak_text = ""
-            for k, a in enumerate(self.line_A):
-                if a > 0:
-                    ak_text += f" + {a:.5}x{k+1}"
-                else:
-                    ak_text += f" - {-a:.5}x{k+1}"
-            add_text(f"y = {self.line_A0:.5}" + ak_text)
-            add_text()
-            addForm(f"Параметр a{0}", "", self.line_A0)
-            add_text()
-            for k, a in enumerate(self.line_A):
-                addForm(f"Параметр a{k+1}",
-                        a - self.line_det_A[k],
-                        a,
-                        a + self.line_det_A[k],
-                        self.line_det_A[k])
-                addForm(f"T-Тест a{k+1}",
-                        self.line_A_t_test[k],
-                        "≤",
-                        self.line_A_t_quant)
-                addForm(f"Стандартизований параметр a{k+1}", '',
-                        self.line_stand_A[k])
-                add_text()
-
-        if hasattr(self, "line_var_par"):
-            add_text("Параметри лінійного різноманіття:")
-            add_text("-" * 16)
-            ak_text = ""
-            for k, a in enumerate(self.line_var_par[:-1]):
-                if a > 0:
-                    ak_text += f" + {a:.5}x{k+1}"
-                else:
-                    ak_text += f" - {-a:.5}x{k+1}"
-            add_text()
-            add_text(f"y = {self.line_var_par[-1]:.5}" + ak_text)
-            add_text()
-            addForm(f"Параметр a{0}", "", self.line_var_par[-1])
-            add_text()
-            for k, a in enumerate(self.line_var_par[:-1]):
-                addForm(f"Параметр a{k+1}", "", a)
-                add_text()
-
-        return "\n".join(inf_protocol)

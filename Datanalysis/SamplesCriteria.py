@@ -2,12 +2,12 @@ import math
 import numpy as np
 import logging
 
-from Datanalysis.SamplingData import (
-    SamplingData, toCalcRankSeries, calc_reproduction_dx)
+from Datanalysis.SamplingData import SamplingData
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from functions import (
     QuantileNorm, QuantileTStudent, QuantilePearson, QuantileFisher,
     L)
+from Datanalysis.SamplesTools import toCalcRankSeries
 
 
 class SamplesCriteria:
@@ -104,20 +104,17 @@ class SamplesCriteria:
                                    x: SamplingData,
                                    y: SamplingData,
                                    trust: float = 0.05):
-        f, F, DF = x.toCreateNormalFunc()
-        g, G, DG = y.toCreateNormalFunc()
+        _, F, _ = x.toCreateNormalFunc()
+        _, G, _ = y.toCreateNormalFunc()
 
         min_xl = min(x.min, y.min)
         max_xl = max(x.max, y.max)
-        xl = min_xl
-        dx = calc_reproduction_dx(min_xl, max_xl)
-        xl += dx
-        z = abs(F(xl) - G(xl))
-        while xl <= max_xl:
-            zi = abs(F(xl) - G(xl))
+        xl = np.linspace(min_xl, max_xl, 500, dtype=float)
+        z = abs(F(xl[0]) - G(xl[0]))
+        for xi in xl:
+            zi = abs(F(xi) - G(xi))
             if z < zi:
                 z = zi
-            xl += dx
         N1 = len(x)
         N2 = len(y)
         N = min(N1, N2)

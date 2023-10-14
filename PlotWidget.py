@@ -212,7 +212,7 @@ class PlotWidget(QStackedWidget):
     def plot1DReproduction(self, d: SamplingData, f, lF, F, hF):
         if f is None:
             return
-        x_gen = d.toGenerateReproduction(f)
+        x_gen = np.linspace(d.min, d.max, 500, dtype=float)
         y_hist = np.empty(len(x_gen), dtype=float)
         y_low = np.empty(len(x_gen), dtype=float)
         y_emp = np.empty(len(x_gen), dtype=float)
