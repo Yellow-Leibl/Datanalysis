@@ -27,7 +27,7 @@ def readVectors(text: list[str]):
 
 
 class SamplingDatas(SamplesCriteria):
-    def __init__(self, samples: list[SamplingData] = [], trust=0.05):
+    def __init__(self, samples: list[SamplingData] = None, trust=0.05):
         super().__init__()
         self.appendSamples(samples)
         self.trust = trust
@@ -269,7 +269,7 @@ class SamplingDatas(SamplesCriteria):
                 continue
             break
 
-        major_f_ind = [(i, eval) for i, eval in enumerate(eval_redu)]
+        major_f_ind = [(i, e_val) for i, e_val in enumerate(eval_redu)]
         major_f_ind.sort(key=lambda i: i[1], reverse=True)
         self.fact_mat = evec_redu[:, [major_f_ind[i][0] for i in range(w)]]
 
@@ -447,7 +447,7 @@ class SamplingDatas(SamplesCriteria):
     def toReturnFromIndependet(self, w=0):
         n = len(self)
         if w == 0:
-            w == n
+            w = n
         N = self.getMaxDepthRawData()
         vects = self.DC_eigenvects
         old_serieses = []

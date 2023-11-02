@@ -121,7 +121,7 @@ class Window(MainLayout):
 
     def drawSamples(self):
         sel = self.getSelectedRows()
-        if 0 == len(sel) or sel == self.sel_indexes:
+        if len(sel) == 0 or sel == self.sel_indexes:
             return
         if self.datas_displayed_indexes == sel or \
            self.d2_indexes == sel:
@@ -146,8 +146,7 @@ class Window(MainLayout):
 
     def deleteSamples(self):
         sel = self.getSelectedRows()
-        p = 0
-        for i in sel:
+        for p, i in enumerate(sel):
             if i - p in self.sel_indexes:
                 self.sel_indexes = []
             self.all_datas.pop(i - p)

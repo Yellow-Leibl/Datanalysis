@@ -18,14 +18,14 @@ def generateNormal(m=0, sigma=1, N: int = 1000):
 
 def generateUniform(N: int = 1000):
     sample = []
-    for i in range(N):
+    for _ in range(N):
         sample.append(r.random())
     return sample
 
 
 def generateExp(alpha=1, N: int = 1000):
     sample = []
-    for i in range(N):
+    for _ in range(N):
         sample.append(alpha * math.log(1 / (1 - r.random())))
     return sample
 
@@ -34,7 +34,7 @@ def generateWeibulla(N: int = 1000):
     sample = []
     a = r.random()
     b = 0.2 + r.random() * 10
-    for i in range(N):
+    for _ in range(N):
         sample.append((-a * math.log(1 - r.random())) ** (1 / b))
     return sample
 
@@ -93,7 +93,7 @@ def generateMultivariateNormal(E=None, DC=None, n: int = 3, N: int = 1000):
                     * DC[i, i] ** 0.5 * DC[j, j] ** 0.5
     A = np.zeros((n, n))
     samples = []
-    for i in range(n):
+    for _ in range(n):
         samples.append(generateNormal(N=N))
     U = np.array(samples)
     for i in range(n):
@@ -107,7 +107,7 @@ def generateMultivariateNormal(E=None, DC=None, n: int = 3, N: int = 1000):
 
 def generateSample(number_sample: int = 1,
                    n: int = 1000, vec_n: int = 2,
-                   parameters=[]) -> str:
+                   parameters=None) -> str:
     rozp = []
     for i in range(vec_n):
         if number_sample == 1:
