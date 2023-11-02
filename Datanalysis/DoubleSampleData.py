@@ -10,17 +10,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def calc_reproduction_dx(x_start: float,
-                         x_end: float,
-                         n=500) -> float:
-    dx = x_end - x_start
-    while n > 1:
-        if dx / n > 0:
-            break
-        n -= 1
-    return dx / n
-
-
 def printHistogram(hist: np.ndarray, N):
     print(np.array([[hist[i, j] / N for j in range(hist.shape[1])]
                     for i in range(hist.shape[0] - 1, -1, -1)]))
@@ -93,7 +82,7 @@ class DoubleSampleData(DoubleSampleRegression):
     def generateMas3Dot3(self, k):
         y = []
         N = len(self)
-        dx = calc_reproduction_dx(self.x.min, self.x.max, k)
+        dx = (self.x.max - self.x.min) / k
         def x(i): return self.x.min + (i - 0.5) * dx
         xy = [(self.x.raw[i], self.y.raw[i]) for i in range(N)]
         for i in range(1, k + 1):
@@ -120,7 +109,7 @@ class DoubleSampleData(DoubleSampleRegression):
             self.po_2 += m(i) * (_y_(i) - y_) ** 2
         for i in range(k):
             for j in range(m(i)):
-                po_2_second_div += (y[i][j] - _y_(i)) ** 2
+                po_2_second_div += (y[i][j] - y_) ** 2
         self.po_2 /= po_2_second_div
 
         nu1 = round((k - 1 + N * self.po_2) ** 2 /

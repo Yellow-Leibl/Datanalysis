@@ -1,4 +1,5 @@
 from PyQt6.QtWidgets import QStackedWidget, QTabWidget
+from PyQt6 import QtCore
 import pyqtgraph as pg
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -11,6 +12,11 @@ import math
 pg.setConfigOption('imageAxisOrder', 'row-major')
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
+
+
+def off_warning_for_pyqtgraph(widget: pg.GraphicsLayoutWidget):
+    widget.viewport().setAttribute(
+        QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
 
 
 class PlotWidget(QStackedWidget):
@@ -63,6 +69,12 @@ class PlotWidget(QStackedWidget):
         #  General canvas
         self.addWidget(__2d_widget)
         self.addWidget(self.__nd_widget)
+
+        # fix warning
+        off_warning_for_pyqtgraph(__2d_widget)
+        for i in range(self.__nd_widget.count()):
+            if type(self.__nd_widget.widget(i)) is pg.GraphicsLayoutWidget:
+                off_warning_for_pyqtgraph(self.__nd_widget.widget(i))
 
     def setEnabled3d(self):
         self.__nd_widget.setTabEnabled(4, True)

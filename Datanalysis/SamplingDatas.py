@@ -116,6 +116,11 @@ class SamplingDatas(SamplesCriteria):
                         for i in range(n)]
 
         self.DC_eigenval, self.DC_eigenvects = func.EigenvalueJacob(self.DC)
+        sorted_by_disp = sorted([[self.DC_eigenval[i], i] for i in range(n)],
+                                key=lambda i: i[0], reverse=True)
+        indexes_sort_DC = [i[1] for i in sorted_by_disp]
+        self.DC_eigenval = self.DC_eigenval[indexes_sort_DC]
+        self.DC_eigenvects = self.DC_eigenvects[:, indexes_sort_DC]
         self.DC_eigenval_part = self.DC_eigenval.copy() / sum(self.DC_eigenval)
         self.DC_eigenval_accum = np.empty(n, dtype=float)
         self.DC_eigenval_accum[0] = self.DC_eigenval_part[0]
@@ -129,72 +134,86 @@ class SamplingDatas(SamplesCriteria):
         n = len(self)
 
         def max_corr_method(R: np.ndarray):
-            Red = R.copy()
+            red = R.copy()
             for k in range(n):
                 max = np.nan
                 for v in range(n):
-                    if v != k and (np.isnan(max) or max < abs(Red[k, v])):
-                        max = abs(Red[k, v])
-                Red[k, k] = max
-            return Red
+                    if v != k and (np.isnan(max) or max < abs(red[k, v])):
+                        max = abs(red[k, v])
+                red[k, k] = max
+            return red
 
         def triads_method(R: np.ndarray):
-            Red = max_corr_method(R)
+            if R.shape[0] <= 3:
+                return
+            red = R.copy()
             for k in range(n):
+                i = (k + 1) % n
+                j = (k + 2) % n
                 for v in range(n):
-                    Red[k, k] = abs(Red[k, v])
-            return Red
+                    if red[k, i] < red[k, v] and v != k:
+                        i = v
+                for v in range(n):
+                    if red[k, j] < red[k, v] and v != k and v != i:
+                        j = v
+
+                red[k, k] = abs(red[k, i] * red[k, j] / red[i, j])
+            return red
 
         def average_method(R: np.ndarray):
-            Red = R.copy()
+            red = R.copy()
             for k in range(n):
-                Red[k, k] = 0.0
+                red[k, k] = 0.0
                 for v in range(n):
-                    Red[k, k] += abs(Red[k, v])
-                Red[k, k] /= n - 1
-            return Red
+                    red[k, k] += abs(red[k, v])
+                red[k, k] /= n - 1
+            return red
 
         def center_method(R: np.ndarray):
-            Red = max_corr_method(R)
-            sum_r = np.sum(abs(Red))
+            red = max_corr_method(R)
+            sum_r = np.sum(abs(red))
             hk_2 = np.empty(n, dtype=float)
             for k in range(n):
                 hk = 0.0
                 for v in range(n):
-                    hk += abs(Red[k, v])
+                    hk += abs(red[k, v])
                 hk_2[k] = (hk ** 2) / sum_r
 
             for k in range(n):
-                Red[k, k] = hk_2[k]
-            return Red
+                red[k, k] = hk_2[k]
+            return red
 
         def averoid_method(R: np.ndarray):
-            Red = R.copy()
+            red = R.copy()
+            sum_r = abs(R).sum() - abs(R.diagonal()).sum()
             for k in range(n):
+                red[k, k] = 0.0
                 for v in range(n):
-                    Red[k, k] += abs(Red[k, v])
-                sum_r = 0.0
-                for i in range(n):
-                    for j in range(n):
-                        if k == i or i == j:
-                            continue
-                        sum_r += abs(Red[i, j])
-                Red[k, k] = n / (n - 1) * (Red[k, k] ** 2) / sum_r
-            return Red
+                    if k != v:
+                        red[k, k] += abs(R[k, v])
+                red[k, k] = n / (n - 1) * (red[k, k] ** 2) / (
+                    sum_r - sum(red[k]) + red[k, k])
+            return red
 
         def pca_method(R: np.ndarray, w: int):
-            Red = R.copy()
+            red = R.copy()
             for k in range(n):
+                red[k, k] = 0.0
                 for v in range(w):
-                    Red[k, k] += self.DC_eigenvects[v, k] ** 2
-            return Red
+                    red[k, k] += self.DC_eigenvects[k, v] ** 2
+            return red
 
-        Red_mats = [
-            max_corr_method(self.R), triads_method(self.R),
+        eval_R, _ = func.EigenvalueJacob(self.R)
+        minimum_w = len(eval_R[eval_R > 1])
+
+        red_mats = [
+            max_corr_method(self.R),
             average_method(self.R), center_method(self.R),
-            averoid_method(self.R), pca_method(self.R, n)]
+            pca_method(self.R, minimum_w)]
+        if n > 3:
+            red_mats += [triads_method(self.R), averoid_method(self.R)]
 
-        eigens_red = [func.EigenvalueJacob(Red) for Red in Red_mats]
+        eigens_red = [func.EigenvalueJacob(Red) for Red in red_mats]
 
         def calc_f(redu: np.ndarray, evec_redu: np.ndarray):
             r_rest = redu - evec_redu @ evec_redu.transpose()
@@ -206,15 +225,12 @@ class SamplingDatas(SamplesCriteria):
                         f += r_rest[v, q] ** 2
             return f
 
-        f_all = [calc_f(Rh, A) for Rh, (_, A) in zip(Red_mats, eigens_red)]
+        f_all = [calc_f(Rh, A) for Rh, (_, A) in zip(red_mats, eigens_red)]
 
         min_f = min(f_all)
         min_f_index = f_all.index(min_f)
-        Red = Red_mats[min_f_index]
+        Red = red_mats[min_f_index]
         eval_redu, evec_redu = eigens_red[min_f_index]
-
-        eval_R, _ = func.EigenvalueJacob(self.R)
-        minimum_w = len(eval_R[eval_R > 1])
 
         def calc_w(eval_redu: np.ndarray):
             maximum_w = len(eval_redu[eval_redu > np.average(eval_redu)])
@@ -247,7 +263,7 @@ class SamplingDatas(SamplesCriteria):
             eval_redu, evec_redu = func.EigenvalueJacob(Red)
             f = calc_f(Red, evec_redu)
             w = calc_w(eval_redu)
-            if f_prev < f and \
+            if f < f_prev and \
                 calc_dif_a(prev_a, evec_redu) > eps and \
                     hk_2_less_1(hk):
                 continue
@@ -434,19 +450,13 @@ class SamplingDatas(SamplesCriteria):
             w == n
         N = self.getMaxDepthRawData()
         vects = self.DC_eigenvects
-        part = self.DC_eigenval_part
         old_serieses = []
 
-        sorted_by_disp = sorted([[part[i], i] for i in range(n)],
-                                key=lambda i: i[0], reverse=True)
-
-        def raw(i): return self[sorted_by_disp[i][1]].raw
-        def vect(i, k): return vects[i, sorted_by_disp[k][1]]
         for k in range(n):
             old_series = np.zeros(N, dtype=float)
             for i in range(N):
                 for v in range(w):
-                    old_series[i] += vect(k, v) * raw(v)[i]
+                    old_series[i] += vects[k, v] * self[v].raw[i]
             old_serieses.append(old_series)
         for old_raw, s in zip(old_serieses, self.samples):
             s.setSeries(old_raw)
