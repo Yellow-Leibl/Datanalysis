@@ -38,6 +38,9 @@ class SamplingData:
     def __getitem__(self, i: int) -> float:
         return self._x[i]
 
+    def remove_observation(self, i: int):
+        self.setSeries(np.delete(self.raw, i))
+
     def copy(self):
         t = SamplingData(self.raw.copy(), self.trust)
         if len(self.probabilityX) > 0:

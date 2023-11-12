@@ -1,14 +1,14 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget,
     QSpinBox, QDoubleSpinBox, QPushButton,
-    QTableWidget, QAbstractItemView,
     QTextEdit, QTabWidget,
     QHBoxLayout, QVBoxLayout, QFormLayout, QBoxLayout,
     QLabel, QMessageBox, QMenu, QSplitter)
 from PyQt6.QtGui import QKeySequence
 from PyQt6.QtCore import Qt
 from PyQt6 import QtGui
-from PlotWidget import PlotWidget
+from GUI.PlotWidget import PlotWidget
+from GUI.TableWidget import TableWidget
 
 
 def keySequence(sequence: str):
@@ -35,7 +35,7 @@ def addObjects(box: QBoxLayout, *args):
             raise Exception()
 
 
-class MainLayout(QMainWindow):
+class WindowLayout(QMainWindow):
     def __init__(self):
         super().__init__()
 
@@ -74,14 +74,8 @@ class MainLayout(QMainWindow):
         self.__remove_anomaly.clicked.connect(self.removeAnomaly)
 
         # Samples table
-        self.table = QTableWidget()
-        self.table.cellDoubleClicked.connect(
-            lambda: self.drawSamples())
-        self.table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setEditTriggers(
-            QAbstractItemView.EditTrigger.NoEditTriggers)
-        # self.table.setSelectionMode(QAbstractItemView.SelectionBehavior.MultiSelection)
+        self.table = TableWidget(
+            cell_double_clicked=lambda: self.drawSamples())
 
         # Protocol
         self.protocol = QTextEdit()
@@ -147,34 +141,34 @@ class MainLayout(QMainWindow):
                 act.setShortcut(keySequence(shortcut))
         # File menu
         menuBar = self.menuBar()
-        file_menu = menuBar.addMenu("&Файл")
-        addAction(file_menu, "&Відкрити", lambda: self.openFile(''),
+        file_menu = menuBar.addMenu("Файл")
+        addAction(file_menu, "Відкрити", lambda: self.openFile(''),
                   "Ctrl+O")
-        addAction(file_menu, "&Зберегти", self.saveFileAct,
+        addAction(file_menu, "Зберегти", self.saveFileAct,
                   "Ctrl+S")
-        addAction(file_menu, "В&ийти", self.saveFileAct,
+        addAction(file_menu, "Вийти", self.saveFileAct,
                   "Ctrl+Q")
 
         # Editing menu
-        edit_menu = menuBar.addMenu("&Редагувати")
-        addAction(edit_menu, "&Перетворити", self.editSampleEvent, "Ctrl+T")
-        addAction(edit_menu, "&Стандартизувати", self.editSampleEvent,
+        edit_menu = menuBar.addMenu("Редагувати")
+        addAction(edit_menu, "Перетворити", self.editSampleEvent, "Ctrl+T")
+        addAction(edit_menu, "Стандартизувати", self.editSampleEvent,
                   "Ctrl+W")
-        addAction(edit_menu, "&Центрувати", self.editSampleEvent,
+        addAction(edit_menu, "Центрувати", self.editSampleEvent,
                   "Ctrl+Shift+W")
-        addAction(edit_menu, "&Зсунути", self.editSampleEvent, "Ctrl+P")
-        addAction(edit_menu, "&Видалити аномалії", self.editSampleEvent,
+        addAction(edit_menu, "Зсунути", self.editSampleEvent, "Ctrl+P")
+        addAction(edit_menu, "Видалити аномалії", self.editSampleEvent,
                   "Ctrl+A")
-        addAction(edit_menu, "До &незалежних величин", self.editSampleEvent,
+        addAction(edit_menu, "До незалежних величин", self.editSampleEvent,
                   "Ctrl+Y")
         edit_menu.addSeparator()
-        addAction(edit_menu, "&Клонувати", self.duplicateSample, "Ctrl+C")
-        addAction(edit_menu, "Зо&бразити розподіл", self.drawSamples, "Ctrl+D")
-        addAction(edit_menu, "Видалити &розподіл", self.deleteSamples,
-                  "Ctrl+Backspace")
+        addAction(edit_menu, "Клонувати", self.duplicateSample, "Ctrl+C")
+        addAction(edit_menu, "Зобразити розподіл", self.drawSamples, "Ctrl+D")
+        addAction(edit_menu, "Видалити спостереження",
+                  self.delete_observations, "Ctrl+Backspace")
 
-        view_menu = menuBar.addMenu("&Вигляд")
-        addAction(view_menu, "&Наступна вкладка", self.nextProtocolTab,
+        view_menu = menuBar.addMenu("Вигляд")
+        addAction(view_menu, "Наступна вкладка", self.nextProtocolTab,
                   "Alt+Tab")
 
         self.reprod_num = -1
@@ -237,17 +231,6 @@ class MainLayout(QMainWindow):
     def getMinMax(self):
         return (self.__spin_box_min_x.value(),
                 self.__spin_box_max_x.value())
-
-    def getSelectedRows(self) -> list:
-        ranges = self.table.selectedRanges()
-        sel_rows = []
-        for r in ranges:
-            for i in range(r.topRow(), r.bottomRow() + 1):
-                sel_rows.append(i)
-        return sel_rows
-
-    def unselectTable(self):
-        self.table.clearSelection()
 
     def nextProtocolTab(self):
         curr_ind = self.tab_info.currentIndex()

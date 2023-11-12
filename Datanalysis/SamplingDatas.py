@@ -29,14 +29,19 @@ def readVectors(text: list[str]):
 class SamplingDatas(SamplesCriteria):
     def __init__(self, samples: list[SamplingData] = None, trust=0.05):
         super().__init__()
-        self.appendSamples(samples)
+        self.append_samples(samples)
         self.trust = trust
 
-    def appendSample(self, s: SamplingData):
+    def append_sample(self, s: SamplingData):
         self.samples.append(s)
 
-    def appendSamples(self, samples: list[SamplingData]):
-        self.samples += samples
+    def append_samples(self, samples: list[SamplingData]):
+        if samples is not None:
+            self.samples += samples
+
+    def remove_observation(self, i: int):
+        for s in self.samples:
+            s.remove_observation(i)
 
     @timer
     def append(self, not_ranked_series_str: list[str]):
@@ -48,7 +53,7 @@ class SamplingDatas(SamplesCriteria):
         for v in vectors:
             s = SamplingData(v)
             rankAndCalc(s)
-            self.appendSample(s)
+            self.append_sample(s)
 
     def copy(self) -> 'SamplingDatas':
         samples = [s.copy() for s in self.samples]

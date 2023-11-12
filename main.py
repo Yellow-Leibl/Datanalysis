@@ -2,20 +2,22 @@ import sys
 import os
 import logging
 
-from PyQt6.QtWidgets import QFileDialog, QTableWidgetItem, QApplication
-from PyQt6 import QtGui
+from PyQt6.QtWidgets import QFileDialog, QApplication
 
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.DoubleSampleData import DoubleSampleData
 from Datanalysis.SamplingData import SamplingData
 from Datanalysis.ProtocolGenerator import ProtocolGenerator
-from mainlayout import MainLayout
+from GUI.WindowLayout import WindowLayout
 
 logging.basicConfig(level=logging.INFO)
 
 
-class Window(MainLayout):
-    def __init__(self, file: str, is_file_name: bool = True):
+class Window(WindowLayout):
+    def __init__(self,
+                 file: str,
+                 is_file_name: bool = True,
+                 demo_mode: bool = False):
         super().__init__()  # layout here
         self.all_datas = SamplingDatas()
         self.sel_indexes: list[int] = []
@@ -29,7 +31,8 @@ class Window(MainLayout):
         else:
             all_file = file.split('\n')
             self.loadFromData(all_file)
-        self.autoSelect()  # temp
+        if demo_mode:
+            self.autoSelect()
 
     def openFile(self, file_name: str):
         if file_name == '':
@@ -43,7 +46,7 @@ class Window(MainLayout):
 
     def loadFromData(self, all_file: list[str]):
         self.all_datas.append(all_file)
-        self.writeTable()
+        self.table.update_table(self.all_datas)
 
     def saveFileAct(self):
         file_name, _ = QFileDialog().getSaveFileName(
@@ -60,12 +63,13 @@ class Window(MainLayout):
         self.updateGraphics(self.getNumberClasses())
         self.writeProtocol()
         self.writeCritetion()
-        self.writeTable()
+        self.table.update_table(self.all_datas)
 
     def selectSampleOrReproduction(self):
         self.updateGraphics(self.getNumberClasses())
         self.writeProtocol()
         self.writeCritetion()
+        self.table.select_rows(self.sel_indexes)
 
     def getActiveSamples(self):
         if self.is1d():
@@ -96,10 +100,10 @@ class Window(MainLayout):
         self.sampleChanged()
 
     def duplicateSample(self):
-        sel = self.getSelectedRows()
+        sel = self.table.get_active_rows()
         for i in sel:
-            self.all_datas.appendSample(self.all_datas[i].copy())
-        self.writeTable()
+            self.all_datas.append_sample(self.all_datas[i].copy())
+        self.table.update_table(self.all_datas)
 
     def removeAnomaly(self):
         if self.is1d():
@@ -120,7 +124,8 @@ class Window(MainLayout):
         return False
 
     def drawSamples(self):
-        sel = self.getSelectedRows()
+        self.table.get_active_items()
+        sel = self.table.get_active_rows()
         if len(sel) == 0 or sel == self.sel_indexes:
             return
         if self.datas_displayed_indexes == sel or \
@@ -134,7 +139,7 @@ class Window(MainLayout):
         self.silentChangeNumberClasses(0)
         self.setMaximumColumnNumber(self.all_datas.getMaxDepthRangeData())
         self.selectSampleOrReproduction()
-        self.coloredTable(self.sel_indexes)
+        self.table.select_rows(self.sel_indexes)
 
     def createPlotLayout(self):
         if self.is1d():
@@ -144,14 +149,24 @@ class Window(MainLayout):
         else:
             self.plot_widget.createNDPlot(len(self.sel_indexes))
 
-    def deleteSamples(self):
-        sel = self.getSelectedRows()
-        for p, i in enumerate(sel):
-            if i - p in self.sel_indexes:
-                self.sel_indexes = []
-            self.all_datas.pop(i - p)
-            p += 1
-        self.writeTable()
+    def delete_observations(self):
+        all_obsers = self.table.get_observations_to_remove()
+        sample_changed = False
+        update_table = sum([len(obsers) for obsers in all_obsers]) > 0
+        for i, obsers in enumerate(all_obsers[::-1]):
+            if len(obsers) == 0:
+                continue
+            if len(obsers) == len(self.all_datas[i].raw):
+                self.all_datas.pop(i)
+                continue
+            for obser in obsers:
+                self.all_datas[i].remove_observation(obser)
+            if i in self.sel_indexes:
+                sample_changed = True
+        if sample_changed:
+            self.sampleChanged()
+        elif update_table:
+            self.table.update_table(self.all_datas)
 
     def is1d(self) -> bool:
         return len(self.sel_indexes) == 1
@@ -172,27 +187,6 @@ class Window(MainLayout):
 
     def changeTrust(self, trust: float):
         self.sampleChanged()
-
-    def writeTable(self):
-        self.table.clear()
-        self.table.setColumnCount(self.all_datas.getMaxDepthRangeData() + 1)
-        self.table.setRowCount(len(self.all_datas))
-        for s in range(len(self.all_datas)):
-            d = self.all_datas[s]
-            self.table.setItem(s, 0, QTableWidgetItem(f"N={len(d.raw)}"))
-            for i, e in enumerate(d._x):
-                self.table.setItem(s, i + 1, QTableWidgetItem(f"{e:.5}"))
-        self.table.resizeColumnsToContents()
-        self.table.resizeRowsToContents()
-        self.coloredTable(self.sel_indexes)
-
-    def coloredTable(self, sel_indexes: list[int]):
-        for i in range(self.table.rowCount()):
-            color = QtGui.QColor()
-            if i in sel_indexes:
-                color = QtGui.QColor(30, 150, 0)
-            for j in range(len(self.all_datas[i]._x) + 1):
-                self.table.item(i, j).setBackground(color)
 
     def numberColumnChanged(self):
         self.selectSampleOrReproduction()
@@ -303,7 +297,7 @@ class Window(MainLayout):
             return datas.toCreateLinearVariationPlane()
 
     def linearModelsCrit(self, trust: float):
-        sel = self.getSelectedRows()
+        sel = self.table.get_active_rows()
         if len(sel) == 4:
             res = self.all_datas.ident2ModelsLine(
                 [self.all_datas[i] for i in sel], trust)
@@ -320,7 +314,7 @@ class Window(MainLayout):
                                     " - мають випадкову різницю регресій")
 
     def homogeneityAndIndependence(self, trust: float):
-        sel = self.getSelectedRows()
+        sel = self.table.get_active_rows()
         if len(sel) == 1:
             P = self.all_datas[sel[0]].critetionAbbe()
             title = "Критерій Аббе"
@@ -344,8 +338,8 @@ class Window(MainLayout):
 
     def homogeneityNSamples(self):
         title = "Перевірка однорідності сукупностей"
-        sel = self.getSelectedRows()
-        self.unselectTable()
+        sel = self.table.get_active_rows()
+        self.table.clearSelection()
         if len(sel) == 0:
             if len(self.datas_crits) < 2:
                 return
@@ -371,7 +365,7 @@ class Window(MainLayout):
                 "\n".join([str([i+1 for i in r]) for r in self.datas_crits]))
 
     def partialCorrelation(self):
-        sel = self.getSelectedRows()
+        sel = self.table.get_active_rows()
         w = len(sel)
         if w > 2:
             datas = SamplingDatas([self.all_datas.samples[i] for i in sel])
@@ -383,12 +377,11 @@ class Window(MainLayout):
     def PCA(self):
         w = self.pCA_number.value()
         ind, retn = self.datas_displayed.principalComponentAnalysis(w)
-        self.all_datas.appendSamples(ind.samples)
-        self.all_datas.appendSamples(retn.samples)
-        self.writeTable()
+        self.all_datas.append_samples(ind.samples)
+        self.all_datas.append_samples(retn.samples)
+        self.table.update_table(self.all_datas)
 
     def autoSelect(self):
-        # self.sel_indexes = range(len(self.all_datas))
         self.sel_indexes = range(3)
         self.createPlotLayout()
         self.sampleChanged()
@@ -408,7 +401,13 @@ def applicationLoadFromStr(file: str = ''):
     sys.exit(app.exec())
 
 
+def demo_mode_show():
+    file = "data/500/norm3n.txt"
+    app = QApplication(sys.argv)
+    widget = Window(file, demo_mode=True)
+    widget.show()
+    sys.exit(app.exec())
+
+
 if __name__ == "__main__":
-    # applicationLoadFromFile("data/iris_fish.txt")
-    applicationLoadFromFile("data/500/norm3n.txt")
-    # applicationLoadFromFile("data/self/line.txt")
+    demo_mode_show()
