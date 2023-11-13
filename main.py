@@ -18,11 +18,9 @@ class Window(WindowLayout):
                  file: str,
                  is_file_name: bool = True,
                  demo_mode: bool = False):
-        super().__init__()  # layout here
+        super().__init__()
         self.all_datas = SamplingDatas()
         self.sel_indexes: list[int] = []
-        self.d2_indexes: list[int] = []
-        self.datas_displayed_indexes: list[int] = []
         self.datas_crits: list[list] = []
         self.selected_regr_num = -1
         self.d1_regr_F = None
@@ -124,17 +122,11 @@ class Window(WindowLayout):
         return False
 
     def drawSamples(self):
-        self.table.get_active_items()
         sel = self.table.get_active_rows()
         if len(sel) == 0 or sel == self.sel_indexes:
             return
-        if self.datas_displayed_indexes == sel or \
-           self.d2_indexes == sel:
-            return
         self.sel_indexes = sel
         self.createPlotLayout()
-        self.d2_indexes = [-1, -1]
-        self.datas_displayed_indexes = []
         self.selected_regr_num = -1
         self.silentChangeNumberClasses(0)
         self.setMaximumColumnNumber(self.all_datas.getMaxDepthRangeData())
@@ -219,7 +211,6 @@ class Window(WindowLayout):
             self.plot_widget.plot1D(d, hist_data)
             self.drawReproductionSeries1D()
         elif self.is2d():
-            self.d2_indexes = self.sel_indexes
             x = self.all_datas[self.sel_indexes[0]]
             y = self.all_datas[self.sel_indexes[1]]
             self.d2 = DoubleSampleData(x, y, self.getTrust())
@@ -230,7 +221,6 @@ class Window(WindowLayout):
             self.drawReproductionSeries2D(self.d2)
         elif self.isNd():
             samples = [self.all_datas[i] for i in self.sel_indexes]
-            self.datas_displayed_indexes = self.sel_indexes
             self.datas_displayed = SamplingDatas(samples, self.getTrust())
             self.datas_displayed.toCalculateCharacteristic()
             self.plot_widget.plotND(self.datas_displayed, number_column)

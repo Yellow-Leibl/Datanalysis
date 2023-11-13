@@ -75,6 +75,10 @@ class TableWidget(QTableWidget):
                 obsers_to_remove[item[0]].append(obser_col)
         return obsers_to_remove
 
+    def get_active_items(self):
+        return [(index.row(), index.column())
+                for index in self.selectedIndexes()]
+
     def get_active_rows(self) -> list:
         ranges = self.selectedRanges()
         sel_rows = []
@@ -82,16 +86,3 @@ class TableWidget(QTableWidget):
             for i in range(r.topRow(), r.bottomRow() + 1):
                 sel_rows.append(i)
         return sel_rows
-
-    def get_active_items(self):
-        return [(index.row(), index.column())
-                for index in self.selectedIndexes()]
-
-    def get_active_columns(self):
-        indexes = self.selectedIndexes()
-        cols = []
-        for index in indexes:
-            if index.column() not in cols \
-                    and index.column() >= self.__info_cells_count:
-                cols.append(index.column())
-        return [col - self.__info_cells_count for col in cols]

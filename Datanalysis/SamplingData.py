@@ -12,9 +12,13 @@ from Datanalysis.SamplesTools import MED
 
 
 class SamplingData:
-    def __init__(self, not_ranked_series_x: np.ndarray, trust: float = 0.05):
-        self.raw = not_ranked_series_x.copy()
-        self._x = not_ranked_series_x
+    def __init__(self, not_ranked_series_x: np.ndarray, trust: float = 0.05,
+                 move_data=False):
+        if move_data:
+            self.raw = not_ranked_series_x
+        else:
+            self.raw = not_ranked_series_x.copy()
+        self._x = self.raw.copy()
         self.trust = trust
         self.min = 0.0
         self.max = 0.0
@@ -42,7 +46,7 @@ class SamplingData:
         self.setSeries(np.delete(self.raw, i))
 
     def copy(self):
-        t = SamplingData(self.raw.copy(), self.trust)
+        t = SamplingData(self.raw, self.trust)
         if len(self.probabilityX) > 0:
             t.probabilityX = self.probabilityX.copy()
             t._x = self._x.copy()

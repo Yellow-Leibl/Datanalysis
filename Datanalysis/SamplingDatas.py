@@ -14,15 +14,14 @@ logger.setLevel(logging.DEBUG)
 
 def readVectors(text: list[str]):
     if ',' in text[0]:
-        def to_corr_form(s: str): return s.replace(',', '.')
-    else:
-        def to_corr_form(s: str): return s
+        for i, line in enumerate(text):
+            text[i] = line.replace(',', '.')
 
-    n = len(np.fromstring(to_corr_form(text[0]), dtype=float, sep=' '))
+    n = len(np.fromstring(text[0], dtype=float, sep=' '))
 
     vectors = np.empty((len(text), n), dtype=float)
     for j, line in enumerate(text):
-        vectors[j] = np.fromstring(to_corr_form(line), dtype=float, sep=' ')
+        vectors[j] = np.fromstring(line, dtype=float, sep=' ')
     return vectors.transpose()
 
 
@@ -47,12 +46,10 @@ class SamplingDatas(SamplesCriteria):
     def append(self, not_ranked_series_str: list[str]):
         vectors = readVectors(not_ranked_series_str)
 
-        def rankAndCalc(s: SamplingData):
+        for v in vectors:
+            s = SamplingData(v, move_data=True)
             s.toRanking()
             s.toCalculateCharacteristic()
-        for v in vectors:
-            s = SamplingData(v)
-            rankAndCalc(s)
             self.append_sample(s)
 
     def copy(self) -> 'SamplingDatas':
@@ -110,9 +107,9 @@ class SamplingDatas(SamplesCriteria):
         for i in range(n):
             for j in range(i + 1, n):
                 d2 = DoubleSampleData(self.samples[i], self.samples[j])
-                d2.pearsonCorrelationСoefficient()
-                cor = self.samples[i].Sigma * self.samples[j].Sigma * d2.r
-                self.DC[i][j] = self.DC[j][i] = cor
+                r = d2.pearsonCorrelationСoefficient()
+                cov = self.samples[i].Sigma * self.samples[j].Sigma * r
+                self.DC[i][j] = self.DC[j][i] = cov
                 self.R[i][j] = self.R[j][i] = d2.r
                 d2.rangeCorrelation()
                 self.R_Kendala[i][j] = d2.teta_k
@@ -120,6 +117,11 @@ class SamplingDatas(SamplesCriteria):
         self.r_multi = [self.multipleCorrelationCoefficient(i)
                         for i in range(n)]
 
+        self.calculate_pca()
+        self.calculate_exploratory_data_analysis()
+
+    def calculate_pca(self):
+        n = len(self.samples)
         self.DC_eigenval, self.DC_eigenvects = func.EigenvalueJacob(self.DC)
         sorted_by_disp = sorted([[self.DC_eigenval[i], i] for i in range(n)],
                                 key=lambda i: i[0], reverse=True)
@@ -133,9 +135,7 @@ class SamplingDatas(SamplesCriteria):
             self.DC_eigenval_accum[i] = \
                 self.DC_eigenval_accum[i - 1] + self.DC_eigenval_part[i]
 
-        self.toCalculateExploratoryDataAnalysis()
-
-    def toCalculateExploratoryDataAnalysis(self):
+    def calculate_exploratory_data_analysis(self):
         n = len(self)
 
         def max_corr_method(R: np.ndarray):
