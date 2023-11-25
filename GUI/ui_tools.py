@@ -17,10 +17,11 @@ def BoxWithObjects(box, *args):
 
 def addObjects(box: QtWidgets.QBoxLayout, *args):
     for arg in args:
-        typ = str(type(arg))
-        if 'Layout' in typ:
+        bases = str(arg.__class__.__bases__)
+        type_name = str(arg.__class__.__name__)
+        if 'Layout' in bases or 'Layout' in type_name:
             box.addLayout(arg)
-        elif 'Widget' in typ:
+        elif 'Widget' in bases or 'Widget' in type_name:
             box.addWidget(arg)
         else:
             raise Exception()
@@ -29,6 +30,7 @@ def addObjects(box: QtWidgets.QBoxLayout, *args):
 class SpinBox(QtWidgets.QSpinBox):
     def __init__(self, val_changed_f=None,
                  min=0, max=1, val=0):
+        super().__init__()
         self.setMinimum(min)
         self.setMaximum(max)
         self.setValue(val)
@@ -39,6 +41,7 @@ class SpinBox(QtWidgets.QSpinBox):
 class DoubleSpinBox(QtWidgets.QDoubleSpinBox):
     def __init__(self, val_changed_f=None,
                  min=0, max=1, decimals=None, val=0):
+        super().__init__()
         self.setMinimum(min)
         self.setMaximum(max)
         if decimals is not None:

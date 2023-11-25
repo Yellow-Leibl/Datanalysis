@@ -1,14 +1,15 @@
 import sys
-import os
 import logging
 
-from PyQt6.QtWidgets import QFileDialog, QApplication
+from PyQt6.QtWidgets import QApplication
+from GUI.WindowLayout import WindowLayout
+
+from Sessions.SessionMode import SessionMode
+from Sessions.SessionMode1D import SessionMode1D
+from Sessions.SessionMode2D import SessionMode2D
+from Sessions.SessionModeND import SessionModeND
 
 from Datanalysis.SamplingDatas import SamplingDatas
-from Datanalysis.DoubleSampleData import DoubleSampleData
-from Datanalysis.SamplingData import SamplingData
-from Datanalysis.ProtocolGenerator import ProtocolGenerator
-from GUI.WindowLayout import WindowLayout
 
 logging.basicConfig(level=logging.INFO)
 
@@ -19,63 +20,31 @@ class Window(WindowLayout):
                  is_file_name: bool = True,
                  demo_mode: bool = False):
         super().__init__()
+        self.session: SessionMode = None
         self.all_datas = SamplingDatas()
         self.sel_indexes: list[int] = []
         self.datas_crits: list[list] = []
         self.selected_regr_num = -1
-        self.d1_regr_F = None
         if is_file_name:
-            self.openFile(file)
+            all_file = self.open_file(file)
         else:
             all_file = file.split('\n')
-            self.loadFromData(all_file)
+        self.loadFromData(all_file)
         if demo_mode:
             self.autoSelect()
-
-    def openFile(self, file_name: str):
-        if file_name == '':
-            file_name, _ = QFileDialog().getOpenFileName(
-                self, "Відкрити файл", os.getcwd(), "Bci файли (*)")
-        try:
-            with open(file_name, 'r') as file:
-                self.loadFromData(file.readlines())
-        except FileNotFoundError:
-            logging.error(f"\"{file_name}\" not found")
 
     def loadFromData(self, all_file: list[str]):
         self.all_datas.append(all_file)
         self.table.update_table(self.all_datas)
 
-    def saveFileAct(self):
-        file_name, _ = QFileDialog().getSaveFileName(
-            self, "Зберегти файл", os.getcwd(), "Bci файли (*)")
-        with open(file_name, 'w') as file:
-            def safe_access(lst: list, i):
-                return str(lst[i]) if len(lst) > i else ''
-            file.write('\n'.join(
-                [' '.join([safe_access(self.all_datas[j].raw, i)
-                           for j in range(len(self.all_datas))])
-                 for i in range(self.all_datas.getMaxDepthRawData())]))
-
-    def sampleChanged(self):
-        self.updateGraphics(self.getNumberClasses())
-        self.writeProtocol()
-        self.writeCritetion()
-        self.table.update_table(self.all_datas)
-
-    def selectSampleOrReproduction(self):
-        self.updateGraphics(self.getNumberClasses())
-        self.writeProtocol()
-        self.writeCritetion()
-        self.table.select_rows(self.sel_indexes)
-
-    def getActiveSamples(self):
-        if self.is1d():
-            return self.all_datas[self.sel_indexes[0]]
-        elif self.is2d():
-            return self.d2
-        elif self.isNd():
-            return self.datas_displayed
+    def active_sample_changed(self, selected_new_samples: bool = False):
+        self.session.update_graphics(self.getNumberClasses())
+        self.session.write_protocol()
+        self.session.write_critetion()
+        if selected_new_samples:
+            self.table.select_rows(self.sel_indexes)
+        else:
+            self.table.update_table(self.all_datas)
 
     def editSampleEvent(self):
         edit_num = self.index_in_menu(self.get_edit_menu(), self.sender())
@@ -88,14 +57,11 @@ class Window(WindowLayout):
         elif edit_num == 3:
             [self.all_datas[i].toSlide(1.0) for i in self.sel_indexes]
         elif edit_num == 4:
-            if not self.autoRemoveAnomaly():
+            if not self.session.auto_remove_anomaly():
                 return
         elif edit_num == 5:
-            if self.is2d():
-                self.d2.toIndependet()
-            elif self.isNd():
-                self.datas_displayed.toIndependet()
-        self.sampleChanged()
+            self.session.to_independent()
+        self.active_sample_changed()
 
     def duplicateSample(self):
         sel = self.table.get_active_rows()
@@ -107,45 +73,33 @@ class Window(WindowLayout):
         if self.is1d():
             minmax = self.getMinMax()
             self.all_datas[self.sel_indexes[0]].remove(minmax[0], minmax[1])
-            self.sampleChanged()
-
-    def autoRemoveAnomaly(self) -> bool:
-        if self.is1d():
-            return self.all_datas[self.sel_indexes[0]].autoRemoveAnomaly()
-        elif self.is2d() or self.isNd():
-            act_sample = self.getActiveSamples()
-            hist_data = act_sample.get_histogram_data(self.getNumberClasses())
-            deleted_items = act_sample.autoRemoveAnomaly(hist_data)
-            self.showMessageBox("Видалення аномалій",
-                                f"Було видалено {deleted_items} аномалій")
-            return deleted_items
-        return False
+            self.active_sample_changed()
 
     def drawSamples(self):
         sel = self.table.get_active_rows()
         if len(sel) == 0 or sel == self.sel_indexes:
             return
         self.sel_indexes = sel
-        self.createPlotLayout()
+
+        if self.is1d():
+            self.session = SessionMode1D(self)
+        elif self.is2d():
+            self.session = SessionMode2D(self)
+        elif self.isNd():
+            self.session = SessionModeND(self)
+
+        self.session.create_plot_layout()
         self.selected_regr_num = -1
         self.silentChangeNumberClasses(0)
         self.setMaximumColumnNumber(self.all_datas.getMaxDepthRangeData())
-        self.selectSampleOrReproduction()
+        self.active_sample_changed(selected_new_samples=True)
         self.table.select_rows(self.sel_indexes)
-
-    def createPlotLayout(self):
-        if self.is1d():
-            self.plot_widget.create1DPlot()
-        elif self.is2d():
-            self.plot_widget.create2DPlot()
-        else:
-            self.plot_widget.createNDPlot(len(self.sel_indexes))
 
     def delete_observations(self):
         all_obsers = self.table.get_observations_to_remove()
         sample_changed = False
         update_table = sum([len(obsers) for obsers in all_obsers]) > 0
-        for i, obsers in enumerate(all_obsers[::-1]):
+        for i, obsers in list(enumerate(all_obsers))[::-1]:
             if len(obsers) == 0:
                 continue
             if len(obsers) == len(self.all_datas[i].raw):
@@ -156,7 +110,7 @@ class Window(WindowLayout):
             if i in self.sel_indexes:
                 sample_changed = True
         if sample_changed:
-            self.sampleChanged()
+            self.active_sample_changed()
         elif update_table:
             self.table.update_table(self.all_datas)
 
@@ -175,116 +129,13 @@ class Window(WindowLayout):
     def setReproductionSeries(self):
         self.selected_regr_num = \
             self.index_in_menu(self.get_regr_menu(), self.sender())
-        self.selectSampleOrReproduction()
+        self.active_sample_changed(selected_new_samples=True)
 
     def changeTrust(self, trust: float):
-        self.sampleChanged()
+        self.active_sample_changed()
 
     def numberColumnChanged(self):
-        self.selectSampleOrReproduction()
-
-    def writeProtocol(self):
-        s = self.getActiveSamples()
-        if s is not None:
-            self.protocol.setText(ProtocolGenerator.getProtocol(s))
-
-    def writeCritetion(self):
-        if self.is1d():
-            if self.d1_regr_F is None:
-                return
-            d = self.all_datas[self.sel_indexes[0]]
-            self.criterion_protocol.setText(self.writeCritetion1DSample(
-                d, self.d1_regr_F))
-        elif self.is2d():
-            isNormal = self.d2.xiXiTest(self.hist_data_2d)
-            self.criterion_protocol.setText(self.d2.xiXiTestProtocol(isNormal))
-        elif self.isNd():
-            self.criterion_protocol.setText("")
-
-    def updateGraphics(self, number_column: int = 0):
-        if self.is1d():
-            d = self.all_datas[self.sel_indexes[0]]
-            d.setTrust(self.getTrust())
-            self.setMinMax(d.min, d.max)
-            hist_data = d.get_histogram_data(number_column)
-            self.silentChangeNumberClasses(len(hist_data))
-            self.plot_widget.plot1D(d, hist_data)
-            self.drawReproductionSeries1D()
-        elif self.is2d():
-            x = self.all_datas[self.sel_indexes[0]]
-            y = self.all_datas[self.sel_indexes[1]]
-            self.d2 = DoubleSampleData(x, y, self.getTrust())
-            self.d2.toCalculateCharacteristic()
-            self.hist_data_2d = self.d2.get_histogram_data(number_column)
-            self.silentChangeNumberClasses(len(self.hist_data_2d))
-            self.plot_widget.plot2D(self.d2, self.hist_data_2d)
-            self.drawReproductionSeries2D(self.d2)
-        elif self.isNd():
-            samples = [self.all_datas[i] for i in self.sel_indexes]
-            self.datas_displayed = SamplingDatas(samples, self.getTrust())
-            self.datas_displayed.toCalculateCharacteristic()
-            self.plot_widget.plotND(self.datas_displayed, number_column)
-            self.drawReproductionSeriesND(self.datas_displayed)
-
-    def drawReproductionSeries1D(self):
-        d = self.all_datas[self.sel_indexes[0]]
-        f = self.toCreateReproductionFunc(d, self.selected_regr_num)
-        if f is None:
-            return
-        h = abs(d.max - d.min) / self.getNumberClasses()
-        f = d.toCreateTrustIntervals(*(*f, h))
-        self.d1_regr_F = f[2]
-        self.plot_widget.plot1DReproduction(d, *f)
-
-    def toCreateReproductionFunc(self, d: SamplingData, func_num):
-        if func_num == 0:
-            return d.toCreateNormalFunc()
-        elif func_num == 1:
-            return d.toCreateUniformFunc()
-        elif func_num == 2:
-            return d.toCreateExponentialFunc()
-        elif func_num == 3:
-            return d.toCreateWeibullFunc()
-        elif func_num == 4:
-            return d.toCreateArcsinFunc()
-
-    def writeCritetion1DSample(self, d: SamplingData, F):
-        criterion_text = d.kolmogorovTestProtocol(d.kolmogorovTest(F))
-        try:
-            xi_test_result = d.xiXiTest(
-                F, d.get_histogram_data(self.getNumberClasses()))
-        except ZeroDivisionError:
-            xi_test_result = False
-        criterion_text += '\n' + d.xiXiTestProtocol(xi_test_result)
-        return criterion_text
-
-    def drawReproductionSeries2D(self, d2):
-        f = self.toCreateReproductionFunc2D(d2, self.selected_regr_num)
-        if f is None:
-            return
-        self.plot_widget.plot2DReproduction(d2, *f)
-
-    def toCreateReproductionFunc2D(self, d_d: DoubleSampleData, func_num):
-        if func_num == 6:
-            return d_d.toCreateLinearRegressionMNK()
-        elif func_num == 7:
-            return d_d.toCreateLinearRegressionMethodTeila()
-        elif func_num == 8:
-            return d_d.toCreateParabolicRegression()
-        elif func_num == 9:
-            return d_d.toCreateKvazi8()
-
-    def drawReproductionSeriesND(self, datas):
-        f = self.toCreateReproductionFuncND(datas, self.selected_regr_num)
-        if f is None:
-            return
-        self.plot_widget.plotDiagnosticDiagram(datas, *f)
-
-    def toCreateReproductionFuncND(self, datas: SamplingDatas, func_num):
-        if func_num == 11:
-            return datas.toCreateLinearRegressionMNK(len(datas) - 1)
-        elif func_num == 12:
-            return datas.toCreateLinearVariationPlane()
+        self.active_sample_changed(selected_new_samples=True)
 
     def linearModelsCrit(self, trust: float):
         sel = self.table.get_active_rows()
@@ -319,7 +170,7 @@ class Window(WindowLayout):
                 self.showMessageBox("Вибірки однорідні", "")
             else:
                 self.showMessageBox("Вибірки неоднорідні", "")
-        else:
+        elif len(sel) > 2:
             if self.all_datas.identKSamples([self.all_datas[i] for i in sel],
                                             trust):
                 self.showMessageBox("Вибірки однорідні", "")
@@ -366,15 +217,17 @@ class Window(WindowLayout):
 
     def PCA(self):
         w = self.pCA_number.value()
-        ind, retn = self.datas_displayed.principalComponentAnalysis(w)
+        active_samples = self.session.get_active_samples()
+        ind, retn = active_samples.principalComponentAnalysis(w)
         self.all_datas.append_samples(ind.samples)
         self.all_datas.append_samples(retn.samples)
         self.table.update_table(self.all_datas)
 
     def autoSelect(self):
         self.sel_indexes = range(3)
-        self.createPlotLayout()
-        self.sampleChanged()
+        self.session = SessionModeND(self)
+        self.session.create_plot_layout()
+        self.active_sample_changed()
 
 
 def applicationLoadFromFile(file: str = ''):

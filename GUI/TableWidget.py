@@ -29,7 +29,8 @@ class TableWidget(QTableWidget):
             raise Exception("Datas is None")
         elif datas is not None:
             self.datas = datas
-        self.setColumnCount(self.datas.getMaxDepthRangeData() + 1)
+        self.setColumnCount(self.datas.get_max_len_raw()
+                            + self.__info_cells_count)
         self.setRowCount(len(self.datas))
         for s in range(len(self.datas)):
             d = self.datas[s]
@@ -56,7 +57,7 @@ class TableWidget(QTableWidget):
             color = QtGui.QColor()
             if i in sel_indexes:
                 color = self.__selected_row_color
-            for j in range(len(self.datas[i].raw) + 1):
+            for j in range(len(self.datas[i].raw) + self.__info_cells_count):
                 self.item(i, j).setBackground(color)
 
     def colorize_max_min_value(self):

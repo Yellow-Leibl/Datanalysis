@@ -1,8 +1,16 @@
+if __name__ == "__main__":
+    import pyqtgraph.examples
+    pyqtgraph.examples.run()
+
+import os
+import logging
+
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QPushButton,
     QTextEdit, QTabWidget,
     QHBoxLayout, QVBoxLayout, QFormLayout,
-    QLabel, QMessageBox, QSplitter)
+    QLabel, QMessageBox, QSplitter,
+    QFileDialog)
 from PyQt6.QtCore import Qt
 from PyQt6 import QtGui
 from GUI.PlotWidget import PlotWidget
@@ -10,6 +18,8 @@ from GUI.TableWidget import TableWidget
 from GUI.MenuBar import fill_menu_bar
 from GUI.ui_tools import (
     SpinBox, DoubleSpinBox, BoxWithObjects, MonoFontForSpecificOS)
+
+logging.basicConfig(level=logging.INFO)
 
 
 class WindowLayout(QMainWindow):
@@ -150,9 +160,23 @@ class WindowLayout(QMainWindow):
         self.__spin_box_max_x.setMaximum(max_x)
         self.__spin_box_max_x.setValue(max_x)
 
+    def open_file(self, file_name: str) -> str:
+        if file_name == '':
+            file_name, _ = QFileDialog().getOpenFileName(
+                self, "Відкрити файл", os.getcwd(), "Bci файли (*)")
+        try:
+            with open(file_name, 'r') as file:
+                return file.readlines()
+        except FileNotFoundError:
+            logging.error(f"\"{file_name}\" not found")
 
-#  Examples pyqtgraph
-if __name__ == "__main__":
-    import pyqtgraph.examples
-    pyqtgraph.examples.run()
-# matrix display
+    def save_file_act(self):
+        file_name, _ = QFileDialog().getSaveFileName(
+            self, "Зберегти файл", os.getcwd(), "Bci файли (*)")
+        with open(file_name, 'w') as file:
+            def safe_access(lst: list, i):
+                return str(lst[i]) if len(lst) > i else ''
+            file.write('\n'.join(
+                [' '.join([safe_access(self.all_datas[j].raw, i)
+                           for j in range(len(self.all_datas))])
+                 for i in range(self.all_datas.get_max_len_raw())]))

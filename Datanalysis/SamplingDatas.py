@@ -86,7 +86,7 @@ class SamplingDatas(SamplesCriteria):
             return 0
         return max([len(i._x) for i in self.samples])
 
-    def getMaxDepthRawData(self) -> int:
+    def get_max_len_raw(self) -> int:
         if len(self.samples) == 0:
             return 0
         return max([len(i.raw) for i in self.samples])
@@ -366,7 +366,7 @@ class SamplingDatas(SamplesCriteria):
                     return False
             return True
 
-        N = self.getMaxDepthRawData()
+        N = self.get_max_len_raw()
         del_ind = []
         for i in range(N):
             p = [s.raw[i] for s in self.samples]
@@ -387,7 +387,7 @@ class SamplingDatas(SamplesCriteria):
                 self.getMaxDepthRangeData())
         self.probability_table = np.zeros(
             tuple(column_number for i in range(n)))
-        N = self.getMaxDepthRawData()
+        N = self.get_max_len_raw()
         h = [(s.max - s.min) / column_number for s in self.samples]
         pos = [0] * n
         for i in range(N):
@@ -417,7 +417,7 @@ class SamplingDatas(SamplesCriteria):
                 r.append([start, end])
             return r
 
-        N = self.getMaxDepthRawData()
+        N = self.get_max_len_raw()
         hist_data = hist_data.reshape((np.prod(hist_data.shape)))
         item_del_count = 0
         for i, ni in enumerate(hist_data):
@@ -434,7 +434,7 @@ class SamplingDatas(SamplesCriteria):
         return item_del_count
 
     def toIndependet(self):
-        N = self.getMaxDepthRawData()
+        N = self.get_max_len_raw()
         n = len(self)
         vects = self.DC_eigenvects
         new_serieses = []
@@ -453,7 +453,7 @@ class SamplingDatas(SamplesCriteria):
         n = len(self)
         if w == 0:
             w = n
-        N = self.getMaxDepthRawData()
+        N = self.get_max_len_raw()
         vects = self.DC_eigenvects
         old_serieses = []
 

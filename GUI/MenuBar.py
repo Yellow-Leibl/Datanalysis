@@ -2,17 +2,17 @@ from PyQt6 import QtWidgets
 from PyQt6.QtGui import QKeySequence
 
 
-def fill_menu_bar(self):
+def fill_menu_bar(self: QtWidgets.QMainWindow):
     def addAction(menu: QtWidgets.QMenu, title, action, shortcut):
         act = menu.addAction(title, action)
         if act is not None:
             act.setShortcut(QKeySequence(shortcut))
     # File menu
-    menuBar = QtWidgets.QMenuBar(self)
+    menuBar = self.menuBar()
     file_menu = menuBar.addMenu("Файл")
     addAction(file_menu, "Відкрити", lambda: self.openFile(''), "Ctrl+O")
-    addAction(file_menu, "Зберегти", self.saveFileAct, "Ctrl+S")
-    addAction(file_menu, "Вийти", self.saveFileAct, "Ctrl+Q")
+    addAction(file_menu, "Зберегти", self.save_file_act, "Ctrl+S")
+    addAction(file_menu, "Вийти", self.save_file_act, "Ctrl+Q")
 
     # Editing menu
     edit_menu = menuBar.addMenu("Редагувати")
@@ -66,7 +66,7 @@ def fill_menu_bar(self):
 
     # Critetion menu
     crit_menu = menuBar.addMenu("&Критерії")
-    def setTrust(func): return lambda: func(self.__trust_value.value())
+    def setTrust(func): return lambda: func(self.getTrust())
     addAction(crit_menu, "Перевірка однорідності/незалежності",
               setTrust(self.homogeneityAndIndependence), "Ctrl+Shift+I")
     addAction(crit_menu, "Порівняння лінійних регресій",
