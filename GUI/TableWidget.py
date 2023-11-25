@@ -35,7 +35,7 @@ class TableWidget(QTableWidget):
         for s in range(len(self.datas)):
             d = self.datas[s]
             self.setItem(s, 0, self.create_cell(
-                f"N={len(d.raw)}, min={d.min}, max={d.max}"))
+                f"N={len(d.raw)}, min={d.min:.5}, max={d.max:.5}"))
             for i, val in enumerate(d.raw):
                 self.setItem(s, i + self.__info_cells_count,
                              self.create_cell(f"{val:.5}"))

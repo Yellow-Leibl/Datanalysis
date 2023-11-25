@@ -128,6 +128,8 @@ class WindowLayout(QMainWindow):
         self.tab_info.setCurrentIndex((curr_ind + 1) % total_tabs)
 
     def showMessageBox(self, title: str, text: str):
+        if title == "" and text == "":
+            return
         mes = QMessageBox(self)
         mes.setText(title)
         font = mes.font()
@@ -160,7 +162,7 @@ class WindowLayout(QMainWindow):
         self.__spin_box_max_x.setMaximum(max_x)
         self.__spin_box_max_x.setValue(max_x)
 
-    def open_file(self, file_name: str) -> str:
+    def open_file_act(self, file_name: str) -> str:
         if file_name == '':
             file_name, _ = QFileDialog().getOpenFileName(
                 self, "Відкрити файл", os.getcwd(), "Bci файли (*)")

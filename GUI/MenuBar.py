@@ -10,7 +10,11 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     # File menu
     menuBar = self.menuBar()
     file_menu = menuBar.addMenu("Файл")
-    addAction(file_menu, "Відкрити", lambda: self.openFile(''), "Ctrl+O")
+
+    def open_file_act():
+        all_file = self.open_file_act('')
+        self.loadFromData(all_file)
+    addAction(file_menu, "Відкрити", open_file_act, "Ctrl+O")
     addAction(file_menu, "Зберегти", self.save_file_act, "Ctrl+S")
     addAction(file_menu, "Вийти", self.save_file_act, "Ctrl+Q")
 

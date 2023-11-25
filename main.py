@@ -26,7 +26,7 @@ class Window(WindowLayout):
         self.datas_crits: list[list] = []
         self.selected_regr_num = -1
         if is_file_name:
-            all_file = self.open_file(file)
+            all_file = self.open_file_act(file)
         else:
             all_file = file.split('\n')
         self.loadFromData(all_file)
@@ -95,6 +95,18 @@ class Window(WindowLayout):
         self.active_sample_changed(selected_new_samples=True)
         self.table.select_rows(self.sel_indexes)
 
+    def is1d(self) -> bool:
+        return len(self.sel_indexes) == 1
+
+    def is2d(self) -> bool:
+        return len(self.sel_indexes) == 2
+
+    def is3d(self) -> bool:
+        return len(self.sel_indexes) == 3
+
+    def isNd(self) -> bool:
+        return len(self.sel_indexes) >= 2
+
     def delete_observations(self):
         all_obsers = self.table.get_observations_to_remove()
         sample_changed = False
@@ -113,18 +125,6 @@ class Window(WindowLayout):
             self.active_sample_changed()
         elif update_table:
             self.table.update_table(self.all_datas)
-
-    def is1d(self) -> bool:
-        return len(self.sel_indexes) == 1
-
-    def is2d(self) -> bool:
-        return len(self.sel_indexes) == 2
-
-    def is3d(self) -> bool:
-        return len(self.sel_indexes) == 3
-
-    def isNd(self) -> bool:
-        return len(self.sel_indexes) >= 2
 
     def setReproductionSeries(self):
         self.selected_regr_num = \
@@ -156,26 +156,27 @@ class Window(WindowLayout):
 
     def homogeneityAndIndependence(self, trust: float):
         sel = self.table.get_active_rows()
+        title = ""
+        descr = ""
         if len(sel) == 1:
             P = self.all_datas[sel[0]].critetionAbbe()
             title = "Критерій Аббе"
             if P > trust:
-                self.showMessageBox(title, f"{P:.5} > {trust}" +
-                                    "\nСпостереження незалежні")
+                descr = f"{P:.5} > {trust}\nСпостереження незалежні"
             else:
-                self.showMessageBox(title, f"{P:.5} < {trust}" +
-                                    "\nСпостереження залежні")
+                descr = f"{P:.5} < {trust}\nСпостереження залежні"
         elif len(sel) == 2:
             if self.all_datas.ident2Samples(sel[0], sel[1], trust):
-                self.showMessageBox("Вибірки однорідні", "")
+                title = "Вибірки однорідні"
             else:
-                self.showMessageBox("Вибірки неоднорідні", "")
+                title = "Вибірки неоднорідні"
         elif len(sel) > 2:
             if self.all_datas.identKSamples([self.all_datas[i] for i in sel],
                                             trust):
-                self.showMessageBox("Вибірки однорідні", "")
+                title = "Вибірки однорідні"
             else:
-                self.showMessageBox("Вибірки неоднорідні", "")
+                title = "Вибірки неоднорідні"
+        self.showMessageBox(title, descr)
 
     def homogeneityNSamples(self):
         title = "Перевірка однорідності сукупностей"

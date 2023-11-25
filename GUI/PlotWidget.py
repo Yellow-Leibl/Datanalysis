@@ -283,10 +283,10 @@ class PlotWidget(QStackedWidget):
     def plotDiagnosticDiagram(self, dn: SamplingDatas, tr_l_f, f, tr_m_f):
         Y = dn[-1].raw
         X = [d.raw for d in dn[:-1]]
-        self.__diagnostic_plot.plot(Y, f(*X),
+        self.__diagnostic_plot.plot(Y, Y - f(*X),
                                     symbolBrush=(30, 120, 180),
-                                    symbolPen=(0, 0, 0, 200), symbolSize=7,
-                                    pen=None)
+                                    symbolPen=(0, 0, 0, 200),
+                                    symbolSize=7, pen=None)
         if len(dn) == 3:
             self.plot3D(dn)
             self.plot3DReproduction(dn, tr_l_f, f, tr_m_f)
