@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from functions import (
+from Datanalysis.functions import (
     QuantileNorm, QuantileTStudent, QuantilePearson,
     FNorm, fNorm, fNorm_d_m, fNorm_d_sigma,
     FUniform, fUniform,
@@ -42,7 +42,7 @@ class SamplingData:
     def __getitem__(self, i: int) -> float:
         return self._x[i]
 
-    def remove_observation(self, i: int):
+    def remove_observations(self, i: list[int]):
         self.setSeries(np.delete(self.raw, i))
 
     def copy(self):
@@ -66,6 +66,7 @@ class SamplingData:
         return m
 
     def toRanking(self):
+        self._x = self._x[~np.isnan(self._x)]
         self._x.sort()
         self.probabilityX = np.zeros(len(self._x), dtype=float)
         j = -1
@@ -123,7 +124,7 @@ class SamplingData:
         self.S = u2 * N / (N - 1)
         self.Sigma = math.sqrt(self.S)
 
-        if N != 2:
+        if N > 3:
             self.A = u3 * math.sqrt(N * (N - 1)) / ((N - 2) * sigma_u2 ** 3)
             self.E = ((N ** 2 - 1) / ((N - 2) * (N - 3))) * (
                 (u4 / sigma_u2 ** 4 - 3) + 6 / (N + 1))
@@ -218,12 +219,18 @@ class SamplingData:
         if len(new_raw_x) != len(self.raw):
             self.setSeries(np.array(new_raw_x))
 
-    def autoRemoveAnomaly(self) -> bool:
-        N = len(self._x)
+    def auto_remove_anomalys(self) -> bool:
+        is_del = False
+        while self.auto_remove_anomaly():
+            is_del = True
+        return is_del
+
+    def auto_remove_anomaly(self) -> bool:
+        N = len(self.raw)
         is_item_del = False
 
         t1 = 2 + 0.2 * math.log10(0.04 * N)
-        t2 = (19 * math.sqrt(self.E + 2) + 1) ** 0.5
+        t2 = (19 * (self.E + 2) ** 0.5 + 1) ** 0.5
         a = 0.0
         b = 0.0
         if self.A < -0.2:
@@ -237,23 +244,9 @@ class SamplingData:
             b = self.x_ + t1 * self.S
 
         raw_x = list(self.raw)
-
-        for i in range(N // 2 + N % 2):
-            left_x = self._x[i]
-            right_x = self._x[-i - 1]
-            if not (a <= left_x <= b) and not (a <= right_x <= b):
-                if abs(a - left_x) > abs(b - right_x):
-                    raw_x.remove(left_x)
-                else:
-                    raw_x.remove(right_x)
-                is_item_del = True
-                break
-            elif self._x[i] <= a:
-                raw_x.remove(left_x)
-                is_item_del = True
-                break
-            elif self._x[-i - 1] >= b:
-                raw_x.remove(right_x)
+        for i in range(N):
+            if not (a < self.raw[i] < b):
+                raw_x.remove(self.raw[i])
                 is_item_del = True
                 break
 

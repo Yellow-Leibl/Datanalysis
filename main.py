@@ -1,15 +1,14 @@
 import sys
 import logging
+import numpy as np
 
-from PyQt6.QtWidgets import QApplication
-from GUI.WindowLayout import WindowLayout
+from GUI.WindowLayout import WindowLayout, QApplication
 
-from Sessions.SessionMode import SessionMode
-from Sessions.SessionMode1D import SessionMode1D
-from Sessions.SessionMode2D import SessionMode2D
-from Sessions.SessionModeND import SessionModeND
+from Sessions import (
+    SessionMode, SessionMode1D,
+    SessionMode2D, SessionModeND, SessionModeTimeSeries)
 
-from Datanalysis.SamplingDatas import SamplingDatas
+from Datanalysis import SamplingDatas, ReaderDatas
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,33 +17,46 @@ class Window(WindowLayout):
     def __init__(self,
                  file: str,
                  is_file_name: bool = True,
-                 demo_mode: bool = False):
+                 auto_select: list = None):
         super().__init__()
         self.session: SessionMode = None
         self.all_datas = SamplingDatas()
+        self.table.set_datas(self.all_datas)
+        self.reader = ReaderDatas()
         self.sel_indexes: list[int] = []
         self.datas_crits: list[list] = []
-        self.selected_regr_num = -1
-        if is_file_name:
-            all_file = self.open_file_act(file)
-        else:
-            all_file = file.split('\n')
-        self.loadFromData(all_file)
-        if demo_mode:
-            self.autoSelect()
+        self.open_file(file, is_file_name)
+        if auto_select is not None:
+            self.auto_select(auto_select)
 
-    def loadFromData(self, all_file: list[str]):
-        self.all_datas.append(all_file)
-        self.table.update_table(self.all_datas)
+    def open_file(self, file, is_file_name: bool = True):
+        if is_file_name:
+            all_vectors = self.reader.read_from_file(file)
+        else:
+            all_vectors = self.reader.read_from_text(file.split('\n'))
+        self.loadFromData(all_vectors)
+
+    def loadFromData(self, vectors):
+        self.all_datas.append(vectors)
+        self.table.update_table()
 
     def active_sample_changed(self, selected_new_samples: bool = False):
-        self.session.update_graphics(self.getNumberClasses())
+        self.session.update_graphics(self.feature_area.get_number_classes())
         self.session.write_protocol()
         self.session.write_critetion()
         if selected_new_samples:
             self.table.select_rows(self.sel_indexes)
         else:
-            self.table.update_table(self.all_datas)
+            self.table.update_table()
+
+    def change_sample_type_mode(self):
+        if type(self.session) is SessionMode1D:
+            self.session = SessionModeTimeSeries(self)
+        elif type(self.session) is SessionModeTimeSeries:
+            self.session = SessionMode1D(self)
+        else:
+            return
+        self.configure_session()
 
     def editSampleEvent(self):
         edit_num = self.index_in_menu(self.get_edit_menu(), self.sender())
@@ -57,8 +69,7 @@ class Window(WindowLayout):
         elif edit_num == 3:
             [self.all_datas[i].toSlide(1.0) for i in self.sel_indexes]
         elif edit_num == 4:
-            if not self.session.auto_remove_anomaly():
-                return
+            self.session.auto_remove_anomalys()
         elif edit_num == 5:
             self.session.to_independent()
         self.active_sample_changed()
@@ -67,31 +78,41 @@ class Window(WindowLayout):
         sel = self.table.get_active_rows()
         for i in sel:
             self.all_datas.append_sample(self.all_datas[i].copy())
-        self.table.update_table(self.all_datas)
+        self.table.update_table()
 
     def removeAnomaly(self):
         if self.is1d():
-            minmax = self.getMinMax()
+            minmax = self.feature_area.get_borders()
             self.all_datas[self.sel_indexes[0]].remove(minmax[0], minmax[1])
             self.active_sample_changed()
 
-    def drawSamples(self):
+    def draw_samples(self):
         sel = self.table.get_active_rows()
         if len(sel) == 0 or sel == self.sel_indexes:
             return
         self.sel_indexes = sel
+        self.init_session()
+        self.configure_session()
 
+    def remove_trend(self):
+        if type(self.session) is SessionModeTimeSeries:
+            self.session.remove_trend()
+            self.active_sample_changed()
+
+    def init_session(self):
         if self.is1d():
-            self.session = SessionMode1D(self)
+            if type(self.session) is not SessionModeTimeSeries:
+                self.session = SessionMode1D(self)
         elif self.is2d():
             self.session = SessionMode2D(self)
         elif self.isNd():
             self.session = SessionModeND(self)
 
+    def configure_session(self):
         self.session.create_plot_layout()
-        self.selected_regr_num = -1
-        self.silentChangeNumberClasses(0)
-        self.setMaximumColumnNumber(self.all_datas.getMaxDepthRangeData())
+        self.feature_area.silent_change_number_classes(0)
+        self.feature_area.set_maximum_column_number(
+            self.all_datas.getMaxDepthRangeData())
         self.active_sample_changed(selected_new_samples=True)
         self.table.select_rows(self.sel_indexes)
 
@@ -114,24 +135,29 @@ class Window(WindowLayout):
         for i, obsers in list(enumerate(all_obsers))[::-1]:
             if len(obsers) == 0:
                 continue
-            if len(obsers) == len(self.all_datas[i].raw):
+            if len(obsers) >= len(self.all_datas[i].raw):
                 self.all_datas.pop(i)
                 continue
-            for obser in obsers:
-                self.all_datas[i].remove_observation(obser)
+            self.all_datas[i].remove_observations(obsers)
             if i in self.sel_indexes:
                 sample_changed = True
         if sample_changed:
             self.active_sample_changed()
         elif update_table:
-            self.table.update_table(self.all_datas)
+            self.table.update_table()
 
     def setReproductionSeries(self):
-        self.selected_regr_num = \
-            self.index_in_menu(self.get_regr_menu(), self.sender())
+        regr_num = self.index_in_menu(self.get_regr_menu(), self.sender())
+        self.session.set_regression_number(regr_num)
         self.active_sample_changed(selected_new_samples=True)
 
-    def changeTrust(self, trust: float):
+    def smooth_series(self):
+        if type(self.session) is SessionModeTimeSeries:
+            smth_num = self.index_in_menu(self.get_smth_menu(), self.sender())
+            self.session.smooth_time_series(smth_num)
+            self.active_sample_changed(selected_new_samples=True)
+
+    def change_trust(self):
         self.active_sample_changed()
 
     def numberColumnChanged(self):
@@ -145,66 +171,84 @@ class Window(WindowLayout):
             title = "Лінійна регресія"
             descr = "Моделі регресійних прямих\n" + \
                 f"({sel[0]}, {sel[1]}) і ({sel[2]}, {sel[3]})"
-            if type(res) is bool:
-                if res:
-                    self.showMessageBox(title, descr + " - ідентичні")
-                else:
-                    self.showMessageBox(title, descr + " - неідентичні")
-            elif type(res) is str:
+            if res is None:
                 self.showMessageBox(title, descr +
                                     " - мають випадкову різницю регресій")
+            else:
+                res_str = "- ідентичні" if res else "- неідентичні"
+                self.showMessageBox(title, descr + res_str)
 
     def homogeneityAndIndependence(self, trust: float):
         sel = self.table.get_active_rows()
-        title = ""
-        descr = ""
         if len(sel) == 1:
-            P = self.all_datas[sel[0]].critetionAbbe()
-            title = "Критерій Аббе"
-            if P > trust:
-                descr = f"{P:.5} > {trust}\nСпостереження незалежні"
-            else:
-                descr = f"{P:.5} < {trust}\nСпостереження залежні"
+            self.critetion_abbe(sel, trust)
         elif len(sel) == 2:
-            if self.all_datas.ident2Samples(sel[0], sel[1], trust):
-                title = "Вибірки однорідні"
-            else:
-                title = "Вибірки неоднорідні"
+            self.are_independent_2_samples(sel, trust)
         elif len(sel) > 2:
-            if self.all_datas.identKSamples([self.all_datas[i] for i in sel],
-                                            trust):
-                title = "Вибірки однорідні"
-            else:
-                title = "Вибірки неоднорідні"
-        self.showMessageBox(title, descr)
+            self.are_independent_k_samples(sel, trust)
+
+    def critetion_abbe(self, sel, trust: float):
+        P = self.all_datas[sel[0]].critetionAbbe()
+        if P > trust:
+            descr = f"{P:.5} > {trust}\nСпостереження незалежні"
+        else:
+            descr = f"{P:.5} < {trust}\nСпостереження залежні"
+        self.showMessageBox("Критерій Аббе", descr)
+
+    def are_independent_2_samples(self, sel, trust: float):
+        if self.all_datas.ident2Samples(sel[0], sel[1], trust):
+            title = "Вибірки однорідні"
+        else:
+            title = "Вибірки неоднорідні"
+        self.showMessageBox(title, "")
+
+    def are_independent_k_samples(self, sel, trust: float):
+        if self.all_datas.identKSamples([self.all_datas[i] for i in sel],
+                                        trust):
+            title = "Вибірки однорідні"
+        else:
+            title = "Вибірки неоднорідні"
+        self.showMessageBox(title, "")
 
     def homogeneityNSamples(self):
-        title = "Перевірка однорідності сукупностей"
         sel = self.table.get_active_rows()
         self.table.clearSelection()
         if len(sel) == 0:
-            if len(self.datas_crits) < 2:
-                return
-            text = self.all_datas.homogeneityProtocol(
-                [[self.all_datas[j] for j in i] for i in self.datas_crits])
-            self.showMessageBox(title, text)
-            self.datas_crits = []
-        elif sel not in self.datas_crits:
-            if len(self.datas_crits) != 0 and \
-               len(self.datas_crits[0]) != len(sel):
-                return self.showMessageBox(
-                    "Помилка",
-                    f"Потрібен {len(self.datas_crits[0])}-вимірний розподіл")
-            norm_test = [self.all_datas[i].isNormal() for i in sel]
-            if False in norm_test:
-                return self.showMessageBox(
-                    "Помилка", "Не є нормальним розподілом:" +
-                    str([sel[i]+1 for i, res in enumerate(norm_test)
-                         if not res]))
-            self.datas_crits.append(sel)
-            self.showMessageBox(
-                title, "Вибрані вибірки:\n" +
-                "\n".join([str([i+1 for i in r]) for r in self.datas_crits]))
+            self.confirm_homogeneity()
+        else:
+            self.add_data_to_homogeneity(sel)
+
+    def confirm_homogeneity(self):
+        if len(self.datas_crits) < 2:
+            return
+        text = self.all_datas.homogeneityProtocol(
+            [[self.all_datas[j] for j in i] for i in self.datas_crits])
+        self.showMessageBox("Перевірка однорідності сукупностей", text)
+        self.datas_crits = []
+
+    def add_data_to_homogeneity(self, sel):
+        if sel in self.datas_crits:
+            self.showMessageBox("Помилка", "Розподіл вже вибраний")
+            return
+        n = len(self.datas_crits[0])
+        if len(self.datas_crits) != 0 and n != len(sel):
+            self.showMessageBox("Помилка", f"Потрібен {n}-вимірний розподіл")
+            return
+
+        failed_test = self.get_failed_norm_test_indexes(sel)
+        if len(failed_test) != 0:
+            self.showMessageBox("Помилка",
+                                f"Не є нормальним розподілом: {failed_test+1}")
+            return
+
+        self.datas_crits.append(sel)
+        self.showMessageBox(
+            "Перевірка однорідності сукупностей",
+            f"Вибрані вибірки:\n{np.array(self.datas_crits)+1}")
+
+    def get_failed_norm_test_indexes(self, sel):
+        norm_test = [self.all_datas[i].isNormal() for i in sel]
+        return np.array([i for i, res in enumerate(norm_test) if not res])
 
     def partialCorrelation(self):
         sel = self.table.get_active_rows()
@@ -217,41 +261,50 @@ class Window(WindowLayout):
             self.criterion_protocol.setText(text)
 
     def PCA(self):
-        w = self.pCA_number.value()
-        active_samples = self.session.get_active_samples()
-        ind, retn = active_samples.principalComponentAnalysis(w)
-        self.all_datas.append_samples(ind.samples)
-        self.all_datas.append_samples(retn.samples)
-        self.table.update_table(self.all_datas)
+        if type(self.session) is SessionModeND:
+            self.session.pca(self.pCA_number.value())
 
-    def autoSelect(self):
-        self.sel_indexes = range(3)
-        self.session = SessionModeND(self)
-        self.session.create_plot_layout()
-        self.active_sample_changed()
+    def auto_select(self, sel_index):
+        self.sel_indexes = sel_index
+        # self.init_session()
+        self.session = SessionModeTimeSeries(self)
+        self.configure_session()
 
 
 def applicationLoadFromFile(file: str = ''):
-    app = QApplication(sys.argv)
-    widget = Window(file)
-    widget.show()
-    sys.exit(app.exec())
+    launch_app(file, is_file_name=True)
 
 
 def applicationLoadFromStr(file: str = ''):
-    app = QApplication(sys.argv)
-    widget = Window(file, False)
-    widget.show()
-    sys.exit(app.exec())
+    launch_app(file, is_file_name=False)
 
 
 def demo_mode_show():
-    file = "data/500/norm3n.txt"
+    file = "data/self/norm18n.txt"
+    launch_app(file, is_file_name=True, auto_select=range(18))
+
+
+# def demo_mode_time_series_show():
+#     file = "data/self/3_normal_2700.txt"
+#     launch_app(file, is_file_name=True, auto_select=range(3))
+
+
+def demo_mode_time_series_show():
+    file = "data/self/time_series_500_3n.txt"
+    launch_app(file, is_file_name=True, auto_select=range(1))
+
+
+def demo_mode_course_work():
+    file = "data/self/Life Expectancy Data.csv"
+    launch_app(file, is_file_name=True, auto_select=range(1))
+
+
+def launch_app(file, is_file_name: bool, auto_select=None):
     app = QApplication(sys.argv)
-    widget = Window(file, demo_mode=True)
+    widget = Window(file, is_file_name=is_file_name, auto_select=auto_select)
     widget.show()
     sys.exit(app.exec())
 
 
 if __name__ == "__main__":
-    demo_mode_show()
+    demo_mode_time_series_show()

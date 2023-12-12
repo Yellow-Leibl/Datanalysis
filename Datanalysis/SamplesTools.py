@@ -1,12 +1,17 @@
 from time import time
 import logging
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-NM_SMBLS = 32
+NM_SMBLS = 48
 VL_SMBLS = 16
+
+PROTOCOL_TITLE_SEP = ((NM_SMBLS + VL_SMBLS * 4 - 8) // 2) * "-"
+
+PROTOCOL_TITLE = PROTOCOL_TITLE_SEP + "ПРОТОКОЛ" + PROTOCOL_TITLE_SEP + "\n"
 
 
 def formatName(n: str) -> str:
@@ -22,6 +27,8 @@ def formRowNV(name: str, *args) -> str:
     for arg in args:
         if type(arg) is str:
             row += formatValue(arg)
+        elif np.issubdtype(type(arg), np.integer):
+            row += formatValue(f"{arg}")
         else:
             row += formatValue(f"{arg:.5}")
     return row
@@ -31,11 +38,12 @@ def timer(function):
     def wrapper(*args):
         t = time()
         if len(args) == 0:
-            function()
+            ret = function()
         else:
-            function(*args)
+            ret = function(*args)
         logger.debug(f"{function.__qualname__}"
                      f"={time() - t}sec")
+        return ret
     return wrapper
 
 
@@ -66,15 +74,17 @@ def toCalcRankSeries(x):  # (xl, rx)
 
 def MED(r):
     N = len(r)
-    if N == 1:
-        med = r[0]
-    elif N == 2:
-        med = (r[0] + r[1]) / 2
+    k = N // 2
+    if 2 * k == N:
+        med = (r[k - 1] + r[k]) / 2
     else:
-        k = N // 2
-        if 2 * k == N:
-            med = (r[k] + r[k + 1]) / 2
-        else:
-            med = r[k + 1]
-
+        med = r[k]
     return med
+
+
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate

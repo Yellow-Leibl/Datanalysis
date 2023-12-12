@@ -3,24 +3,15 @@ from time import time
 import numpy as np
 import math
 from main import applicationLoadFromStr
-from Datanalysis.SamplingData import SamplingData
+from Datanalysis import SamplingData
 
 
 def generateNormal(m=0, sigma=1, N: int = 1000):
-    sample = [sum(r.random() for j in range(10)) for i in range(N)]
-    x = SamplingData(sample)
-    x.toRanking()
-    x.toCalculateCharacteristic()
-    x.toStandardization()
-    x.toTransform(lambda z: m + sigma * z)
-    return x.raw
+    return np.random.normal(m, sigma, N)
 
 
 def generateUniform(N: int = 1000):
-    sample = []
-    for _ in range(N):
-        sample.append(r.random())
-    return sample
+    return np.random.uniform(0, 1, N)
 
 
 def generateExp(alpha=1, N: int = 1000):
@@ -105,6 +96,15 @@ def generateMultivariateNormal(E=None, DC=None, n: int = 3, N: int = 1000):
     return X
 
 
+def generate_time_series(N: int):
+    norm = generateNormal(N=N)
+    time_ser = np.empty(N)
+    time_ser[0] = norm[0]
+    for i in range(1, N):
+        time_ser[i] = time_ser[i - 1] + norm[i]
+    return time_ser
+
+
 def generateSample(number_sample: int = 1,
                    n: int = 1000, vec_n: int = 2,
                    parameters=None) -> str:
@@ -147,6 +147,8 @@ def generateSample(number_sample: int = 1,
             for i in range(len(x)):
                 rozp.append(x[i])
             break
+        elif number_sample == 11:
+            rozp.append(generate_time_series(N=n))
 
     return '\n'.join(
         [''.join([str(rozp[j][i]).ljust(24) for j in range(len(rozp))])
@@ -155,7 +157,7 @@ def generateSample(number_sample: int = 1,
 
 if __name__ == "__main__":
     t1 = time()
-    all_file = generateSample(number_sample=1, vec_n=1, n=27000)
+    all_file = generateSample(number_sample=11, vec_n=3, n=500)
     # with open("norm5n.txt", 'w') as f:
     #     f.write(all_file)
     print(f"generation time={time() - t1}")

@@ -3,9 +3,8 @@ from PyQt6 import QtCore
 import pyqtgraph as pg
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from Datanalysis.SamplingData import SamplingData
-from Datanalysis.DoubleSampleData import DoubleSampleData
-from Datanalysis.SamplingDatas import SamplingDatas
+from Datanalysis import (
+    SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData)
 import numpy as np
 import math
 
@@ -92,6 +91,18 @@ class PlotWidget(QStackedWidget):
     #  Creating plot
     #
 
+    def create_time_series_plot(self):
+        self.setCurrentIndex(0)
+        self.__2d_layout.clear()
+        self.time_val_plot = self.__2d_layout.addPlot(
+            title="Часовий ряд",
+            labels={"left": "X(t)", "bottom": "t"},
+            row=0, col=0)
+        self.time_auto_cor_plot = self.__2d_layout.addPlot(
+            title="Автокореляційна функція",
+            labels={"left": "r(𝜏)", "bottom": "𝜏"},
+            row=0, col=1)
+
     def create1DPlot(self):
         self.setCurrentIndex(0)
         self.__2d_layout.clear()
@@ -170,6 +181,31 @@ class PlotWidget(QStackedWidget):
     #
     #  Plotting
     #
+
+    def plot_time_series(self, d: TimeSeriesData):
+        N = len(d.x)
+        t = np.arange(N)
+        self.time_val_plot.clear()
+        self.time_val_plot.plot(t, d.x,
+                                pen=newPen((0, 0, 0), 1))
+
+        teta = t[1:]
+        cor_val = [d.auto_cor_f(ti) for ti in teta]
+        self.time_auto_cor_plot.clear()
+        self.time_auto_cor_plot.plot(teta, cor_val,
+                                     pen=newPen((0, 0, 0), 1))
+
+    def plot_time_series_smooth(self, x):
+        N = len(x)
+        t = np.arange(N)
+        self.time_val_plot.plot(t, x,
+                                pen=newPen((255, 0, 0), 1))
+
+    def plot_time_series_trend(self, x):
+        N = len(x)
+        t = np.arange(N)
+        self.time_val_plot.plot(t, x,
+                                pen=newPen((0, 0, 255), 2))
 
     def plot1D(self, d: SamplingData, hist_data: list):
         self.plot1DHist(d, hist_data)

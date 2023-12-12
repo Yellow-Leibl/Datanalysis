@@ -4,7 +4,7 @@ import numpy as np
 from Datanalysis.SamplingData import SamplingData
 from Datanalysis.SamplesTools import MED
 
-import functions as func
+import Datanalysis.functions as func
 
 
 class DoubleSampleRegression:

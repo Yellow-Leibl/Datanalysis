@@ -1,15 +1,6 @@
 from PyQt6 import QtWidgets
 
 
-def MonoFontForSpecificOS():
-    import platform
-    name = platform.system()
-    if name == 'Darwin':
-        return "Andale Mono"
-    else:
-        return "Monospace"
-
-
 def BoxWithObjects(box, *args):
     addObjects(box, *args)
     return box
@@ -29,10 +20,10 @@ def addObjects(box: QtWidgets.QBoxLayout, *args):
 
 class SpinBox(QtWidgets.QSpinBox):
     def __init__(self, val_changed_f=None,
-                 min=0, max=1, val=0):
+                 min_v=0, max_v=1, val=0):
         super().__init__()
-        self.setMinimum(min)
-        self.setMaximum(max)
+        self.setMinimum(min_v)
+        self.setMaximum(max_v)
         self.setValue(val)
         if val_changed_f is not None:
             self.valueChanged.connect(val_changed_f)
@@ -40,12 +31,50 @@ class SpinBox(QtWidgets.QSpinBox):
 
 class DoubleSpinBox(QtWidgets.QDoubleSpinBox):
     def __init__(self, val_changed_f=None,
-                 min=0, max=1, decimals=None, val=0):
+                 min_v=0, max_v=1, decimals=None, val=0):
         super().__init__()
-        self.setMinimum(min)
-        self.setMaximum(max)
+        self.setMinimum(min_v)
+        self.setMaximum(max_v)
         if decimals is not None:
             self.setDecimals(decimals)
         self.setValue(val)
         if val_changed_f is not None:
             self.valueChanged.connect(val_changed_f)
+
+
+class TextEdit(QtWidgets.QTextEdit):
+    def __init__(self, text="", read_only=False, mono_font=False) -> None:
+        super().__init__(text)
+        self.setReadOnly(read_only)
+        if mono_font:
+            self.setFontFamily(get_mono_font_any_os())
+
+
+class FormLayout(QtWidgets.QFormLayout):
+    def __init__(self, *args) -> None:
+        super().__init__()
+        self.setFieldGrowthPolicy(
+            # QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+            QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        if len(args) % 2 != 0:
+            return
+        for i in range(0, len(args), 2):
+            self.addRow(args[i], args[i + 1])
+
+
+class TabWidget(QtWidgets.QTabWidget):
+    def __init__(self, *args) -> None:
+        super().__init__()
+        if len(args) % 2 != 0:
+            return
+        for i in range(0, len(args), 2):
+            self.addTab(args[i], args[i + 1])
+
+
+def get_mono_font_any_os():
+    import platform
+    name = platform.system()
+    if name == 'Darwin':
+        return "Andale Mono"
+    else:
+        return "Monospace"

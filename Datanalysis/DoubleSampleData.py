@@ -1,6 +1,6 @@
 import math
 import numpy as np
-import functions as func
+import Datanalysis.functions as func
 from Datanalysis.SamplingData import SamplingData
 from Datanalysis.DoubleSampleRegression import DoubleSampleRegression
 from Datanalysis.SamplesTools import timer, toCalcRankSeries
@@ -238,30 +238,10 @@ class DoubleSampleData(DoubleSampleRegression):
                   f"{func.QuantileTStudent(1 - self.trust, n_g * m_g - 2)}")
 
     def rangeCorrelation(self):
-        N = len(self)
-        x_raw = self.x.raw
-        y_raw = self.y.raw
-        x = [[i, 0] for i in x_raw]
-        y = [[i, 0] for i in y_raw]
-        x.sort(key=lambda k: k[0])
-        y.sort(key=lambda k: k[0])
-        toCalcRankSeries(x)
-        toCalcRankSeries(y)
+        r = self.get_rank_series()
 
-        r = []
-        for i in range(N):
-            rxi = binaryFind(x, x_raw[i])
-            ryi = binaryFind(y, y_raw[i])
-            r.append((x[rxi][1], y[ryi][1]))
-
-        def rx(i): return r[i][0]
-        def ry(i): return r[i][1]
-        def d(i): return rx(i) - ry(i)
-
-        teta_c_mn = 0.0
-        for i in range(N):
-            teta_c_mn += d(i) ** 2
-        self.teta_c = 1 - 6 / (N * (N ** 2 - 1)) * teta_c_mn
+        self.teta_c, self.teta_c_signif, self.det_teta_c = \
+            self.spearmans_rank_correlation_coefficient(r)
 
         # A = 0
         # prev = x[0][0] - 1
@@ -291,15 +271,57 @@ class DoubleSampleData(DoubleSampleRegression):
         #                (1 / 6 * N * (N ** 2 - 1) - 2 * B)) ** 0.5
         # print(f"Sperman={sperman}")
 
-        if abs(self.teta_c) != 1.0:
-            self.teta_c_signif = self.teta_c * (N - 2) ** 0.5 / (
-                1 - self.teta_c ** 2) ** 0.5
-        else:
-            self.teta_c = 0.0
+        self.teta_k, self.teta_k_signif, self.det_teta_k = \
+            self.kendalls_rank_coefficient(r)
 
-        sigma_teta_c = ((1 - self.teta_c ** 2) / (N - 2)) ** 0.5
-        self.det_teta_c = func.QuantileTStudent(1 - self.trust / 2, N - 2
-                                                ) * sigma_teta_c
+    def get_rank_series(self):
+        N = len(self)
+        x_raw = self.x.raw
+        y_raw = self.y.raw
+        x = [[i, 0] for i in x_raw]
+        y = [[i, 0] for i in y_raw]
+        x.sort(key=lambda k: k[0])
+        y.sort(key=lambda k: k[0])
+
+        toCalcRankSeries(x)
+        toCalcRankSeries(y)
+
+        r = []
+        for i in range(N):
+            rxi = binaryFind(x, x_raw[i])
+            ryi = binaryFind(y, y_raw[i])
+            r.append((x[rxi][1], y[ryi][1]))
+        return r
+
+    def spearmans_rank_correlation_coefficient(self, r):
+        N = len(self)
+
+        def rx(i): return r[i][0]
+        def ry(i): return r[i][1]
+        def d(i): return rx(i) - ry(i)
+
+        teta_c_mn = 0.0
+        for i in range(N):
+            teta_c_mn += d(i) ** 2
+        teta_c = 1 - 6 / (N * (N ** 2 - 1)) * teta_c_mn
+
+        if abs(teta_c) != 1.0:
+            teta_c_signif = teta_c * (N - 2) ** 0.5 / (
+                1 - teta_c ** 2) ** 0.5
+        else:
+            teta_c_signif = np.nan
+            teta_c = np.nan
+
+        sigma_teta_c = ((1 - teta_c ** 2) / (N - 2)) ** 0.5
+        det_teta_c = func.QuantileTStudent(1 - self.trust / 2, N - 2
+                                           ) * sigma_teta_c
+
+        return teta_c, teta_c_signif, det_teta_c
+
+    def kendalls_rank_coefficient(self, r):
+        N = len(self)
+
+        def ry(i): return r[i][1]
 
         def v(i, j):
             return 1 if ry(i) < ry(j) else (-1 if ry(i) > ry(j) else 0)
@@ -307,11 +329,12 @@ class DoubleSampleData(DoubleSampleRegression):
         for i in range(N - 1):
             for j in range(i + 1, N):
                 S += v(i, j)
-        self.teta_k = 2 * S / (N * (N - 1))
-        self.teta_k_signif = 3 * self.teta_k * (N * (N - 1)) ** 0.5 / (
+        teta_k = 2 * S / (N * (N - 1))
+        teta_k_signif = 3 * teta_k * (N * (N - 1)) ** 0.5 / (
             2 * (2 * N + 5)) ** 0.5
         sigma_teta_k = ((4 * N + 10) / (9 * (N ** 2 - N))) ** 0.5
-        self.det_teta_k = func.QuantileNorm(1 - self.trust / 2) * sigma_teta_k
+        det_teta_k = func.QuantileNorm(1 - self.trust / 2) * sigma_teta_k
+        return teta_k, teta_k_signif, det_teta_k
 
     def linearCorrelationParametrs(self):
         N = len(self)

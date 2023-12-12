@@ -4,6 +4,33 @@ import numpy as np
 
 # Matrix operations
 
+
+def gauss_method(a: np.ndarray,
+                 b: np.ndarray) -> np.ndarray:
+    a = a.copy()
+    b = b.copy()
+    n = a.shape[0]
+    for i in range(n):
+        b[i] /= a[i, i]
+        a[i] /= a[i, i]
+
+        for k in range(n):
+            if k != i and a[k, i] != 0:
+                b[k] -= b[i] * a[k, i]
+                a[k] -= a[i] * a[k, i]
+    return b
+
+
+def sort_evects_n_evals(vals: np.ndarray, vects: np.ndarray):
+    n = len(vals)
+    sorted_by_disp = sorted([[vals[i], i] for i in range(n)],
+                            key=lambda i: i[0], reverse=True)
+    indexes_sort_DC = [i[1] for i in sorted_by_disp]
+    vals = vals[indexes_sort_DC]
+    vects = vects[:, indexes_sort_DC]
+    return vals, vects
+
+
 def EigenvalueJacob(A: np.ndarray, eps=0.00001):
     n = len(A)
 
@@ -51,11 +78,12 @@ def EigenvalueJacob(A: np.ndarray, eps=0.00001):
     return A.diagonal(), e_vect
 
 
-# val, vect = EigenvalueJacob(np.array([[3, 2, 1],
-#                                       [2, 2, 5],
-#                                       [1, 5, 1]]))
-# print(val)
-# print(vect)
+if __name__ == "__main__":
+    val, vect = EigenvalueJacob(np.array([[3, 2, 1],
+                                          [2, 2, 5],
+                                          [1, 5, 1]]))
+    print(val)
+    print(vect)
 
 
 # Reproduction one-two parametr

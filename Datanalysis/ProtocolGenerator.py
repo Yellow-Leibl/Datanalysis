@@ -1,30 +1,31 @@
-from Datanalysis.SamplingData import SamplingData
-from Datanalysis.DoubleSampleData import DoubleSampleData
-from Datanalysis.SamplingDatas import SamplingDatas
-from Datanalysis.SamplesTools import formRowNV
+from Datanalysis import (
+        SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData)
+from Datanalysis.SamplesTools import formRowNV, PROTOCOL_TITLE
 
-import functions as func
+import Datanalysis.functions as func
 
 
 class ProtocolGenerator:
     @staticmethod
     def getProtocol(data):
         if isinstance(data, SamplingData):
-            return ProtocolGenerator.getProtocolSampling(data)
+            return ProtocolGenerator.get_for_sampling_data(data)
         elif isinstance(data, DoubleSampleData):
-            return ProtocolGenerator.getProtocolDoubleSample(data)
+            return ProtocolGenerator.get_for_double_sample(data)
         elif isinstance(data, SamplingDatas):
-            return ProtocolGenerator.getProtocolSamplingDatas(data)
+            return ProtocolGenerator.get_for_sampling_datas(data)
+        elif isinstance(data, TimeSeriesData):
+            return ProtocolGenerator.get_protocol_time_series(data)
         else:
             raise TypeError("data is not a valid type")
 
     @staticmethod
-    def getProtocolSampling(data: SamplingData):
+    def get_for_sampling_data(data: SamplingData):
         inf_protocol = []
         def add_text(text=""): inf_protocol.append(text)
         def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
 
-        add_text("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
+        add_text(PROTOCOL_TITLE)
         addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
         add_text()
 
@@ -60,7 +61,7 @@ class ProtocolGenerator:
 
         add_text()
 
-        addForm("мат спод.інтерв.передбачення", data.x_ - data.vanga_x_,
+        addForm("мат спод.інтерв.передбачення", data.x_ - data.vanga_x_, "",
                 data.x_ + data.vanga_x_)
 
         add_text()
@@ -68,10 +69,7 @@ class ProtocolGenerator:
         addForm("Квантилі", "Ймовірність", "X")
         for i in range(len(data.quant)):
             step_quant = 1 / len(data.quant)
-            addForm("Квантилі", "Ймовірність", "X")
-            for i in range(len(data.quant)):
-                step_quant = 1 / len(data.quant)
-                addForm("", f"{step_quant * (i + 1):.3}", data.quant[i])
+            addForm("", f"{step_quant * (i + 1):.3}", data.quant[i])
 
         return "\n".join(inf_protocol)
 
@@ -84,12 +82,12 @@ class ProtocolGenerator:
 #
 
     @staticmethod
-    def getProtocolDoubleSample(data: DoubleSampleData):
+    def get_for_double_sample(data: DoubleSampleData):
         inf_protocol = []
         def add_text(text=""): inf_protocol.append(text)
         def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
 
-        add_text("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
+        add_text(PROTOCOL_TITLE)
         addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
         add_text()
 
@@ -278,12 +276,12 @@ class ProtocolGenerator:
 #
 
     @staticmethod
-    def getProtocolSamplingDatas(data: SamplingDatas):
+    def get_for_sampling_datas(data: SamplingDatas):
         inf_protocol = []
         def add_text(text=""): inf_protocol.append(text)
         def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
 
-        add_text("-" * 44 + "ПРОТОКОЛ" + "-" * 44 + "\n")
+        add_text(PROTOCOL_TITLE)
         addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
         add_text()
 
@@ -401,5 +399,94 @@ class ProtocolGenerator:
             for k, a in enumerate(data.line_var_par[:-1]):
                 addForm(f"Параметр a{k+1}", "", a)
                 add_text()
+
+        return "\n".join(inf_protocol)
+
+    @staticmethod
+    def get_protocol_time_series(data: TimeSeriesData):
+        inf_protocol = []
+        def add_text(text=""): inf_protocol.append(text)
+        def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
+
+        add_text(PROTOCOL_TITLE)
+        addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
+        add_text()
+
+        addForm("Сер арифметичне", "", data.m)
+
+        addForm("Дисперсія", "", data.Dispersion)
+        add_text()
+
+        title = "Критерій знаків"
+        if data.critetion_sign > data.critetion_sign_signif:
+            addForm(title,
+                    data.critetion_sign, ">", data.critetion_sign_signif)
+            add_text("Процес має тенденцію до зростання")
+        elif data.critetion_sign < data.critetion_sign_signif:
+            addForm(title,
+                    data.critetion_sign, "<", data.critetion_sign_signif)
+            add_text("Процес має тенденцію до спадання")
+        else:
+            addForm(title,
+                    abs(data.critetion_sign), "<=", data.critetion_sign_signif)
+            add_text("Процес є стаціонарний")
+        add_text()
+
+        title = "Критерій Манна"
+        if data.critetion_mann > data.critetion_mann_signif:
+            addForm(title,
+                    data.critetion_mann, ">", data.critetion_mann_signif)
+            add_text("Процес має тенденцію до зростання")
+        elif data.critetion_mann < data.critetion_mann_signif:
+            addForm(title,
+                    data.critetion_mann, "<", data.critetion_mann_signif)
+            add_text("Процес має тенденцію до спадання")
+        else:
+            addForm(title,
+                    abs(data.critetion_mann), "<=", data.critetion_mann_signif)
+            add_text("Процес є стаціонарний")
+        add_text()
+
+        title = "Критерій серій"
+        if (data.critetion_series_nu > data.critetion_series_nu_signif and
+                data.critetion_series_d < data.critetion_series_d_signif):
+            addForm(title,
+                    data.critetion_series_nu, ">",
+                    data.critetion_series_nu_signif)
+            addForm("", data.critetion_series_d, "<",
+                    data.critetion_series_d_signif)
+            add_text("Процес є стаціонарний")
+        else:
+            addForm(title,
+                    data.critetion_series_nu, ">",
+                    data.critetion_series_nu_signif)
+            addForm("", data.critetion_series_d, "<",
+                    data.critetion_series_d_signif)
+            add_text("Процес має тенденцію")
+        add_text()
+
+        addForm("Критерій «зростаючих» і «спадаючих» серій",
+                data.critetion_series_nu, ">",
+                data.critetion_series_nu_signif)
+        addForm("", data.critetion_series_d, "<",
+                data.critetion_series_d_signif)
+        if (data.critetion_series_nu > data.critetion_series_nu_signif and
+                data.critetion_series_d > data.critetion_series_d_signif):
+            add_text("Процес є стаціонарний")
+        else:
+            add_text("Процес має тенденцію")
+        add_text()
+
+        title = "Критерій Аббе"
+        if data.critetion_series_nu <= data.critetion_series_nu_signif:
+            addForm(title,
+                    data.critetion_sign, "<=",
+                    data.critetion_sign_signif)
+            add_text("Результати спостережень стохастично незалежні")
+        else:
+            addForm(title,
+                    data.critetion_sign, ">",
+                    data.critetion_sign_signif)
+            add_text("Результати спостережень стохастично залежні")
 
         return "\n".join(inf_protocol)

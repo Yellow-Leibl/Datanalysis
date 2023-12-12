@@ -1,28 +1,14 @@
 import numpy as np
 import math
 
-from Datanalysis.SamplingData import SamplingData
+from Datanalysis import SamplingData, DoubleSampleData
 from Datanalysis.SamplesCriteria import SamplesCriteria
-from Datanalysis.DoubleSampleData import DoubleSampleData
-from Datanalysis.SamplesTools import formRowNV, timer
-import functions as func
+from Datanalysis.SamplesTools import timer, formRowNV
+import Datanalysis.functions as func
 
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-
-def readVectors(text: list[str]):
-    if ',' in text[0]:
-        for i, line in enumerate(text):
-            text[i] = line.replace(',', '.')
-
-    n = len(np.fromstring(text[0], dtype=float, sep=' '))
-
-    vectors = np.empty((len(text), n), dtype=float)
-    for j, line in enumerate(text):
-        vectors[j] = np.fromstring(line, dtype=float, sep=' ')
-    return vectors.transpose()
 
 
 class SamplingDatas(SamplesCriteria):
@@ -38,15 +24,13 @@ class SamplingDatas(SamplesCriteria):
         if samples is not None:
             self.samples += samples
 
-    def remove_observation(self, i: int):
+    def remove_observations(self, i: list[int]):
         for s in self.samples:
-            s.remove_observation(i)
+            s.remove_observations(i)
 
     @timer
-    def append(self, not_ranked_series_str: list[str]):
-        vectors = readVectors(not_ranked_series_str)
-
-        for v in vectors:
+    def append(self, not_ranked_series_str: np.ndarray):
+        for v in not_ranked_series_str:
             s = SamplingData(v, move_data=True)
             s.toRanking()
             s.toCalculateCharacteristic()
@@ -111,8 +95,9 @@ class SamplingDatas(SamplesCriteria):
                 cov = self.samples[i].Sigma * self.samples[j].Sigma * r
                 self.DC[i][j] = self.DC[j][i] = cov
                 self.R[i][j] = self.R[j][i] = d2.r
-                d2.rangeCorrelation()
-                self.R_Kendala[i][j] = d2.teta_k
+                r = d2.get_rank_series()
+                teta_k, _, _ = d2.kendalls_rank_coefficient(r)
+                self.R_Kendala[i][j] = teta_k
 
         self.r_multi = [self.multipleCorrelationCoefficient(i)
                         for i in range(n)]
@@ -123,11 +108,8 @@ class SamplingDatas(SamplesCriteria):
     def calculate_pca(self):
         n = len(self.samples)
         self.DC_eigenval, self.DC_eigenvects = func.EigenvalueJacob(self.DC)
-        sorted_by_disp = sorted([[self.DC_eigenval[i], i] for i in range(n)],
-                                key=lambda i: i[0], reverse=True)
-        indexes_sort_DC = [i[1] for i in sorted_by_disp]
-        self.DC_eigenval = self.DC_eigenval[indexes_sort_DC]
-        self.DC_eigenvects = self.DC_eigenvects[:, indexes_sort_DC]
+        self.DC_eigenval, self.DC_eigenvects = func.sort_evects_n_evals(
+                self.DC_eigenval, self.DC_eigenvects)
         self.DC_eigenval_part = self.DC_eigenval.copy() / sum(self.DC_eigenval)
         self.DC_eigenval_accum = np.empty(n, dtype=float)
         self.DC_eigenval_accum[0] = self.DC_eigenval_part[0]

@@ -1,6 +1,5 @@
 from Sessions.SessionMode import SessionMode
-from Datanalysis.SamplingData import SamplingData
-from Datanalysis.ProtocolGenerator import ProtocolGenerator
+from Datanalysis import SamplingData, ProtocolGenerator
 
 
 class SessionMode1D(SessionMode):
@@ -14,24 +13,24 @@ class SessionMode1D(SessionMode):
     def get_active_samples(self) -> SamplingData:
         return self.window.all_datas[self.window.sel_indexes[0]]
 
-    def auto_remove_anomaly(self) -> bool:
-        return self.get_active_samples().autoRemoveAnomaly()
+    def auto_remove_anomalys(self) -> bool:
+        return self.get_active_samples().auto_remove_anomalys()
 
     def update_graphics(self, number_column: int = 0):
-        d = self.window.all_datas[self.window.sel_indexes[0]]
-        d.setTrust(self.window.getTrust())
-        self.window.setMinMax(d.min, d.max)
+        d = self.get_active_samples()
+        d.setTrust(self.window.feature_area.get_trust())
+        self.window.feature_area.set_borders(d.min, d.max)
         hist_data = d.get_histogram_data(number_column)
-        self.window.silentChangeNumberClasses(len(hist_data))
+        self.window.feature_area.silent_change_number_classes(len(hist_data))
         self.window.plot_widget.plot1D(d, hist_data)
         self.drawReproductionSeries1D()
 
     def drawReproductionSeries1D(self):
         d = self.get_active_samples()
-        f = self.toCreateReproductionFunc(d, self.window.selected_regr_num)
+        f = self.toCreateReproductionFunc(d, self.selected_regr_num)
         if f is None:
             return
-        h = abs(d.max - d.min) / self.window.getNumberClasses()
+        h = abs(d.max - d.min) / self.window.feature_area.get_number_classes()
         f = d.toCreateTrustIntervals(*(*f, h))
         self.d1_regr_F = f[2]
         self.window.plot_widget.plot1DReproduction(d, *f)
@@ -63,7 +62,8 @@ class SessionMode1D(SessionMode):
         criterion_text = d.kolmogorovTestProtocol(d.kolmogorovTest(F))
         try:
             xi_test_result = d.xiXiTest(
-                F, d.get_histogram_data(self.window.getNumberClasses()))
+                F, d.get_histogram_data(
+                    self.window.feature_area.get_number_classes()))
         except ZeroDivisionError:
             xi_test_result = False
         criterion_text += '\n' + d.xiXiTestProtocol(xi_test_result)

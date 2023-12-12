@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
 from PyQt6 import QtGui
-from Datanalysis.SamplingDatas import SamplingDatas
+from Datanalysis import SamplingDatas, SamplingData
+import numpy as np
 
 
 class TableWidget(QTableWidget):
@@ -16,6 +17,10 @@ class TableWidget(QTableWidget):
             self.cellDoubleClicked.connect(cell_double_clicked)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
+    def set_datas(self, datas: SamplingDatas):
+        self.datas = datas
+        self.update_table()
+
     def get_val_item(self, row, col):
         return self.item(row, col + self.__info_cells_count)
 
@@ -23,26 +28,34 @@ class TableWidget(QTableWidget):
         item = QTableWidgetItem(text)
         return item
 
-    def update_table(self, datas: SamplingDatas = None):
+    def update_table(self):
         self.clear()
-        if datas is None and self.datas is None:
-            raise Exception("Datas is None")
-        elif datas is not None:
-            self.datas = datas
         self.setColumnCount(self.datas.get_max_len_raw()
                             + self.__info_cells_count)
         self.setRowCount(len(self.datas))
         for s in range(len(self.datas)):
             d = self.datas[s]
             self.setItem(s, 0, self.create_cell(
-                f"N={len(d.raw)}, min={d.min:.5}, max={d.max:.5}"))
+                self.format_sample_description(d)))
             for i, val in enumerate(d.raw):
                 self.setItem(s, i + self.__info_cells_count,
-                             self.create_cell(f"{val:.5}"))
+                             self.create_cell(self.format_cell_value(val)))
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.colorize_selections(self.selected_indexes)
         self.colorize_max_min_value()
+
+    def format_sample_description(self, d: SamplingData):
+        if np.issubdtype(type(d.min), np.integer):
+            return f"N={len(d.raw)}, min={d.min}, max={d.max}"
+        else:
+            return f"N={len(d.raw)}, min={d.min:.5}, max={d.max:.5}"
+
+    def format_cell_value(self, val):
+        if np.issubdtype(type(val), np.integer):
+            return f"{val}"
+        else:
+            return f"{val:.5}"
 
     def select_rows(self, indexes: list[int]):
         self.clearSelection()

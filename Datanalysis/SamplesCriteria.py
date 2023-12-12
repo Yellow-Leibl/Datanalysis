@@ -2,12 +2,11 @@ import math
 import numpy as np
 import logging
 
-from Datanalysis.SamplingData import SamplingData
-from Datanalysis.DoubleSampleData import DoubleSampleData
-from functions import (
+from Datanalysis import SamplingData, DoubleSampleData
+from Datanalysis.SamplesTools import toCalcRankSeries
+from Datanalysis.functions import (
     QuantileNorm, QuantileTStudent, QuantilePearson, QuantileFisher,
     L)
-from Datanalysis.SamplesTools import toCalcRankSeries
 
 
 class SamplesCriteria:
@@ -377,7 +376,7 @@ class SamplesCriteria:
                         N1 * sigma_x1_2 * S2 + N2 * sigma_x2_2 * S1)
                 u = (b - b0) / S10
                 if u <= QuantileNorm(1 - trust / 2):
-                    return "Випадкова різниця регресій"
+                    return None
         return False
 
     def corelationRelation(self, samples: list, trust: float = 0.05):

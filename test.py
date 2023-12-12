@@ -1,7 +1,4 @@
-# from Datanalysis.SamplingData import SamplingData
-# from Datanalysis.SamplesCriteria import SamplesCriteria
-from Datanalysis.DoubleSampleData import DoubleSampleData
-from Datanalysis.SamplingDatas import SamplingDatas
+from Datanalysis import DoubleSampleData, SamplingDatas
 from GenerationSeries import generateSample
 
 
