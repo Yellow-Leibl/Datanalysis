@@ -79,7 +79,7 @@ class SamplingData:
         self.probabilityX = self.probabilityX[:j + 1] / len(self._x)
         self._x = np.unique(self._x)
 
-    def setTrust(self, trust: float):
+    def set_trust(self, trust: float):
         self.trust = trust
 
     def toCalculateCharacteristic(self, MED_Walsh=True):
@@ -388,9 +388,9 @@ class SamplingData:
         return hist_f, lw_limit_F, F, hg_limit_F
 
     def isNormal(self) -> bool:
-        return self.kolmogorovTest(self.toCreateNormalFunc()[1])
+        return self.kolmogorov_test(self.toCreateNormalFunc()[1])
 
-    def kolmogorovTest(self, func_reproduction) -> bool:
+    def kolmogorov_test(self, func_reproduction) -> bool:
         N = len(self._x)
 
         D = 0.0
@@ -427,15 +427,6 @@ class SamplingData:
         self.kolmogorov_alpha_zgodi = alpha_zgodi
         return Pz >= alpha_zgodi
 
-    def kolmogorovTestProtocol(self, res):
-        crits = f"{self.kolmogorov_pz:.5} >= {self.kolmogorov_alpha_zgodi:.5}"
-        if res:
-            return "Відтворення адекватне за критерієм" \
-                f" згоди Колмогорова: {crits}"
-        else:
-            return "Відтворення неадекватне за критерієм" \
-                f" згоди Колмогорова: {crits}"
-
     def xiXiTest(self,
                  func_reproduction,
                  hist_list: list):  # Pearson test
@@ -463,15 +454,6 @@ class SamplingData:
         self.xixitest_quant = Xi2
         return Xi < Xi2
 
-    def xiXiTestProtocol(self, res):
-        crits = f"{self.kolmogorov_pz:.5} < {self.xixitest_quant:.5}"
-        if res:
-            return "Відтворення адекватне за критерієм" \
-                f" Пірсона: {crits}"
-        else:
-            return "Відтворення неадекватне за критерієм" \
-                f" Пірсона: {crits}"
-
     def get_histogram_data(self, column_number=0) -> list:
         n = len(self._x)
         if column_number <= 0:
@@ -486,9 +468,8 @@ class SamplingData:
 
     def critetionAbbe(self) -> float:
         N = len(self.raw)
-        d2 = 1 / (N - 1) * sum([(self.raw[i + 1] -
-                                 self.raw[i]) ** 2
-                               for i in range(N - 1)])
+        d2 = 1 / (N - 1) * sum(
+            [(self.raw[i + 1] - self.raw[i]) ** 2 for i in range(N - 1)])
 
         q = d2 / (2 * self.S)
 

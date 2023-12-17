@@ -1,44 +1,43 @@
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton)
-from GUI.ui_tools import (BoxWithObjects, FormLayout, SpinBox,
-                          DoubleSpinBox)
+from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QStackedWidget)
+from GUI.ui_tools import (FormLayout, SpinBox, WidgetWithLayout,
+                          DoubleSpinBox, HBoxLayout, VBoxLayout)
 
 
-class FeatureArea(QWidget):
+class FeatureArea(QStackedWidget):
     def __init__(self, parent):
         super().__init__()
+        self.addWidget(self.create_1d_layout(parent))
 
+    def create_1d_layout(self, parent) -> QWidget:
         self.__spin_number_column = SpinBox(
-            val_changed_f=parent.numberColumnChanged)
+            val_changed_f=parent.update_sample)
 
         self.__trust_value = DoubleSpinBox(
-            parent.change_trust, 0.0, 1.0, 5, 0.05)
+            parent.update_sample, 0.0, 1.0, 5, 0.05)
 
-        self.pCA_number = SpinBox(min_v=2, max_v=99)
+        self.pca_number = SpinBox(min_v=2, max_v=99)
 
         self.__spin_box_min_x = DoubleSpinBox(decimals=5)
         self.__spin_box_max_x = DoubleSpinBox(decimals=5)
         self.__remove_anomaly = QPushButton("Видалити аномалії")
-        self.__remove_anomaly.clicked.connect(parent.removeAnomaly)
+        self.__remove_anomaly.clicked.connect(parent.remove_anomaly_with_range)
 
         form_widget = FormLayout(
             "Кількість класів:", self.__spin_number_column,
             "Рівень значущості:", self.__trust_value,
             "", QWidget(),
-            "Кількість перших компонентів для МГК:", self.pCA_number)
+            "Кількість перших компонентів для МГК:", self.pca_number)
 
-        borders = BoxWithObjects(QHBoxLayout(),
-                                 QLabel("min"),
-                                 self.__spin_box_min_x,
-                                 QLabel("max"),
-                                 self.__spin_box_max_x)
+        self.borders = HBoxLayout(QLabel("min"),
+                                  self.__spin_box_min_x,
+                                  QLabel("max"),
+                                  self.__spin_box_max_x)
 
-        form_func = BoxWithObjects(QVBoxLayout(),
-                                   form_widget,
-                                   borders,
-                                   self.__remove_anomaly)
+        form_func = VBoxLayout(form_widget,
+                               self.borders,
+                               self.__remove_anomaly)
 
-        self.setLayout(form_func)
+        return WidgetWithLayout(form_func)
 
     def set_borders(self, min_x, max_x):
         self.__spin_box_min_x.setMinimum(min_x)
@@ -66,3 +65,16 @@ class FeatureArea(QWidget):
 
     def get_trust(self):
         return self.__trust_value.value()
+
+    # TODO: switch visible layout by mode (QStackedWidget)
+    def switch_to_1d_mode(self):
+        pass
+
+    def switch_to_2d_mode(self):
+        pass
+
+    def switch_to_nd_mode(self):
+        pass
+
+    def switch_to_time_series_mode(self):
+        pass

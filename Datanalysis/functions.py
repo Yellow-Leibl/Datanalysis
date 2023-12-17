@@ -1,5 +1,6 @@
 import math
 import numpy as np
+np.seterr(all='raise')
 
 
 # Matrix operations
@@ -107,7 +108,7 @@ d3 = 0.001308
 Ea = 4.5 * 10 ** -4
 
 
-def QuantileNorm(alpha):
+def QuantileNorm(alpha) -> float:
     if alpha <= 0.5:
         p = alpha
     else:
@@ -120,7 +121,7 @@ def QuantileNorm(alpha):
     return u
 
 
-def QuantileTStudent(alpha, nu):
+def QuantileTStudent(alpha, nu) -> float:
     if nu <= 0:
         return 0.0
     u = QuantileNorm(alpha)
@@ -133,14 +134,14 @@ def QuantileTStudent(alpha, nu):
         1 / nu ** 3 * g3 + 1 / nu ** 4 * g4
 
 
-def QuantilePearson(alpha, nu):
+def QuantilePearson(alpha, nu) -> float:
     if nu <= 0:
         return 0.0
     return nu * (1 - 2 / (9 * nu) +
                  QuantileNorm(alpha) * math.sqrt(2 / (9 * nu))) ** 3
 
 
-def QuantileFisher(alpha, nu1, nu2):
+def QuantileFisher(alpha, nu1, nu2) -> float:
     dod1 = 0 if nu1 == 0 else 1 / nu1
     dod2 = 0 if nu2 == 0 else 1 / nu2
     sigma = dod1 + dod2

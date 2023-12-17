@@ -44,7 +44,7 @@ class DoubleSampleData(DoubleSampleRegression):
     def __len__(self):
         return len(self.x.raw)
 
-    def setTrust(self, trust: float):
+    def set_trust(self, trust: float):
         self.trust = trust
 
     @timer
@@ -469,10 +469,3 @@ class DoubleSampleData(DoubleSampleRegression):
         self.xixitest_x2 = x_2
         self.xixitest_quant = quant
         return x_2 <= quant
-
-    def xiXiTestProtocol(self, res) -> str:
-        crits = f"x_2={self.xixitest_x2:.5} <= {self.xixitest_quant:.5}"
-        if res:
-            return f"Відтворення двовимірного розподілу адекватне: {crits}"
-        else:
-            return f"Відтворення двовимірного розподілу неадекватне: {crits}"

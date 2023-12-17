@@ -75,7 +75,7 @@ class SamplingDatas(SamplesCriteria):
             return 0
         return max([len(i.raw) for i in self.samples])
 
-    def setTrust(self, trust):
+    def set_trust(self, trust):
         self.trust = trust
 
     @timer

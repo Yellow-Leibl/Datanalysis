@@ -14,23 +14,31 @@ PROTOCOL_TITLE_SEP = ((NM_SMBLS + VL_SMBLS * 4 - 8) // 2) * "-"
 PROTOCOL_TITLE = PROTOCOL_TITLE_SEP + "ПРОТОКОЛ" + PROTOCOL_TITLE_SEP + "\n"
 
 
-def formatName(n: str) -> str:
+def format_name(n: str) -> str:
     return n.ljust(NM_SMBLS)
 
 
-def formatValue(v: str) -> str:
+def padding_value(v: str) -> str:
     return v.center(VL_SMBLS)
 
 
+def format_value(val) -> str:
+    if type(val) is str:
+        return padding_value(val)
+    if np.issubdtype(type(val), np.integer):
+        return padding_value(f"{val}")
+    if np.issubdtype(type(val), np.floating):
+        if abs(val) < 0.00001:
+            val = 0.0
+        return padding_value(f"{val:.5}")
+
+    return padding_value(f"{val}")
+
+
 def formRowNV(name: str, *args) -> str:
-    row = formatName(name)
+    row = format_name(name)
     for arg in args:
-        if type(arg) is str:
-            row += formatValue(arg)
-        elif np.issubdtype(type(arg), np.integer):
-            row += formatValue(f"{arg}")
-        else:
-            row += formatValue(f"{arg:.5}")
+        row += format_value(arg)
     return row
 
 

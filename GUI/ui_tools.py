@@ -18,6 +18,24 @@ def addObjects(box: QtWidgets.QBoxLayout, *args):
             raise Exception()
 
 
+class WidgetWithLayout(QtWidgets.QWidget):
+    def __init__(self, layout: QtWidgets.QLayout) -> None:
+        super().__init__()
+        self.setLayout(layout)
+
+
+class VBoxLayout(QtWidgets.QVBoxLayout):
+    def __init__(self, *args) -> None:
+        super().__init__()
+        addObjects(self, *args)
+
+
+class HBoxLayout(QtWidgets.QHBoxLayout):
+    def __init__(self, *args) -> None:
+        super().__init__()
+        addObjects(self, *args)
+
+
 class SpinBox(QtWidgets.QSpinBox):
     def __init__(self, val_changed_f=None,
                  min_v=0, max_v=1, val=0):
@@ -54,12 +72,14 @@ class FormLayout(QtWidgets.QFormLayout):
     def __init__(self, *args) -> None:
         super().__init__()
         self.setFieldGrowthPolicy(
-            # QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
             QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         if len(args) % 2 != 0:
-            return
+            raise Exception("Wrong number of arguments")
         for i in range(0, len(args), 2):
-            self.addRow(args[i], args[i + 1])
+            if args[i] == "":
+                self.addRow(args[i + 1])
+            else:
+                self.addRow(args[i], args[i + 1])
 
 
 class TabWidget(QtWidgets.QTabWidget):

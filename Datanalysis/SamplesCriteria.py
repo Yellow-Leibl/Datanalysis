@@ -282,8 +282,8 @@ class SamplesCriteria:
 
     def ident2Samples(self, row1: int, row2: int, trust: float = 0.05) -> bool:
         x, y = self.samples[row1], self.samples[row2]
-        if x.kolmogorovTest(x.toCreateNormalFunc()[1]) and\
-           y.kolmogorovTest(y.toCreateNormalFunc()[1]):
+        if x.kolmogorov_test(x.toCreateNormalFunc()[1]) and\
+           y.kolmogorov_test(y.toCreateNormalFunc()[1]):
             # normal
             if len(x) == len(y):
                 return self.identDispersionBarlet([x, y], trust) \
@@ -307,7 +307,7 @@ class SamplesCriteria:
             return self.critetionKohrena(samples, trust)
         isNormal = True
         for i in samples:
-            if i.kolmogorovTest(i.toCreateNormalFunc()[1]) is False:
+            if i.kolmogorov_test(i.toCreateNormalFunc()[1]) is False:
                 isNormal = False
                 break
         if isNormal:  # normal

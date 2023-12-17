@@ -59,7 +59,7 @@ def generateLine(m1=0.0, m2=0.0, sigma1=1.0, sigma2=1.0, r_x_y=0.75,
     return x, y
 
 
-def generateParable(r: float = 0.01, N: int = 1000):
+def generate_parable(r: float = 0.01, N: int = 1000):
     x = generateUniform(N=N)
     xx = SamplingData(x)
     xx.toSlide(-0.5)
@@ -132,10 +132,10 @@ def generateSample(number_sample: int = 1,
             rozp.append(x)
             rozp.append(y)
         elif number_sample == 8:
-            if len(parameters) == 1:
-                x, y = generateParable(parameters[0], N=n)
+            if parameters is not None and len(parameters) == 1:
+                x, y = generate_parable(parameters[0], N=n)
             else:
-                x, y = generateParable(N=n)
+                x, y = generate_parable(N=n)
             rozp.append(x)
             rozp.append(y)
         elif number_sample == 9:
@@ -157,7 +157,7 @@ def generateSample(number_sample: int = 1,
 
 if __name__ == "__main__":
     t1 = time()
-    all_file = generateSample(number_sample=11, vec_n=3, n=500)
+    all_file = generateSample(number_sample=11, vec_n=1, n=200)
     # with open("norm5n.txt", 'w') as f:
     #     f.write(all_file)
     print(f"generation time={time() - t1}")

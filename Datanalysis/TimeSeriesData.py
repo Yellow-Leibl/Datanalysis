@@ -62,6 +62,7 @@ class TimeSeriesData:
         self.manns_criterion_for_trend()
         self.series_criterion_for_trend()
         self.rises_descending_series_criterion_for_trend()
+        self.abbe_criterion()
 
     def sign_criterion_for_trend(self):
         N = len(self.x)
@@ -205,6 +206,8 @@ class TimeSeriesData:
             return sum([a[j] * t ** j for j in range(p + 1)])
 
         for i in range(2, N - 2, m*2):
+            if i + m >= N:
+                break
             b = np.zeros(p + 1)
             for j in range(p + 1):
                 for t in range(-m, m + 1):
@@ -369,37 +372,110 @@ class TimeSeriesData:
 
         return x
 
-    def ssa_method(self, M=15, n_components=7):
+    def components_ssa_method(self, M):
+        components = np.empty((M, len(self.x)))
+        A, Y = self.ssa_decomposition(self.x, M)
+
+        for v in range(M):
+            A_c = np.zeros(A.shape)
+            A_c[:, v] = A[:, v]
+            X, _ = self.ssa_reproduction_trajectory_matrix(A_c, Y, M)
+            components[v] = ssa_diagonal_averaging(X)
+
+        return components
+
+    def reconstruction_ssa_method(self, M, n_components):
+        A, Y = self.ssa_decomposition(self.x, M)
+        X, _ = self.ssa_reproduction_trajectory_matrix(A, Y, n_components)
+        p = ssa_diagonal_averaging(X)
+        return p
+
+    def test_forecast_ssa_method(self, M, n_components, count_p_for_forecast):
         N = len(self.x)
+        if not (0 < count_p_for_forecast < N - 3):
+            count_p_for_forecast = N // 2
+        p = self.x[:count_p_for_forecast]
+
+        for _ in range(N - count_p_for_forecast):
+            A, Y = self.ssa_decomposition(p, M)
+
+            X, V = self.ssa_reproduction_trajectory_matrix(A, Y, n_components)
+
+            X = self.ssa_append_forecasting_vector(V, X)
+
+            p_c = p.copy()
+            p = ssa_diagonal_averaging(X)
+            if len(p[np.isnan(p)]) != 0:
+                p = p_c
+                break
+            print(len(p))
+        return p
+
+    def forecast_ssa_method(self, M, n_components, count_forecast):
         p = self.x
 
-        X = np.empty((M, N - M))
-        for k in range(M):
-            for i in range(N - M):
-                X[k, i] = p[k + i]
+        for _ in range(count_forecast):
+            A, Y = self.ssa_decomposition(p, M)
 
-        DC = X @ X.T
-        vals, A = func.EigenvalueJacob(DC)
-        vals, A = func.sort_evects_n_evals(vals, A)
+            X, V = self.ssa_reproduction_trajectory_matrix(A, Y, n_components)
+
+            X = self.ssa_append_forecasting_vector(V, X)
+
+            p = ssa_diagonal_averaging(X)
+        return p
+
+    def ssa_decomposition(self, p, M):
+        X = self.ssa_trajectory_matrix(p, M)
+
+        A = ssa_eigen_vectors(X)
 
         Y = A.T @ X
+        return A, Y
 
-        w = n_components
+    def ssa_trajectory_matrix(self, p, M):
+        N = len(p)
 
+        X = np.empty((M, N - M + 1))
+        for k in range(M):
+            for i in range(N - M + 1):
+                X[k, i] = p[k + i]
+        return X
+
+    def ssa_reproduction_trajectory_matrix(self,
+                                           A: np.ndarray,
+                                           Y: np.ndarray,
+                                           n_components: int):
+        M = A.shape[0]
         V = A.copy()
-        for i in range(w, M):
+        for i in range(n_components, M):
             V[:, i] = 0.0
 
         X = V @ Y
+        return X, V
 
-        p = ssa_reconstruct(X)
+    def ssa_append_forecasting_vector(self,
+                                      A: np.ndarray,
+                                      X: np.ndarray) -> np.ndarray:
+        a = A[:-1, :-1]
+        b = X[1:, -1]
+        y = func.gauss_method(a, b)
+        p_forecast = 0.0
+        for v in range(len(y)):
+            p_forecast += A[-1, v] * y[v]
+        last_x = np.append(b, p_forecast)
+        return np.c_[X, last_x]
 
-        return p
+
+def ssa_eigen_vectors(X: np.ndarray):
+    DC = X @ X.T
+    vals, A = func.EigenvalueJacob(DC)
+    _, A = func.sort_evects_n_evals(vals, A)
+    return A
 
 
-def ssa_reconstruct(X: np.ndarray):
+def ssa_diagonal_averaging(X: np.ndarray):
     M = X.shape[0]
-    N = M + X.shape[1]
+    N = M + X.shape[1] - 1
     p = np.zeros(N)
     for i in range(M):
         for j in range(i + 1):
@@ -411,11 +487,10 @@ def ssa_reconstruct(X: np.ndarray):
             p[i] += X[j, i - j]
         p[i] /= M
 
-    for i in range(1, M):
+    for i in range(M):
         for j in range(i, M):
-            p[N - M + i - 1] += X[j, i - j + N - M - 1]
-        p[N - M + i - 1] /= (M - i)
-    p[-1] = X[-1, -1]
+            p[N - M + i] += X[j, i - j + N - M]
+        p[N - M + i] /= (M - i)
     return p
 
 

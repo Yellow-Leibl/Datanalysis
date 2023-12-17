@@ -73,6 +73,26 @@ class ProtocolGenerator:
 
         return "\n".join(inf_protocol)
 
+    def kolmogorov_test(self, data: SamplingData, f_repr):
+        res = data.kolmogorov_test(f_repr)
+        crits = f"{self.kolmogorov_pz:.5} >= {self.kolmogorov_alpha_zgodi:.5}"
+        if res:
+            return "Відтворення адекватне за критерієм" \
+                f" згоди Колмогорова: {crits}"
+        else:
+            return "Відтворення неадекватне за критерієм" \
+                f" згоди Колмогорова: {crits}"
+
+    def xixi_test_1d(data: SamplingData, hist_class, f):
+        res = data.xiXiTest(f, hist_class)
+        crits = f"{data.kolmogorov_pz:.5} < {data.xixitest_quant:.5}"
+        if res:
+            return "Відтворення адекватне за критерієм" \
+                f" Пірсона: {crits}"
+        else:
+            return "Відтворення неадекватне за критерієм" \
+                f" Пірсона: {crits}"
+
 #
 #
 #
@@ -266,6 +286,14 @@ class ProtocolGenerator:
                     f"{data.kvaz_b + data.det_kvaz_b:.5}")
 
         return "\n".join(inf_protocol)
+
+    def xixi_test_2d(data: DoubleSampleData, hist_data) -> str:
+        res = data.xiXiTest(hist_data)
+        crits = f"x_2={data.xixitest_x2:.5} <= {data.xixitest_quant:.5}"
+        if res:
+            return f"Відтворення двовимірного розподілу адекватне: {crits}"
+        else:
+            return f"Відтворення двовимірного розподілу неадекватне: {crits}"
 
 #
 #
@@ -478,15 +506,15 @@ class ProtocolGenerator:
         add_text()
 
         title = "Критерій Аббе"
-        if data.critetion_series_nu <= data.critetion_series_nu_signif:
+        if data.critetion_abbe <= data.critetion_abbe_signif:
             addForm(title,
-                    data.critetion_sign, "<=",
-                    data.critetion_sign_signif)
+                    data.critetion_abbe, "<=",
+                    data.critetion_abbe_signif)
             add_text("Результати спостережень стохастично незалежні")
         else:
             addForm(title,
-                    data.critetion_sign, ">",
-                    data.critetion_sign_signif)
+                    data.critetion_abbe, ">",
+                    data.critetion_abbe_signif)
             add_text("Результати спостережень стохастично залежні")
 
         return "\n".join(inf_protocol)

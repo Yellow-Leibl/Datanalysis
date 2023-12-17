@@ -1,20 +1,23 @@
 from GUI.WindowLayout import WindowLayout
-from Datanalysis import SamplingDatas, SamplingData, DoubleSampleData
+from Datanalysis import ProtocolGenerator
 
 
 class SessionMode:
     def __init__(self, window: WindowLayout):
         self.window = window
+        self.plot_widget = window.plot_widget
         self.selected_regr_num = -1
 
     def set_regression_number(self, number):
         self.selected_regr_num = number
 
+    def configure(self):
+        self.create_plot_layout()
+
     def create_plot_layout(self):
         pass
 
-    def get_active_samples(
-            self) -> SamplingDatas | DoubleSampleData | SamplingData:
+    def get_active_samples(self):
         pass
 
     def auto_remove_anomalys(self) -> bool:
@@ -23,11 +26,18 @@ class SessionMode:
     def to_independent(self):
         pass
 
-    def update_graphics(self, number_column):
+    def select_new_sample(self):
+        self.update_sample(self.window.feature_area.get_number_classes())
+        self.write_protocol()
+        self.write_critetion()
+
+    def update_sample(self, number_column=0):
         pass
 
     def write_protocol(self):
-        pass
+        act_sample = self.get_active_samples()
+        protocol_text = ProtocolGenerator.getProtocol(act_sample)
+        self.window.protocol.setText(protocol_text)
 
     def write_critetion(self):
-        pass
+        self.window.criterion_protocol.setText("")

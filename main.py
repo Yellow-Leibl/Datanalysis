@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 class Window(WindowLayout):
     def __init__(self,
                  file: str,
-                 is_file_name: bool = True,
+                 is_file_name=True,
                  auto_select: list = None):
         super().__init__()
         self.session: SessionMode = None
@@ -29,36 +29,26 @@ class Window(WindowLayout):
         if auto_select is not None:
             self.auto_select(auto_select)
 
-    def open_file(self, file, is_file_name: bool = True):
+    def open_file(self, file: str, is_file_name=True):
         if is_file_name:
             all_vectors = self.reader.read_from_file(file)
         else:
             all_vectors = self.reader.read_from_text(file.split('\n'))
-        self.loadFromData(all_vectors)
+        self.load_from_data(all_vectors)
 
-    def loadFromData(self, vectors):
+    def load_from_data(self, vectors):
         self.all_datas.append(vectors)
         self.table.update_table()
 
-    def active_sample_changed(self, selected_new_samples: bool = False):
-        self.session.update_graphics(self.feature_area.get_number_classes())
-        self.session.write_protocol()
-        self.session.write_critetion()
-        if selected_new_samples:
-            self.table.select_rows(self.sel_indexes)
-        else:
-            self.table.update_table()
+    def select_new_sample(self):
+        self.session.select_new_sample()
+        self.table.select_rows(self.sel_indexes)
 
-    def change_sample_type_mode(self):
-        if type(self.session) is SessionMode1D:
-            self.session = SessionModeTimeSeries(self)
-        elif type(self.session) is SessionModeTimeSeries:
-            self.session = SessionMode1D(self)
-        else:
-            return
-        self.configure_session()
+    def update_sample(self):
+        self.session.select_new_sample()
+        self.table.update_table()
 
-    def editSampleEvent(self):
+    def edit_sample_event(self):
         edit_num = self.index_in_menu(self.get_edit_menu(), self.sender())
         if edit_num == 0:
             [self.all_datas[i].toLogarithmus10() for i in self.sel_indexes]
@@ -72,61 +62,52 @@ class Window(WindowLayout):
             self.session.auto_remove_anomalys()
         elif edit_num == 5:
             self.session.to_independent()
-        self.active_sample_changed()
+        self.update_sample()
 
-    def duplicateSample(self):
+    def duplicate_sample(self):
         sel = self.table.get_active_rows()
         for i in sel:
             self.all_datas.append_sample(self.all_datas[i].copy())
         self.table.update_table()
 
-    def removeAnomaly(self):
-        if self.is1d():
-            minmax = self.feature_area.get_borders()
-            self.all_datas[self.sel_indexes[0]].remove(minmax[0], minmax[1])
-            self.active_sample_changed()
+    def remove_anomaly_with_range(self):
+        if type(self.session) is SessionMode1D:
+            self.session.remove_anomaly_with_range()
 
     def draw_samples(self):
         sel = self.table.get_active_rows()
         if len(sel) == 0 or sel == self.sel_indexes:
             return
         self.sel_indexes = sel
-        self.init_session()
+        self.make_session()
+        self.configure_session()
+
+    def make_session(self):
+        if len(self.sel_indexes) == 1:
+            if type(self.session) is not SessionModeTimeSeries:
+                self.session = SessionMode1D(self)
+        elif len(self.sel_indexes) == 2:
+            self.session = SessionMode2D(self)
+        elif len(self.sel_indexes) >= 2:
+            self.session = SessionModeND(self)
+
+    def change_sample_type_mode(self):
+        if type(self.session) is SessionMode1D:
+            self.session = SessionModeTimeSeries(self)
+        elif type(self.session) is SessionModeTimeSeries:
+            self.session = SessionMode1D(self)
+        else:
+            return
         self.configure_session()
 
     def remove_trend(self):
         if type(self.session) is SessionModeTimeSeries:
             self.session.remove_trend()
-            self.active_sample_changed()
-
-    def init_session(self):
-        if self.is1d():
-            if type(self.session) is not SessionModeTimeSeries:
-                self.session = SessionMode1D(self)
-        elif self.is2d():
-            self.session = SessionMode2D(self)
-        elif self.isNd():
-            self.session = SessionModeND(self)
+            self.update_sample()
 
     def configure_session(self):
-        self.session.create_plot_layout()
-        self.feature_area.silent_change_number_classes(0)
-        self.feature_area.set_maximum_column_number(
-            self.all_datas.getMaxDepthRangeData())
-        self.active_sample_changed(selected_new_samples=True)
-        self.table.select_rows(self.sel_indexes)
-
-    def is1d(self) -> bool:
-        return len(self.sel_indexes) == 1
-
-    def is2d(self) -> bool:
-        return len(self.sel_indexes) == 2
-
-    def is3d(self) -> bool:
-        return len(self.sel_indexes) == 3
-
-    def isNd(self) -> bool:
-        return len(self.sel_indexes) >= 2
+        self.session.configure()
+        self.select_new_sample()
 
     def delete_observations(self):
         all_obsers = self.table.get_observations_to_remove()
@@ -142,28 +123,33 @@ class Window(WindowLayout):
             if i in self.sel_indexes:
                 sample_changed = True
         if sample_changed:
-            self.active_sample_changed()
+            self.update_sample()
         elif update_table:
             self.table.update_table()
 
-    def setReproductionSeries(self):
-        regr_num = self.index_in_menu(self.get_regr_menu(), self.sender())
+    def set_reproduction_series(self, regr_num):
         self.session.set_regression_number(regr_num)
-        self.active_sample_changed(selected_new_samples=True)
+        self.update_sample()
 
     def smooth_series(self):
         if type(self.session) is SessionModeTimeSeries:
             smth_num = self.index_in_menu(self.get_smth_menu(), self.sender())
             self.session.smooth_time_series(smth_num)
-            self.active_sample_changed(selected_new_samples=True)
+            self.update_sample()
 
-    def change_trust(self):
-        self.active_sample_changed()
+    def ssa(self, ssa_num):
+        if type(self.session) is SessionModeTimeSeries:
+            if ssa_num == 0:
+                self.session.ssa_visualize_components()
+            elif ssa_num == 1:
+                self.session.ssa_reconstruction()
+            elif ssa_num == 2:
+                self.session.test_forecast_ssa()
+            elif ssa_num == 3:
+                self.session.forecast_ssa()
+            self.session.update_sample()
 
-    def numberColumnChanged(self):
-        self.active_sample_changed(selected_new_samples=True)
-
-    def linearModelsCrit(self, trust: float):
+    def linear_models_crit(self, trust: float):
         sel = self.table.get_active_rows()
         if len(sel) == 4:
             res = self.all_datas.ident2ModelsLine(
@@ -178,7 +164,7 @@ class Window(WindowLayout):
                 res_str = "- ідентичні" if res else "- неідентичні"
                 self.showMessageBox(title, descr + res_str)
 
-    def homogeneityAndIndependence(self, trust: float):
+    def homogeneity_and_independence(self, trust: float):
         sel = self.table.get_active_rows()
         if len(sel) == 1:
             self.critetion_abbe(sel, trust)
@@ -210,7 +196,7 @@ class Window(WindowLayout):
             title = "Вибірки неоднорідні"
         self.showMessageBox(title, "")
 
-    def homogeneityNSamples(self):
+    def homogeneity_n_samples(self):
         sel = self.table.get_active_rows()
         self.table.clearSelection()
         if len(sel) == 0:
@@ -250,7 +236,7 @@ class Window(WindowLayout):
         norm_test = [self.all_datas[i].isNormal() for i in sel]
         return np.array([i for i, res in enumerate(norm_test) if not res])
 
-    def partialCorrelation(self):
+    def partial_correlation(self):
         sel = self.table.get_active_rows()
         w = len(sel)
         if w > 2:
@@ -260,9 +246,9 @@ class Window(WindowLayout):
                 sel[0], sel[1], sel[2:])
             self.criterion_protocol.setText(text)
 
-    def PCA(self):
+    def pca(self):
         if type(self.session) is SessionModeND:
-            self.session.pca(self.pCA_number.value())
+            self.session.pca(self.pca_number.value())
 
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index
@@ -284,18 +270,18 @@ def demo_mode_show():
     launch_app(file, is_file_name=True, auto_select=range(18))
 
 
-# def demo_mode_time_series_show():
-#     file = "data/self/3_normal_2700.txt"
-#     launch_app(file, is_file_name=True, auto_select=range(3))
-
-
 def demo_mode_time_series_show():
-    file = "data/self/time_series_500_3n.txt"
+    file = "data/self/3_normal_2700.txt"
+    launch_app(file, is_file_name=True, auto_select=range(3))
+
+
+def demo_mode_time_series_show_2():
+    file = "data/self/kaggle_example_200.txt"
     launch_app(file, is_file_name=True, auto_select=range(1))
 
 
-def demo_mode_course_work():
-    file = "data/self/Life Expectancy Data.csv"
+def demo_mode_time_series_show_1():
+    file = "data/self/time_series_500_3n.txt"
     launch_app(file, is_file_name=True, auto_select=range(1))
 
 
@@ -307,4 +293,4 @@ def launch_app(file, is_file_name: bool, auto_select=None):
 
 
 if __name__ == "__main__":
-    demo_mode_time_series_show()
+    demo_mode_time_series_show_2()
