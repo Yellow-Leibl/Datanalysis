@@ -9,7 +9,7 @@ class SessionMode2D(SessionMode):
         self.hist_data_2d = None
 
     def create_plot_layout(self):
-        self.plot_widget.create2DPlot()
+        self.plot_widget.show_2d_plot()
 
     def create_d2_sample(self) -> DoubleSampleData:
         x = self.window.all_datas[self.window.sel_indexes[0]]
@@ -43,7 +43,7 @@ class SessionMode2D(SessionMode):
         self.hist_data_2d = self.d2.get_histogram_data(number_column)
         self.window.feature_area.silent_change_number_classes(
             len(self.hist_data_2d))
-        self.plot_widget.plot2D(self.d2, self.hist_data_2d)
+        self.plot_widget.plot_2d_with_details(self.d2, self.hist_data_2d)
         self.drawReproductionSeries2D(self.d2)
 
     def drawReproductionSeries2D(self, d2):

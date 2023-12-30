@@ -252,8 +252,7 @@ class Window(WindowLayout):
 
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index
-        # self.init_session()
-        self.session = SessionModeTimeSeries(self)
+        self.make_session()
         self.configure_session()
 
 
@@ -285,6 +284,12 @@ def demo_mode_time_series_show_1():
     launch_app(file, is_file_name=True, auto_select=range(1))
 
 
+def demo_mode_course_work():
+    # file = "data/course/student-mat.csv"
+    file = "data/course/CO2 Emissions_Canada.csv"
+    launch_app(file, is_file_name=True, auto_select=range(12))
+
+
 def launch_app(file, is_file_name: bool, auto_select=None):
     app = QApplication(sys.argv)
     widget = Window(file, is_file_name=is_file_name, auto_select=auto_select)
@@ -293,4 +298,5 @@ def launch_app(file, is_file_name: bool, auto_select=None):
 
 
 if __name__ == "__main__":
-    demo_mode_time_series_show_2()
+    # demo_mode_time_series_show_2()
+    demo_mode_course_work()

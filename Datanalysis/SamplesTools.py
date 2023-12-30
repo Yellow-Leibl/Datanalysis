@@ -1,6 +1,7 @@
 from time import time
 import logging
 import numpy as np
+import math
 
 
 logger = logging.getLogger(__name__)
@@ -96,3 +97,14 @@ def static_vars(**kwargs):
             setattr(func, k, kwargs[k])
         return func
     return decorate
+
+
+def calculate_m(n: int) -> int:
+    if n == 2:
+        return 2
+    elif n < 100:
+        m = math.floor(math.sqrt(n))
+    else:
+        m = math.floor(n ** (1 / 3))
+    m -= 1 - m % 2
+    return m

@@ -8,18 +8,31 @@ from Datanalysis.functions import (
     FWeibull, fWeibull, fWeibull_d_alpha, fWeibull_d_beta,
     FExp, fExp, fExp_d_lamda,
     DF1Parametr, DF2Parametr)
-from Datanalysis.SamplesTools import MED
+from Datanalysis.SamplesTools import MED, calculate_m
+from copy import deepcopy
 
 
 class SamplingData:
     def __init__(self, not_ranked_series_x: np.ndarray, trust: float = 0.05,
-                 move_data=False):
+                 move_data=False, name=''):
+        name_and_discrt_res = name.split(':')
+        self.name = name_and_discrt_res[0]
+        if len(name_and_discrt_res) > 1:
+            self.discrt_res = name_and_discrt_res[1]
+        else:
+            self.discrt_res = ""
+        self.trust = trust
+        self.set_data(not_ranked_series_x, move_data)
+        self.init_characteristic()
+
+    def set_data(self, not_ranked_series_x: np.ndarray, move_data):
         if move_data:
             self.raw = not_ranked_series_x
         else:
             self.raw = not_ranked_series_x.copy()
         self._x = self.raw.copy()
-        self.trust = trust
+
+    def init_characteristic(self):
         self.min = 0.0
         self.max = 0.0
         self.x_ = 0.0       # mathematical exception
@@ -46,24 +59,7 @@ class SamplingData:
         self.setSeries(np.delete(self.raw, i))
 
     def copy(self):
-        t = SamplingData(self.raw, self.trust)
-        if len(self.probabilityX) > 0:
-            t.probabilityX = self.probabilityX.copy()
-            t._x = self._x.copy()
-            t.MED_Walsh = self.MED_Walsh
-            t.toCalculateCharacteristic(False)
-        return t
-
-    @staticmethod  # number of classes
-    def calculateM(n: int) -> int:
-        if n == 2:
-            return 2
-        elif n < 100:
-            m = math.floor(math.sqrt(n))
-        else:
-            m = math.floor(n ** (1 / 3))
-        m -= 1 - m % 2
-        return m
+        return deepcopy(self)
 
     def toRanking(self):
         self._x = self._x[~np.isnan(self._x)]
@@ -209,7 +205,8 @@ class SamplingData:
         return MED(xl)
 
     def setSeries(self, not_ranked_series_x: np.ndarray):
-        SamplingData.__init__(self, not_ranked_series_x)
+        self.set_data(not_ranked_series_x, False)
+        self.init_characteristic()
         self.toRanking()
         self.toCalculateCharacteristic()
 
@@ -455,9 +452,11 @@ class SamplingData:
         return Xi < Xi2
 
     def get_histogram_data(self, column_number=0) -> list:
-        n = len(self._x)
         if column_number <= 0:
-            column_number = SamplingData.calculateM(n)
+            column_number = calculate_m(len(self.raw))
+            column_number = min(column_number, len(self._x))
+
+        n = len(self._x)
         h = (self.max - self.min) / column_number
         hist_list = [0.0] * column_number
         for i in range(n - 1):

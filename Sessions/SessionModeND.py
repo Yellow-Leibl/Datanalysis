@@ -8,7 +8,7 @@ class SessionModeND(SessionMode):
         self.datas_displayed = None
 
     def create_plot_layout(self):
-        self.plot_widget.createNDPlot(len(self.window.sel_indexes))
+        self.plot_widget.create_nd_plot(len(self.window.sel_indexes))
 
     def create_n_samples(self) -> SamplingDatas:
         samples = [self.window.all_datas[i] for i in self.window.sel_indexes]

@@ -118,20 +118,14 @@ class SessionModeTimeSeries(SessionMode):
         return self.get_parameters_for_args(title1, title2)
 
     def test_forecast_ssa(self):
-        M, n_components, count_of_forecast = self.get_parameters_for_test_ssa()
+        M, n_components, cnt_forecast = self.get_parameters_for_forecast_ssa()
         self.showed_smooth = self.time_series.test_forecast_ssa_method(
-            M, n_components, count_of_forecast)
-
-    def get_parameters_for_test_ssa(self):
-        title1 = "Введіть розмір гусені:"
-        title2 = "Введіть кількість компонент:"
-        title3 = "Введіть кількість наявних точок для прогнозування:"
-        return self.get_parameters_for_args(title1, title2, title3)
+            M, n_components, cnt_forecast)
 
     def forecast_ssa(self):
         M, n_components, cnt_forecast = self.get_parameters_for_forecast_ssa()
         self.showed_smooth = self.time_series.forecast_ssa_method(
-            M, n_components, cnt_forecast)
+            self.time_series.x, M, n_components, cnt_forecast)
 
     def get_parameters_for_forecast_ssa(self):
         title1 = "Введіть розмір гусені:"

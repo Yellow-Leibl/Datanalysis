@@ -390,31 +390,16 @@ class TimeSeriesData:
         p = ssa_diagonal_averaging(X)
         return p
 
-    def test_forecast_ssa_method(self, M, n_components, count_p_for_forecast):
+    def test_forecast_ssa_method(self, M, n_components, count_for_forecast):
         N = len(self.x)
-        if not (0 < count_p_for_forecast < N - 3):
-            count_p_for_forecast = N // 2
-        p = self.x[:count_p_for_forecast]
+        if not (0 < count_for_forecast < N - 3):
+            count_for_forecast = N // 2
+        p = self.x[:-count_for_forecast]
 
-        for _ in range(N - count_p_for_forecast):
-            A, Y = self.ssa_decomposition(p, M)
+        return self.forecast_ssa_method(p, M, n_components, count_for_forecast)
 
-            X, V = self.ssa_reproduction_trajectory_matrix(A, Y, n_components)
-
-            X = self.ssa_append_forecasting_vector(V, X)
-
-            p_c = p.copy()
-            p = ssa_diagonal_averaging(X)
-            if len(p[np.isnan(p)]) != 0:
-                p = p_c
-                break
-            print(len(p))
-        return p
-
-    def forecast_ssa_method(self, M, n_components, count_forecast):
-        p = self.x
-
-        for _ in range(count_forecast):
+    def forecast_ssa_method(self, p, M, n_components, count_forecast):
+        for i in range(count_forecast):
             A, Y = self.ssa_decomposition(p, M)
 
             X, V = self.ssa_reproduction_trajectory_matrix(A, Y, n_components)
@@ -422,6 +407,8 @@ class TimeSeriesData:
             X = self.ssa_append_forecasting_vector(V, X)
 
             p = ssa_diagonal_averaging(X)
+
+            logger.debug(f"Forecasting count: {i+1}")
         return p
 
     def ssa_decomposition(self, p, M):
@@ -487,10 +474,10 @@ def ssa_diagonal_averaging(X: np.ndarray):
             p[i] += X[j, i - j]
         p[i] /= M
 
-    for i in range(M):
-        for j in range(i, M):
-            p[N - M + i] += X[j, i - j + N - M]
-        p[N - M + i] /= (M - i)
+    for i in range(N - M, N):
+        for j in range(i - (N - M), M):
+            p[i] += X[j, i - j]
+        p[i] /= (N - i)
     return p
 
 

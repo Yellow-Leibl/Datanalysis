@@ -1,10 +1,11 @@
 from PyQt6.QtWidgets import QStackedWidget, QTabWidget
-from PyQt6 import QtCore
+from PyQt6 import QtCore, QtGui
 import pyqtgraph as pg
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from Datanalysis import (
     SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData)
+from Datanalysis.SamplesTools import calculate_m
 import numpy as np
 import math
 
@@ -75,12 +76,12 @@ class PlotWidget(QStackedWidget):
             if type(self.__nd_widget.widget(i)) is pg.GraphicsLayoutWidget:
                 off_warning_for_pyqtgraph(self.__nd_widget.widget(i))
 
-    def setEnabled3d(self):
+    def set_enabled_3d(self):
         self.__nd_widget.setTabEnabled(4, True)
         self.__nd_widget.setTabEnabled(5, True)
         self.__nd_widget.setTabEnabled(6, True)
 
-    def setDisabled3d(self):
+    def set_disabled_3d(self):
         self.__nd_widget.setTabEnabled(4, False)
         self.__nd_widget.setTabEnabled(5, False)
         self.__nd_widget.setTabEnabled(6, False)
@@ -103,57 +104,78 @@ class PlotWidget(QStackedWidget):
             labels={"left": "r(𝜏)", "bottom": "𝜏"},
             row=0, col=1)
 
-    def create1DPlot(self):
+    def show_1d_plot(self):
         self.setCurrentIndex(0)
+        self.create_1d_plot()
+
+    def create_1d_plot(self):
         self.__2d_layout.clear()
         self.hist_plot = self.__2d_layout.addPlot(
             title="Гістограмна оцінка",
-            labels={"left": "P", "bottom": "x"})
+            labels={"left": "P"})
         self.emp_plot = self.__2d_layout.addPlot(
             title="Емпірична функція розподілу",
-            labels={"left": "P", "bottom": "x"})
+            labels={"left": "P"})
 
-    def create2DPlot(self):
+    def show_2d_plot(self):
         self.setCurrentIndex(0)
+        self.create_2d_plot()
+
+    def create_2d_plot(self):
         self.__2d_layout.clear()
         self.corr_plot = self.__2d_layout.addPlot(
-            title="Корреляційне поле",
-            labels={"left": "Y", "bottom": "X"})
+            title="Корреляційне поле")
 
-    def createNDPlot(self, n: int):
+    def create_nd_plot(self, n: int):
         if n == 3:
-            self.setEnabled3d()
+            self.set_enabled_3d()
         else:
-            self.setDisabled3d()
-        self.createScatterPlot(n)
-        self.createParallelPlot(n)
+            self.set_disabled_3d()
+        self.create_scatter_plot(n)
+        self.create_parallel_plot(n)
         self.setCurrentIndex(1)
 
-    def createScatterPlot(self, n):
-        self.__scatter_diagram_plots = []
+    def create_scatter_plot(self, n):
+        self.__scatter_diagram_plots: list[pg.PlotItem] = []
         self.__scatter_diagram_layout.clear()
-        # *
+        #
         # 111 ... ... ...
         # 000 111 ... ...
         # 000 000 111 ...
         # 000 000 000 111
         #
         # 111 000 000 000 111 000 000 111 000 111
-        # *
+        #
         for i in range(n):
             for j in range(i, n):
-                left = ""
-                bottom = ""
-                if i == 0:
-                    left = f"X{j+1}"
-                if j == n - 1:
-                    bottom = f"X{i+1}"
                 plot_item = self.__scatter_diagram_layout.addPlot(
-                    row=j, col=i, labels={"left": left, "bottom": bottom})
+                    row=j, col=i)
                 plot_item.getViewBox().setDefaultPadding(0.0)
                 self.__scatter_diagram_plots.append(plot_item)
 
-    def createParallelPlot(self, n):
+    def set_labels_for_scatter_plot(self, dn: list[SamplingData]):
+        n = len(dn)
+        k = 0
+        font = QtGui.QFont()
+        font.setPixelSize(7)
+        for i in range(n):
+            for j in range(i, n):
+                plot_item = self.__scatter_diagram_plots[k]
+                k += 1
+                plot_item.hideAxis("left")
+                plot_item.hideAxis("bottom")
+                labels = {}
+                if i == 0:
+                    labels["left"] = dn[j].name
+                    plot_item.showAxis("left")
+                    plot_item.getAxis("left").setStyle(tickFont=font)
+                if j == n - 1:
+                    labels["bottom"] = dn[i].name
+                    plot_item.showAxis("bottom")
+                    plot_item.getAxis("bottom").setStyle(tickFont=font)
+                plot_item.setLabels(**labels)
+
+    def create_parallel_plot(self, n):
         x = [f"X{i+1}" for i in range(n)]
         xdict = dict(enumerate(x))
         self.__parallel_x_data = list(xdict.keys())
@@ -164,19 +186,6 @@ class PlotWidget(QStackedWidget):
         self.__parallel_plot = self.__parallel_layout.addPlot(
             labels={"left": "Умовні величини"},
             axisItems={'bottom': stringaxis})
-
-    def createHeatmapPlot(self, n):
-        cols = [f"X{i+1}" for i in range(n)]
-        colsdict = dict(enumerate(cols))
-        # self.__heatmap_x_data = list(colsdict.keys())
-        colsaxis = pg.AxisItem(orientation='bottom')
-        colsaxis.setTicks([colsdict.items()])
-
-        self.__heatmap_layout.clear()
-        self.__heatmap_plot = self.__heatmap_layout.addPlot(
-            axisItems={'bottom': colsaxis})
-        self.__heatmap_plot.getViewBox().invertY(True)
-        self.__heatmap_plot.getViewBox().setDefaultPadding(0.0)
 
     #
     #  Plotting
@@ -236,6 +245,7 @@ class PlotWidget(QStackedWidget):
         if hist_plot is None:
             hist_plot = self.hist_plot
         hist_plot.clear()
+        hist_plot.getAxis("bottom").setLabel(text=d.name)
         hist_plot.plot(x, y, fillLevel=0,
                        brush=(30, 120, 180),
                        pen=newPen((0, 0, 0), 1))
@@ -260,6 +270,7 @@ class PlotWidget(QStackedWidget):
             y_stat[i + 1] = y_stat[i] + prob
 
         self.emp_plot.clear()
+        self.emp_plot.getAxis("bottom").setLabel(text=d.name)
         self.emp_plot.plot(x_class, y_class,
                            pen=newPen((255, 0, 0), 2))
         self.emp_plot.plot(d._x, y_stat,
@@ -284,23 +295,31 @@ class PlotWidget(QStackedWidget):
         self.emp_plot.plot(x_gen, y_emp, pen=newPen((0, 255, 255), 2))
         self.emp_plot.plot(x_gen, y_high, pen=newPen((128, 0, 128), 2))
 
-    def plot2D(self, d2: DoubleSampleData, hist_data, corr_plot=None):
+    def plot_2d_with_details(self, d2: DoubleSampleData, hist_data):
+        self.corr_plot.clear()
+        self.plot_2d_histogam(d2, hist_data, self.corr_plot)
+        self.plot_2d(d2, self.corr_plot)
+
+    def plot_2d_histogam(self,
+                         d2: DoubleSampleData,
+                         hist_data,
+                         corr_plot: pg.PlotItem):
         x = d2.x
         y = d2.y
-        if len(x.raw) != len(y.raw):
-            return
 
         histogram_image = pg.ImageItem(hist_data)
         width = x.max - x.min
         height = y.max - y.min
         histogram_image.setRect(x.min, y.min, width, height)
 
-        if corr_plot is None:
-            corr_plot = self.corr_plot
-        corr_plot.clear()
         corr_plot.addItem(histogram_image)
+
+    def plot_2d(self, d2: DoubleSampleData, corr_plot: pg.PlotItem):
+        x = d2.x
+        y = d2.y
+
         corr_plot.plot(x.raw, y.raw,
-                       symbolBrush=(30, 120, 180),
+                       symbolBrush=(30, 120, 240),
                        symbolPen=(0, 0, 0, 200), symbolSize=6,
                        pen=None)
 
@@ -320,7 +339,8 @@ class PlotWidget(QStackedWidget):
         x2_raw = d3[1].raw
         x3_raw = d3[2].raw
         self.__3d_plot.clear()
-        self.__3d_plot.set(xlabel="$X1$", ylabel="$X2$", zlabel="$X3$")
+        self.__3d_plot.set(
+            xlabel=d3[0].name, ylabel=d3[1].name, zlabel=d3[2].name)
         self.__3d_plot.scatter(x1_raw, x2_raw, x3_raw)
         self.update_3d()
 
@@ -358,6 +378,7 @@ class PlotWidget(QStackedWidget):
         return X3
 
     def plotScatterDiagram(self, dn: list[SamplingData], col):
+        self.set_labels_for_scatter_plot(dn)
         n = len(dn)
         diag_i = 0
         slide_cells = 0
@@ -368,8 +389,10 @@ class PlotWidget(QStackedWidget):
             slide_cells += i
             for j in range(diag_i - n + i + 1, diag_i):
                 d2 = DoubleSampleData(dn[i], dn[(j + slide_cells) % n])
-                self.plot2D(d2, d2.get_histogram_data(col),
-                            self.__scatter_diagram_plots[j])
+                self.__scatter_diagram_plots[j].clear()
+                self.plot_2d_histogam(d2, d2.get_histogram_data(col),
+                                      self.__scatter_diagram_plots[j])
+                self.plot_2d(d2, self.__scatter_diagram_plots[j])
 
     def plotParallelCoordinates(self, dn: list[SamplingData]):
         n = len(dn)
@@ -389,20 +412,48 @@ class PlotWidget(QStackedWidget):
 
         self.__parallel_plot.plot(x_data, y_data,
                                   pen=newPen((0, 0, 255), 1))
+        self.__parallel_plot.setAxisItems(
+            {'bottom': self.create_bottom_axis_for_parallel_plot(dn)})
+
+    def create_bottom_axis_for_parallel_plot(self, dn: list[SamplingData]):
+        x = [s.name for s in dn]
+        xdict = dict(enumerate(x))
+        self.__parallel_x_data = list(xdict.keys())
+        stringaxis = pg.AxisItem(orientation='bottom')
+        stringaxis.setTicks([xdict.items()])
+        return stringaxis
 
     def plotHeatMap(self, dn: SamplingDatas):
-        n = len(dn)
-        self.createHeatmapPlot(n)
-        N = len(dn[0].raw)
+        heatmap_plot = self.create_heatmap_plot(dn)
+
         histogram_image = pg.ImageItem()
         values_image = np.array([s.raw for s in dn.samples])
         for i, row in enumerate(values_image):
             values_image[i] = (row - dn[i].min) / (dn[i].max - dn[i].min)
         histogram_image.setImage(values_image.transpose())
+        n = len(dn)
+        N = len(dn[0].raw)
         histogram_image.setRect(-0.5, -0.5, n, N)
-        self.__heatmap_plot.addItem(histogram_image)
+        heatmap_plot.addItem(histogram_image)
+
+    def create_heatmap_plot(self, dn: SamplingDatas) -> pg.PlotItem:
+        n = len(dn)
+        cols = [f"X{i+1}" for i in range(n)]
+        colsdict = dict(enumerate(cols))
+        colsaxis = pg.AxisItem(orientation='bottom')
+        colsaxis.setTicks([colsdict.items()])
+
+        self.__heatmap_layout.clear()
+        heatmap_plot = self.__heatmap_layout.addPlot(
+            axisItems={'bottom': colsaxis})
+        heatmap_plot.getViewBox().invertY(True)
+        heatmap_plot.getViewBox().setDefaultPadding(0.0)
+
+        N = len(dn[0].raw)
         t = dict((i, f"{i+1}") for i in range(N)).items()
-        self.__heatmap_plot.getAxis("left").setTicks((t, []))
+        heatmap_plot.getAxis("left").setTicks((t, []))
+
+        return heatmap_plot
 
     def plotBubleDiagram(self, dn: list[SamplingData]):
         x_raw = dn[0].raw
@@ -423,7 +474,7 @@ class PlotWidget(QStackedWidget):
         x = dn[0]
         y = dn[1]
         if col == 0:
-            col = SamplingData.calculateM(len(x_raw))
+            col = calculate_m(len(x_raw))
 
         glyph_data_sum = np.zeros((col, col))
         glyph_data_count = np.zeros((col, col), dtype=np.uint8)

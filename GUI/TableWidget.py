@@ -7,7 +7,7 @@ import numpy as np
 class TableWidget(QTableWidget):
     def __init__(self, parent=None, cell_double_clicked=None):
         super().__init__(parent)
-        self.__info_cells_count = 1
+        self.__info_cells_count = 2
         self.selected_indexes = None
 
         self.__selected_row_color = QtGui.QColor(30, 150, 0)
@@ -35,7 +35,9 @@ class TableWidget(QTableWidget):
         self.setRowCount(len(self.datas))
         for s in range(len(self.datas)):
             d = self.datas[s]
-            self.setItem(s, 0, self.create_cell(
+            description = self.get_description(d)
+            self.setItem(s, 0, self.create_cell(description))
+            self.setItem(s, 1, self.create_cell(
                 self.format_sample_description(d)))
             for i, val in enumerate(d.raw):
                 self.setItem(s, i + self.__info_cells_count,
@@ -44,6 +46,9 @@ class TableWidget(QTableWidget):
         self.resizeRowsToContents()
         self.colorize_selections(self.selected_indexes)
         self.colorize_max_min_value()
+
+    def get_description(self, d: SamplingData):
+        return f"{d.name}: {d.discrt_res}"
 
     def format_sample_description(self, d: SamplingData):
         if np.issubdtype(type(d.min), np.integer):

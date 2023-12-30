@@ -8,7 +8,7 @@ class SessionMode1D(SessionMode):
         self.d1_regr_F = None
 
     def create_plot_layout(self):
-        self.plot_widget.create1DPlot()
+        self.plot_widget.show_1d_plot()
 
     def get_active_samples(self) -> SamplingData:
         return self.window.all_datas[self.window.sel_indexes[0]]

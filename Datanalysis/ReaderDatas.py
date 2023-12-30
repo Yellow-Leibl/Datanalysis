@@ -3,9 +3,6 @@ import pandas as pd
 
 
 class ReaderDatas:
-    def __init__(self) -> None:
-        pass
-
     def read_from_text(self, text: list[str]):
         return self.read_vectors_from_txt(text)
 
@@ -17,12 +14,15 @@ class ReaderDatas:
         else:
             return self.read_from_txt(filename)
 
-    def read_from_txt(self, filename: str) -> np.ndarray:
+    def read_from_txt(self, filename: str):
         with open(filename, 'r') as file:
             text = file.readlines()
-        return self.read_vectors_from_txt(text)
+        return self.read_vectors_from_txt(filename, text)
 
-    def read_vectors_from_txt(self, text: list[str]):
+    def read_vectors_from_txt(self,
+                              filename: str,
+                              text: list[str]):
+        filename = filename.split('/')[-1]
         if ',' in text[0]:
             for i, line in enumerate(text):
                 text[i] = line.replace(',', '.')
@@ -32,15 +32,19 @@ class ReaderDatas:
         vectors = np.empty((len(text), n), dtype=float)
         for j, line in enumerate(text):
             vectors[j] = np.fromstring(line, dtype=float, sep=' ')
-        return vectors.transpose()
+        names = [f"{filename}_{i}" for i in range(n)]
+        return names, vectors.transpose()
 
-    def read_from_csv(self, filename: str) -> np.ndarray:
+    def read_from_csv(self, filename: str):
         data = pd.read_csv(filename)
-        for column in data.columns:
+        names = [column for column in data.columns]
+        for i in range(len(data.columns)):
+            column = data.columns[i]
             if type(data[column][0]) is not str:
                 continue
             unique_data = data[column].unique()
             data[column] = data[column].replace(unique_data,
                                                 range(len(unique_data)))
+            names[i] = f"{names[i]}:{unique_data}"
         arr = data.to_numpy()
-        return arr.transpose()
+        return names, arr.transpose()

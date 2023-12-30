@@ -33,7 +33,7 @@ def test_coeficientCorrelation():
     datas.toCalculateCharacteristic()
     print(datas.coeficientOfCorrelation(0, 1, [2]))
     d2 = DoubleSampleData(datas[0], datas[1])
-    d2.pearsonCorrelationСoefficient()
+    d2.pearson_correlation_coefficient()
     print(d2.r)
     print(datas.coeficientOfRangeCorrelation(0, 1, [2]))
     d2 = DoubleSampleData(datas[0], datas[1])

@@ -85,7 +85,7 @@ class ProtocolGenerator:
 
     def xixi_test_1d(data: SamplingData, hist_class, f):
         res = data.xiXiTest(f, hist_class)
-        crits = f"{data.kolmogorov_pz:.5} < {data.xixitest_quant:.5}"
+        crits = f"{data.xixitest_x_2:.5} < {data.xixitest_quant:.5}"
         if res:
             return "Відтворення адекватне за критерієм" \
                 f" Пірсона: {crits}"

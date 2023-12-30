@@ -3,7 +3,7 @@ import math
 
 from Datanalysis import SamplingData, DoubleSampleData
 from Datanalysis.SamplesCriteria import SamplesCriteria
-from Datanalysis.SamplesTools import timer, formRowNV
+from Datanalysis.SamplesTools import timer, formRowNV, calculate_m
 import Datanalysis.functions as func
 
 import logging
@@ -29,9 +29,12 @@ class SamplingDatas(SamplesCriteria):
             s.remove_observations(i)
 
     @timer
-    def append(self, not_ranked_series_str: np.ndarray):
-        for v in not_ranked_series_str:
-            s = SamplingData(v, move_data=True)
+    def append(self, not_ranked_series_str):
+        names, vectors = not_ranked_series_str
+        for i in range(len(names)):
+            s = SamplingData(vectors[i],
+                             move_data=True,
+                             name=names[i])
             s.toRanking()
             s.toCalculateCharacteristic()
             self.append_sample(s)
@@ -86,18 +89,15 @@ class SamplingDatas(SamplesCriteria):
         for i in range(n):
             self.DC[i][i] = self.samples[i].S
             self.R[i][i] = 1.0
-        self.R_Kendala = self.R.copy()
+        self.R_Kendala = None
 
         for i in range(n):
             for j in range(i + 1, n):
                 d2 = DoubleSampleData(self.samples[i], self.samples[j])
-                r = d2.pearsonCorrelationСoefficient()
+                r = d2.pearson_correlation_coefficient()
                 cov = self.samples[i].Sigma * self.samples[j].Sigma * r
                 self.DC[i][j] = self.DC[j][i] = cov
-                self.R[i][j] = self.R[j][i] = d2.r
-                r = d2.get_rank_series()
-                teta_k, _, _ = d2.kendalls_rank_coefficient(r)
-                self.R_Kendala[i][j] = teta_k
+                self.R[i][j] = self.R[j][i] = r
 
         self.r_multi = [self.multipleCorrelationCoefficient(i)
                         for i in range(n)]
@@ -315,7 +315,20 @@ class SamplingDatas(SamplesCriteria):
                 self.partial_r_signif_t_quant)
         return "\n".join(info_protocol)
 
+    def calculate_r_kendala(self):
+        self.R_Kendala = self.R.copy()
+        n = len(self.samples)
+        for i in range(n):
+            for j in range(i + 1, n):
+                d2 = DoubleSampleData(self.samples[i], self.samples[j])
+                r = d2.get_rank_series()
+                teta_k, _, _ = d2.kendalls_rank_coefficient(r)
+                self.R_Kendala[i][j] = teta_k
+
     def coeficientOfRangeCorrelation(self, i, j, cd):
+        if self.R_Kendala is None:
+            self.calculate_r_kendala()
+
         if len(cd) >= 1:
             d = cd[-1]
             c = cd[:-1]
@@ -365,8 +378,7 @@ class SamplingDatas(SamplesCriteria):
     def get_histogram_data(self, column_number=0):
         n = len(self)
         if column_number <= 0:
-            column_number = SamplingData.calculateM(
-                self.getMaxDepthRangeData())
+            column_number = calculate_m(self.getMaxDepthRangeData())
         self.probability_table = np.zeros(
             tuple(column_number for i in range(n)))
         N = self.get_max_len_raw()

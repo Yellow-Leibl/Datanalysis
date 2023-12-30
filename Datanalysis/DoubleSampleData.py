@@ -3,7 +3,7 @@ import numpy as np
 import Datanalysis.functions as func
 from Datanalysis.SamplingData import SamplingData
 from Datanalysis.DoubleSampleRegression import DoubleSampleRegression
-from Datanalysis.SamplesTools import timer, toCalcRankSeries
+from Datanalysis.SamplesTools import timer, toCalcRankSeries, calculate_m
 
 import logging
 logger = logging.getLogger(__name__)
@@ -48,9 +48,9 @@ class DoubleSampleData(DoubleSampleRegression):
         self.trust = trust
 
     @timer
-    def toCalculateCharacteristic(self):
+    def toCalculateCharacteristic(self, range_correlation=True):
         self.x_ = (self.x.x_, self.y.x_)
-        self.pearsonCorrelationСoefficient()
+        self.pearson_correlation_coefficient()
         self.coeficientOfCorrelation()
         try:
             self.rangeCorrelation()
@@ -60,7 +60,7 @@ class DoubleSampleData(DoubleSampleRegression):
         self.linearCorrelationParametrs()
 
     # pair correlation coef
-    def pearsonCorrelationСoefficient(self):
+    def pearson_correlation_coefficient(self):
         N = len(self)
 
         xy_ = 0.0
@@ -70,6 +70,8 @@ class DoubleSampleData(DoubleSampleRegression):
 
         self.r = N / (N - 1) * (xy_ - self.x.x_ * self.y.x_) / (
             self.x.Sigma * self.y.Sigma)
+        if abs(self.r) > 1.0:
+            raise Exception('Error in pearson correlation coefficient')
 
         self.r_signif = self.r * (N - 2) ** 0.5 / (
             1 - self.r ** 2) ** 0.5
@@ -149,7 +151,10 @@ class DoubleSampleData(DoubleSampleRegression):
                       (N[0][1] * N[1][0]) ** 0.5) / (
                      (N[0][0] * N[1][1]) ** 0.5 +
                      (N[0][1] * N[1][0]) ** 0.5)
-        self.ind_Q = 2 * self.ind_Y / (1 + self.ind_Y) ** 2
+        self.ind_Q = (N[0][0] * N[1][1] -
+                      N[0][1] * N[1][0]) / (
+                      N[0][0] * N[1][1] +
+                      N[0][1] * N[1][0])
         if N[0][0] == 0 or N[1][0] == 0 or N[0][1] == 0 or N[1][1] == 0:
             S_Q = math.inf
             S_Y = math.inf
@@ -324,7 +329,9 @@ class DoubleSampleData(DoubleSampleRegression):
         def ry(i): return r[i][1]
 
         def v(i, j):
-            return 1 if ry(i) < ry(j) else (-1 if ry(i) > ry(j) else 0)
+            ryi = ry(i)
+            ryj = ry(j)
+            return 1 if ryi < ryj else (-1 if ryi > ryj else 0)
         S = 0.0
         for i in range(N - 1):
             for j in range(i + 1, N):
@@ -344,7 +351,10 @@ class DoubleSampleData(DoubleSampleRegression):
 
     def get_histogram_data(self, column_number: int = 0):
         if column_number <= 0:
-            column_number = SamplingData.calculateM(len(self.x.raw))
+            column_number = calculate_m(len(self.x.raw))
+            xn_ = len(self.x._x)
+            yn_ = len(self.y._x)
+            column_number = min(column_number, xn_, yn_)
         self.probability_table = np.zeros((column_number, column_number),
                                           dtype=int)
         N = len(self)
