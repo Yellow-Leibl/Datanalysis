@@ -84,11 +84,20 @@ class SamplingDatas(SamplesCriteria):
     @timer
     def toCalculateCharacteristic(self):
         n = len(self.samples)
-        self.DC = np.zeros((n, n))
-        self.R = self.DC.copy()
+        self.DC = np.empty((n, n))
+        self.R = np.empty((n, n))
+
+        # self.DC_stand = np.empty((n, n))
+        # samples_stand = [s.copy() for s in self.samples]
+        # for i in range(n):
+        #     samples_stand[i].to_standardization()
+
         for i in range(n):
             self.DC[i][i] = self.samples[i].S
             self.R[i][i] = 1.0
+
+            # self.DC_stand[i][i] = samples_stand[i].S
+
         self.R_Kendala = None
 
         for i in range(n):
@@ -99,6 +108,9 @@ class SamplingDatas(SamplesCriteria):
                 self.DC[i][j] = self.DC[j][i] = cov
                 self.R[i][j] = self.R[j][i] = r
 
+                # cov_stand = samples_stand[i].S * samples_stand[j].S * r
+                # self.DC_stand[i][j] = self.DC_stand[j][i] = cov_stand
+
         self.r_multi = [self.multipleCorrelationCoefficient(i)
                         for i in range(n)]
 
@@ -107,10 +119,12 @@ class SamplingDatas(SamplesCriteria):
 
     def calculate_pca(self):
         n = len(self.samples)
-        self.DC_eigenval, self.DC_eigenvects = func.EigenvalueJacob(self.DC)
+        self.DC_eigenval, self.DC_eigenvects = \
+            func.EigenvalueJacob(self.DC)
         self.DC_eigenval, self.DC_eigenvects = func.sort_evects_n_evals(
                 self.DC_eigenval, self.DC_eigenvects)
         self.DC_eigenval_part = self.DC_eigenval.copy() / sum(self.DC_eigenval)
+        self.DC_eigenval_part *= 100
         self.DC_eigenval_accum = np.empty(n, dtype=float)
         self.DC_eigenval_accum[0] = self.DC_eigenval_part[0]
         for i in range(1, n):

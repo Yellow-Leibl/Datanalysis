@@ -53,7 +53,7 @@ class Window(WindowLayout):
         if edit_num == 0:
             [self.all_datas[i].toLogarithmus10() for i in self.sel_indexes]
         elif edit_num == 1:
-            [self.all_datas[i].toStandardization() for i in self.sel_indexes]
+            [self.all_datas[i].to_standardization() for i in self.sel_indexes]
         elif edit_num == 2:
             [self.all_datas[i].toCentralization() for i in self.sel_indexes]
         elif edit_num == 3:
@@ -248,7 +248,7 @@ class Window(WindowLayout):
 
     def pca(self):
         if type(self.session) is SessionModeND:
-            self.session.pca(self.pca_number.value())
+            self.session.pca()
 
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index

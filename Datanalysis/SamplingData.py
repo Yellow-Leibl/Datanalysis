@@ -101,7 +101,7 @@ class SamplingData:
 
         nu2 = 0.0
         u2 = u3 = u4 = u5 = u6 = u8 = 0.0
-        for i in np.arange(N):
+        for i in range(N):
             nu2 += self._x[i] ** 2 * self.probabilityX[i]
             x_x_ = self._x[i] - self.x_
             u2 += x_x_ ** 2 * self.probabilityX[i]
@@ -257,7 +257,7 @@ class SamplingData:
     def toExp(self):
         self.setSeries(np.exp(self.raw))
 
-    def toStandardization(self):
+    def to_standardization(self):
         self.setSeries((self.raw - self.x_) / self.Sigma)
 
     def toSlide(self, value):

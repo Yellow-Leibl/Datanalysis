@@ -6,13 +6,13 @@ class ReaderDatas:
     def read_from_text(self, text: list[str]):
         return self.read_vectors_from_txt(text)
 
-    def read_from_file(self, filename: str):
-        last_dot_index = -filename[::-1].index('.')
-        ext_name = filename[last_dot_index:]
+    def read_from_file(self, path: str):
+        last_dot_index = -path[::-1].index('.')
+        ext_name = path[last_dot_index:]
         if ext_name == 'csv':
-            return self.read_from_csv(filename)
+            return self.read_from_csv(path)
         else:
-            return self.read_from_txt(filename)
+            return self.read_from_txt(path)
 
     def read_from_txt(self, filename: str):
         with open(filename, 'r') as file:
@@ -20,9 +20,10 @@ class ReaderDatas:
         return self.read_vectors_from_txt(filename, text)
 
     def read_vectors_from_txt(self,
-                              filename: str,
+                              path: str,
                               text: list[str]):
-        filename = filename.split('/')[-1]
+        filename_with_ext = path.split('/')[-1]
+        filename = filename_with_ext.split('.')[0]
         if ',' in text[0]:
             for i, line in enumerate(text):
                 text[i] = line.replace(',', '.')

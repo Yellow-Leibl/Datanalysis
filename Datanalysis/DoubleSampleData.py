@@ -85,13 +85,13 @@ class DoubleSampleData(DoubleSampleRegression):
         y = []
         N = len(self)
         dx = (self.x.max - self.x.min) / k
-        def x(i): return self.x.min + (i - 0.5) * dx
         xy = [(self.x.raw[i], self.y.raw[i]) for i in range(N)]
         for i in range(1, k + 1):
             yi = []
             rm_i = 0
             for j in range(len(xy)):
-                if x(i) - 0.5 * dx <= xy[j - rm_i][0] <= x(i) + 0.5 * dx:
+                if (self.x.min + (i - 1) * dx <=
+                        xy[j - rm_i][0] <= self.x.min + i * dx):
                     yi.append(xy[j - rm_i][1])
                     xy.pop(j - rm_i)
                     rm_i += 1
@@ -326,16 +326,15 @@ class DoubleSampleData(DoubleSampleRegression):
     def kendalls_rank_coefficient(self, r):
         N = len(self)
 
-        def ry(i): return r[i][1]
-
-        def v(i, j):
-            ryi = ry(i)
-            ryj = ry(j)
-            return 1 if ryi < ryj else (-1 if ryi > ryj else 0)
         S = 0.0
         for i in range(N - 1):
             for j in range(i + 1, N):
-                S += v(i, j)
+                ryi = r[i][1]
+                ryj = r[j][1]
+                if ryi < ryj:
+                    S += 1
+                elif ryi > ryj:
+                    S -= 1
         teta_k = 2 * S / (N * (N - 1))
         teta_k_signif = 3 * teta_k * (N * (N - 1)) ** 0.5 / (
             2 * (2 * N + 5)) ** 0.5

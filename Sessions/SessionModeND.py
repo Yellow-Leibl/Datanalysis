@@ -1,5 +1,6 @@
 from Sessions.SessionMode import SessionMode
 from Datanalysis import SamplingDatas
+from GUI import DialogWindow, SpinBox
 
 
 class SessionModeND(SessionMode):
@@ -47,9 +48,16 @@ class SessionModeND(SessionMode):
         elif func_num == 10:
             return datas.toCreateLinearVariationPlane()
 
-    def pca(self, w):
+    def pca(self):
+        n = len(self.datas_displayed)
+        title = "За кількістю головних компонент"
+        dialog_window = DialogWindow(
+            form_args=[title, SpinBox(min_v=1, max_v=n)])
+        ret = dialog_window.get_vals()
+        w = ret.get(title)
+
         active_samples = self.get_active_samples()
         ind, retn = active_samples.principalComponentAnalysis(w)
         self.window.all_datas.append_samples(ind.samples)
         self.window.all_datas.append_samples(retn.samples)
-        self.window.table.update_table(self.window.all_datas)
+        self.window.table.update_table()

@@ -1,7 +1,6 @@
 from Sessions.SessionMode import SessionMode
 from Datanalysis import SamplingData, TimeSeriesData
-from GUI.DialogWindow import DialogWindow
-from GUI import SpinBox
+from GUI import DialogWindow, SpinBox
 
 
 class SessionModeTimeSeries(SessionMode):

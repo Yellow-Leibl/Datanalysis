@@ -15,8 +15,6 @@ class FeatureArea(QStackedWidget):
         self.__trust_value = DoubleSpinBox(
             parent.update_sample, 0.0, 1.0, 5, 0.05)
 
-        self.pca_number = SpinBox(min_v=2, max_v=99)
-
         self.__spin_box_min_x = DoubleSpinBox(decimals=5)
         self.__spin_box_max_x = DoubleSpinBox(decimals=5)
         self.__remove_anomaly = QPushButton("Видалити аномалії")
@@ -24,9 +22,7 @@ class FeatureArea(QStackedWidget):
 
         form_widget = FormLayout(
             "Кількість класів:", self.__spin_number_column,
-            "Рівень значущості:", self.__trust_value,
-            "", QWidget(),
-            "Кількість перших компонентів для МГК:", self.pca_number)
+            "Рівень значущості:", self.__trust_value)
 
         self.borders = HBoxLayout(QLabel("min"),
                                   self.__spin_box_min_x,
