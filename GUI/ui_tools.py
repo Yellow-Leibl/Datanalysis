@@ -1,12 +1,13 @@
 from PyQt6 import QtWidgets
+import platform
 
 
 def BoxWithObjects(box, *args):
-    addObjects(box, *args)
+    box_with_objects(box, *args)
     return box
 
 
-def addObjects(box: QtWidgets.QBoxLayout, *args):
+def box_with_objects(box: QtWidgets.QBoxLayout, *args):
     for arg in args:
         bases = str(arg.__class__.__bases__)
         type_name = str(arg.__class__.__name__)
@@ -27,13 +28,13 @@ class WidgetWithLayout(QtWidgets.QWidget):
 class VBoxLayout(QtWidgets.QVBoxLayout):
     def __init__(self, *args) -> None:
         super().__init__()
-        addObjects(self, *args)
+        box_with_objects(self, *args)
 
 
 class HBoxLayout(QtWidgets.QHBoxLayout):
     def __init__(self, *args) -> None:
         super().__init__()
-        addObjects(self, *args)
+        box_with_objects(self, *args)
 
 
 class SpinBox(QtWidgets.QSpinBox):
@@ -92,9 +93,10 @@ class TabWidget(QtWidgets.QTabWidget):
 
 
 def get_mono_font_any_os():
-    import platform
     name = platform.system()
-    if name == 'Darwin':
+    if name == "Windows":
+        return "Consolas"
+    elif name == 'Darwin':
         return "Andale Mono"
     else:
         return "Monospace"

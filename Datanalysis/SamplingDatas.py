@@ -1,7 +1,8 @@
 import numpy as np
 import math
 
-from Datanalysis import SamplingData, DoubleSampleData
+from Datanalysis import (
+    SamplingData, DoubleSampleData, PolynomialRegressionModel)
 from Datanalysis.SamplesCriteria import SamplesCriteria
 from Datanalysis.SamplesTools import timer, formRowNV, calculate_m
 import Datanalysis.functions as func
@@ -87,16 +88,9 @@ class SamplingDatas(SamplesCriteria):
         self.DC = np.empty((n, n))
         self.R = np.empty((n, n))
 
-        # self.DC_stand = np.empty((n, n))
-        # samples_stand = [s.copy() for s in self.samples]
-        # for i in range(n):
-        #     samples_stand[i].to_standardization()
-
         for i in range(n):
             self.DC[i][i] = self.samples[i].S
             self.R[i][i] = 1.0
-
-            # self.DC_stand[i][i] = samples_stand[i].S
 
         self.R_Kendala = None
 
@@ -107,9 +101,6 @@ class SamplingDatas(SamplesCriteria):
                 cov = self.samples[i].Sigma * self.samples[j].Sigma * r
                 self.DC[i][j] = self.DC[j][i] = cov
                 self.R[i][j] = self.R[j][i] = r
-
-                # cov_stand = samples_stand[i].S * samples_stand[j].S * r
-                # self.DC_stand[i][j] = self.DC_stand[j][i] = cov_stand
 
         self.r_multi = [self.multipleCorrelationCoefficient(i)
                         for i in range(n)]
@@ -475,7 +466,7 @@ class SamplingDatas(SamplesCriteria):
             s.setSeries(old_raw)
         return self
 
-    def principalComponentAnalysis(self, w):
+    def pca(self, w):
         v_x_ = [s.x_ for s in self.samples]
         independet_sample = self.copy().toIndependet()
         newold_sample = independet_sample.copy().toReturnFromIndependet(w)
@@ -552,7 +543,7 @@ class SamplingDatas(SamplesCriteria):
     def toCreateLinearVariationPlane(self):
         n = len(self)
         m = n - 1
-        _, newold_sample = self.principalComponentAnalysis(m)
+        _, newold_sample = self.pca(m)
         def x(k, i): return newold_sample[k].raw[i]
         N = len(newold_sample[0].raw)
         rand_ind = [np.random.randint(0, N-1)]
@@ -585,3 +576,14 @@ class SamplingDatas(SamplesCriteria):
                        ) + self.line_var_par[m]
 
         return None, line_var_f, None
+
+    def to_create_polynomial_regression(self, degree):
+        model = PolynomialRegressionModel(degree)
+        Y = self.samples[-1].raw
+        X = np.array([s.raw for s in self.samples[:-1]])
+        model.fit(X, Y)
+
+        def f(X):
+            return model.predict(X)
+
+        return None, f, None

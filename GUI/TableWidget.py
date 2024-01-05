@@ -52,9 +52,9 @@ class TableWidget(QTableWidget):
 
     def format_sample_description(self, d: SamplingData):
         if np.issubdtype(type(d.min), np.integer):
-            return f"N={len(d.raw)}, min={d.min}, max={d.max}"
+            return f"N={len(d.raw)}, [{d.min}; {d.max}]"
         else:
-            return f"N={len(d.raw)}, min={d.min:.5}, max={d.max:.5}"
+            return f"N={len(d.raw)}, [{d.min:.5}; {d.max:.5}]"
 
     def format_cell_value(self, val):
         if np.issubdtype(type(val), np.integer):
@@ -102,6 +102,5 @@ class TableWidget(QTableWidget):
         ranges = self.selectedRanges()
         sel_rows = []
         for r in ranges:
-            for i in range(r.topRow(), r.bottomRow() + 1):
-                sel_rows.append(i)
+            sel_rows += [*range(r.topRow(), r.bottomRow() + 1)]
         return sel_rows

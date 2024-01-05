@@ -44,16 +44,12 @@ def formRowNV(name: str, *args) -> str:
 
 
 def timer(function):
-    def wrapper(*args):
+    def wrap(*args, **kwargs):
         t = time()
-        if len(args) == 0:
-            ret = function()
-        else:
-            ret = function(*args)
-        logger.debug(f"{function.__qualname__}"
-                     f"={time() - t}sec")
+        ret = function(*args, **kwargs)
+        logger.debug(f"{function.__qualname__}={time() - t}sec")
         return ret
-    return wrapper
+    return wrap
 
 
 def toCalcRankSeries(x):  # (xl, rx)

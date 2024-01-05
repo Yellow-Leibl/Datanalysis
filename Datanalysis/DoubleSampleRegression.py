@@ -2,6 +2,7 @@ import math
 import numpy as np
 
 from Datanalysis.SamplingData import SamplingData
+from Datanalysis.PolynomialRegressionModel import PolynomialRegressionModel
 from Datanalysis.SamplesTools import MED
 
 import Datanalysis.functions as func
@@ -13,22 +14,10 @@ class DoubleSampleRegression:
         self.y = y
         self.trust = trust
 
-    # DoubleSampleData
+    # implemented in DoubleSampleData class
     def identDispersionBarlet(self, samples, trust: float = 0.05) -> bool:
         print("AbstractMethod")
         raise NotImplementedError
-
-# line regression
-    def initialConditionLine(self) -> bool:
-        if not (self.x.isNormal() and self.y.isNormal()):
-            print("Початкова умова 1 лінійного"
-                  " регресійного аналізу не виконується")
-            if not (self.identDispersionBarlet([self.x, self.y], self.trust)
-                    and self.x.critetionAbbe() and self.y.critetionAbbe()):
-                print("The initial conditions "
-                      "arent correct for linear regression")
-                return False
-        return True
 
     def toCreateLinearRegressionMNK(self):
         b = self.r * self.y.Sigma / self.x.Sigma
@@ -43,13 +32,23 @@ class DoubleSampleRegression:
         return *self.linearTolerantIntervals(f), \
             *self.linearTrustIntervals(f), f
 
+    def initial_condition_for_line_regr(self) -> bool:
+        if not (self.x.is_normal() and self.y.is_normal()):
+            print("Початкова умова 1 лінійного "
+                  "регресійного аналізу не виконується")
+            return False
+
+        if not (self.identDispersionBarlet([self.x, self.y], self.trust)
+                and self.x.critetion_abbe() and self.y.critetion_abbe()):
+            print("Початкова умова 2 лінійного "
+                  "регресійного аналізу не виконується")
+            return False
+
+        return True
+
     def toCreateLinearRegressionMethodTeila(self):
-        if not (self.x.isNormal() and self.y.isNormal() and
-                self.identDispersionBarlet([self.x, self.y], self.trust) and
-                self.x.critetionAbbe() > self.trust and
-                self.y.critetionAbbe() > self.trust):
-            print("The initial conditions arent correct for linear regression")
-            # return
+        if self.initial_condition_for_line_regr():
+            pass
 
         x = self.x.raw.copy()
         y = self.y.raw.copy()
@@ -139,7 +138,6 @@ class DoubleSampleRegression:
 
         return tr_lf, tr_mf, tr_f_lf, tr_f_mf
 
-# parabolic regression
     def toCreateParabolicRegression(self):
         x_ = self.x.x_
         y_ = self.y.x_
@@ -242,9 +240,7 @@ class DoubleSampleRegression:
 
         return tr_lf, tr_mf, tr_f_lf, tr_f_mf
 
-# y = a * exp(b * x)
-
-    def toCreateKvazi8(self):
+    def toCreateKvazi8(self):  # y = a * exp(b * x)
         N = len(self)
         x = self.x.raw
         y = self.y.raw
@@ -348,3 +344,19 @@ class DoubleSampleRegression:
 
         self.R_2 = (1 - S_zal / self.y.Sigma) * 100
         print(f"{self.R_2} {self.r * 100}")
+
+    def to_create_polynomial_regression(self, degree):
+        model = PolynomialRegressionModel(degree)
+        Y = self.y.raw
+        X = self.x.raw
+        model.fit(X, Y)
+
+        def f(X):
+            return model.predict(X)
+
+        def none(X):
+            return None
+
+        ret = [f] * 7
+
+        return ret

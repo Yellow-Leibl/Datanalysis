@@ -8,4 +8,6 @@ from Datanalysis.DoubleSampleData import DoubleSampleData
 from Datanalysis.SamplingDatas import SamplingDatas
 from Datanalysis.TimeSeriesData import TimeSeriesData
 
+from Datanalysis.PolynomialRegressionModel import PolynomialRegressionModel
+
 from Datanalysis.ProtocolGenerator import ProtocolGenerator

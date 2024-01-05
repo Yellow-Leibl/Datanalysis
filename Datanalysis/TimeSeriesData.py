@@ -1,5 +1,5 @@
 from Datanalysis import SamplingData
-from Datanalysis.SamplesTools import MED, static_vars
+from Datanalysis.SamplesTools import MED, static_vars, timer
 import Datanalysis.functions as func
 import math
 import numpy as np
@@ -40,6 +40,7 @@ class TimeSeriesData:
             logger.debug(f"Replaced observations {len(to_del_indexes)}")
         return bool(len(to_del_indexes))
 
+    @timer
     def to_calculate_characteristic(self):
         self.trust = self.sampling_data.trust
         N = len(self.sampling_data.raw)

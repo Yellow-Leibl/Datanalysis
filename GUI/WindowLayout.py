@@ -5,10 +5,10 @@ if __name__ == "__main__":
 import os
 import logging
 
-from PyQt6.QtWidgets import (QMainWindow, QMessageBox, QSplitter,
-                             QFileDialog, QApplication)
+from PyQt6.QtWidgets import (QMessageBox, QSplitter,
+                             QFileDialog)
 from PyQt6.QtCore import Qt
-from PyQt6 import QtGui
+from PyQt6 import QtGui, QtWidgets
 from GUI import (PlotWidget, TableWidget, fill_menu_bar,
                  TextEdit, TabWidget,
                  FeatureArea, BoxWithObjects)
@@ -16,7 +16,7 @@ from GUI import (PlotWidget, TableWidget, fill_menu_bar,
 logging.basicConfig(level=logging.INFO)
 
 
-class WindowLayout(QMainWindow):
+class WindowLayout(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setGeometry(150, 100, 1333, 733)
@@ -50,18 +50,6 @@ class WindowLayout(QMainWindow):
 
         self.setCentralWidget(main_vbox)
         fill_menu_bar(self)
-
-    def get_edit_menu(self):
-        return self.menuBar().actions()[1].menu()
-
-    def get_regr_menu(self):
-        return self.menuBar().actions()[3].menu()
-
-    def get_smth_menu(self):
-        return self.menuBar().actions()[4].menu()
-
-    def index_in_menu(self, menu, act):
-        return menu.actions().index(act)
 
     def nextProtocolTab(self):
         curr_ind = self.tab_info.currentIndex()

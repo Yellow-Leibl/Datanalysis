@@ -10,6 +10,7 @@ class SessionMode:
 
     def set_regression_number(self, number):
         self.selected_regr_num = number
+        self.select_new_sample()
 
     def configure(self):
         self.create_plot_layout()

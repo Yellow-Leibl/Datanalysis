@@ -2,7 +2,7 @@ import sys
 import logging
 import numpy as np
 
-from GUI.WindowLayout import WindowLayout, QApplication
+from GUI.WindowLayout import WindowLayout, QtWidgets
 
 from Sessions import (
     SessionMode, SessionMode1D,
@@ -30,6 +30,8 @@ class Window(WindowLayout):
             self.auto_select(auto_select)
 
     def open_file(self, file: str, is_file_name=True):
+        if file == '':
+            return
         if is_file_name:
             all_vectors = self.reader.read_from_file(file)
         else:
@@ -48,8 +50,7 @@ class Window(WindowLayout):
         self.session.select_new_sample()
         self.table.update_table()
 
-    def edit_sample_event(self):
-        edit_num = self.index_in_menu(self.get_edit_menu(), self.sender())
+    def edit_sample_event(self, edit_num):
         if edit_num == 0:
             [self.all_datas[i].toLogarithmus10() for i in self.sel_indexes]
         elif edit_num == 1:
@@ -127,15 +128,17 @@ class Window(WindowLayout):
         elif update_table:
             self.table.update_table()
 
+    def clear_plot(self):
+        self.set_reproduction_series(-1)
+        self.smooth_series(-1)
+
     def set_reproduction_series(self, regr_num):
         self.session.set_regression_number(regr_num)
-        self.update_sample()
 
-    def smooth_series(self):
+    def smooth_series(self, smth_num):
         if type(self.session) is SessionModeTimeSeries:
-            smth_num = self.index_in_menu(self.get_smth_menu(), self.sender())
             self.session.smooth_time_series(smth_num)
-            self.update_sample()
+            self.session.update_sample()
 
     def ssa(self, ssa_num):
         if type(self.session) is SessionModeTimeSeries:
@@ -174,7 +177,7 @@ class Window(WindowLayout):
             self.are_independent_k_samples(sel, trust)
 
     def critetion_abbe(self, sel, trust: float):
-        P = self.all_datas[sel[0]].critetionAbbe()
+        P = self.all_datas[sel[0]].critetion_abbe()
         if P > trust:
             descr = f"{P:.5} > {trust}\nСпостереження незалежні"
         else:
@@ -233,7 +236,7 @@ class Window(WindowLayout):
             f"Вибрані вибірки:\n{np.array(self.datas_crits)+1}")
 
     def get_failed_norm_test_indexes(self, sel):
-        norm_test = [self.all_datas[i].isNormal() for i in sel]
+        norm_test = [self.all_datas[i].is_normal() for i in sel]
         return np.array([i for i, res in enumerate(norm_test) if not res])
 
     def partial_correlation(self):
@@ -260,8 +263,8 @@ def applicationLoadFromFile(file: str = ''):
     launch_app(file, is_file_name=True)
 
 
-def applicationLoadFromStr(file: str = ''):
-    launch_app(file, is_file_name=False)
+def applicationLoadFromStr(file: str = '', auto_select=None):
+    launch_app(file, is_file_name=False, auto_select=auto_select)
 
 
 def demo_mode_show():
@@ -291,7 +294,7 @@ def demo_mode_course_work():
 
 
 def launch_app(file, is_file_name: bool, auto_select=None):
-    app = QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     widget = Window(file, is_file_name=is_file_name, auto_select=auto_select)
     widget.show()
     sys.exit(app.exec())

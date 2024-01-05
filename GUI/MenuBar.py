@@ -16,13 +16,18 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(file_menu, "Вийти", exit, "Ctrl+Q")
 
     edit_menu = menuBar.addMenu("Редагувати")
-    addAction(edit_menu, "Перетворити", self.edit_sample_event, "Ctrl+T")
-    addAction(edit_menu, "Стандартизувати", self.edit_sample_event, "Ctrl+W")
-    addAction(edit_menu, "Центрувати", self.edit_sample_event, "Ctrl+Shift+W")
-    addAction(edit_menu, "Зсунути", self.edit_sample_event, "Ctrl+P")
-    addAction(edit_menu, "Видалити аномалії", self.edit_sample_event, "Ctrl+A")
-    addAction(edit_menu, "До незалежних величин", self.edit_sample_event,
-              "Ctrl+Y")
+    addAction(edit_menu, "Перетворити",
+              lambda: self.edit_sample_event(0), "Ctrl+T")
+    addAction(edit_menu, "Стандартизувати",
+              lambda: self.edit_sample_event(1), "Ctrl+W")
+    addAction(edit_menu, "Центрувати",
+              lambda: self.edit_sample_event(2), "Ctrl+Shift+W")
+    addAction(edit_menu, "Зсунути",
+              lambda: self.edit_sample_event(3), "Ctrl+P")
+    addAction(edit_menu, "Видалити аномалії",
+              lambda: self.edit_sample_event(4), "Ctrl+A")
+    addAction(edit_menu, "До незалежних величин",
+              lambda: self.edit_sample_event(5), "Ctrl+Y")
     edit_menu.addSeparator()
     addAction(edit_menu, "Клонувати", self.duplicate_sample, "Ctrl+C")
     addAction(edit_menu, "Зобразити розподіл", self.draw_samples, "Ctrl+D")
@@ -35,6 +40,7 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(view_menu, "Наступна вкладка", self.nextProtocolTab, "Alt+Tab")
     addAction(view_menu, "Часовий ряд/Часовий зріз",
               self.change_sample_type_mode, "Alt+T")
+    addAction(view_menu, "Очистити графік", self.clear_plot, "Ctrl+Alt+C")
 
     self.reprod_num = -1
 
@@ -50,11 +56,11 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(regr_menu, "&Арксинус",
               lambda: self.set_reproduction_series(4), "Ctrl+Alt+T")
     regr_menu.addSeparator()
-    addAction(regr_menu, "Лінійна &МНК",
+    addAction(regr_menu, "Лінійна МНК (2D)",
               lambda: self.set_reproduction_series(5), "Ctrl+Alt+Y")
-    addAction(regr_menu, "Лінійна Метод &Тейла",
+    addAction(regr_menu, "Лінійна Метод Тейла",
               lambda: self.set_reproduction_series(6), "Ctrl+Alt+U")
-    addAction(regr_menu, "&Парабола",
+    addAction(regr_menu, "Парабола",
               lambda: self.set_reproduction_series(7), "Ctrl+Alt+I")
     addAction(regr_menu, "Квазілінійна y = a * exp(b * x)",
               lambda: self.set_reproduction_series(8), "Ctrl+Alt+O")
@@ -64,29 +70,27 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(regr_menu, "Лінійне різноманіття",
               lambda: self.set_reproduction_series(10), "Ctrl+Alt+[")
     regr_menu.addSeparator()
-    addAction(regr_menu, "&Очистити",
-              lambda: self.set_reproduction_series(-1), "Ctrl+Alt+C")
+    addAction(regr_menu, "Поліноміальна регресія",
+              lambda: self.set_reproduction_series(11), "Ctrl+Alt+]")
 
     smth_menu = menuBar.addMenu("Згладжування")
     addAction(smth_menu, "Ковзне середнє",
-              self.smooth_series, "Ctrl+Alt+S")
+              lambda: self.smooth_series(0), "Ctrl+Alt+S")
     addAction(smth_menu, "Медіанне",
-              self.smooth_series, "Ctrl+Alt+F")
+              lambda: self.smooth_series(1), "Ctrl+Alt+F")
     addAction(smth_menu, "Просте ковзне середнє  SMA",
-              self.smooth_series, "Ctrl+Alt+G")
+              lambda: self.smooth_series(2), "Ctrl+Alt+G")
     addAction(smth_menu, "Зважене ковзне середнє WMA",
-              self.smooth_series, "Ctrl+Alt+J")
+              lambda: self.smooth_series(3), "Ctrl+Alt+J")
     addAction(smth_menu, "Експоненціальне ковзне середнє EMA",
-              self.smooth_series, "Ctrl+Alt+K")
+              lambda: self.smooth_series(4), "Ctrl+Alt+K")
     addAction(smth_menu, "Подвійне експоненціальне ковзне середнє DMA",
-              self.smooth_series, "Ctrl+Alt+L")
+              lambda: self.smooth_series(5), "Ctrl+Alt+L")
     addAction(smth_menu, "Потрійне експоненціальне ковзне середнє TMA",
-              self.smooth_series, "Ctrl+Alt+;")
-    smth_menu.addSeparator()
-    addAction(smth_menu, "Очистити", self.smooth_series, "Ctrl+Alt+C")
+              lambda: self.smooth_series(6), "Ctrl+Alt+;")
     smth_menu.addSeparator()
     addAction(smth_menu, "Підтвердити згладжування",
-              self.smooth_series, "Ctrl+Alt+A")
+              lambda: self.smooth_series(-2), "Ctrl+Alt+A")
 
     ssa_menu = menuBar.addMenu("Метод Гусені SSA")
     addAction(ssa_menu, "Візуалізувати головні компоненти",

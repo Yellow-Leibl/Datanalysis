@@ -1,5 +1,6 @@
 from Sessions.SessionMode import SessionMode
 from Datanalysis import DoubleSampleData, ProtocolGenerator
+from GUI import DialogWindow, SpinBox
 
 
 class SessionMode2D(SessionMode):
@@ -61,6 +62,16 @@ class SessionMode2D(SessionMode):
             return d_d.toCreateParabolicRegression()
         elif func_num == 8:
             return d_d.toCreateKvazi8()
+        elif func_num == 11:
+            degree = self.get_degree()
+            return d_d.to_create_polynomial_regression(degree)
+
+    def get_degree(self):
+        title = "Введіть степінь полінома"
+        dialog_window = DialogWindow(
+            form_args=[title, SpinBox(min_v=1, max_v=10)])
+        ret = dialog_window.get_vals()
+        return ret.get(title)
 
     def write_critetion(self):
         # TODO: move this into ProtocolGenerator and print it in protocol

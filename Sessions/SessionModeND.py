@@ -47,6 +47,16 @@ class SessionModeND(SessionMode):
             return datas.toCreateLinearRegressionMNK(len(datas) - 1)
         elif func_num == 10:
             return datas.toCreateLinearVariationPlane()
+        elif func_num == 11:
+            degree = self.get_degree()
+            return datas.to_create_polynomial_regression(degree)
+
+    def get_degree(self):
+        title = "Введіть степінь полінома"
+        dialog_window = DialogWindow(
+            form_args=[title, SpinBox(min_v=1, max_v=10)])
+        ret = dialog_window.get_vals()
+        return ret.get(title)
 
     def pca(self):
         n = len(self.datas_displayed)
@@ -57,7 +67,7 @@ class SessionModeND(SessionMode):
         w = ret.get(title)
 
         active_samples = self.get_active_samples()
-        ind, retn = active_samples.principalComponentAnalysis(w)
+        ind, retn = active_samples.pca(w)
         self.window.all_datas.append_samples(ind.samples)
         self.window.all_datas.append_samples(retn.samples)
         self.window.table.update_table()

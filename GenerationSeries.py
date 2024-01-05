@@ -1,17 +1,17 @@
 import random as r
-from time import time
 import numpy as np
 import math
 from main import applicationLoadFromStr
 from Datanalysis import SamplingData
+from Datanalysis.SamplesTools import timer
 
 
-def generateNormal(m=0, sigma=1, N: int = 1000):
+def generate_normal(m=0, sigma=1, N: int = 1000):
     return np.random.normal(m, sigma, N)
 
 
-def generateUniform(N: int = 1000):
-    return np.random.uniform(0, 1, N)
+def generate_uniform(low, high, N: int = 1000):
+    return np.random.uniform(low, high, N)
 
 
 def generateExp(alpha=1, N: int = 1000):
@@ -39,7 +39,7 @@ def generateArcsin(b=1, N=1000):
 
 
 def binaryData(N=1000):
-    sample = generateNormal(N=N)
+    sample = generate_normal(N=N)
     x = SamplingData(sample)
     x.toRanking()
     x.toCalculateCharacteristic()
@@ -47,10 +47,10 @@ def binaryData(N=1000):
     return x.raw
 
 
-def generateLine(m1=0.0, m2=0.0, sigma1=1.0, sigma2=1.0, r_x_y=0.75,
+def generate_line(m1=0.0, m2=0.0, sigma1=1.0, sigma2=1.0, r_x_y=0.75,
                  N=1000):
-    z1 = generateNormal(N=N)
-    z2 = generateNormal(N=N)
+    z1 = generate_normal(N=N)
+    z2 = generate_normal(N=N)
 
     x = [m1 + sigma1 * z1[i] for i in range(N)]
     y = [m2 + sigma2 * (z2[i] * (1 - r_x_y ** 2) ** 0.5 + z1[i] * r_x_y)
@@ -59,18 +59,15 @@ def generateLine(m1=0.0, m2=0.0, sigma1=1.0, sigma2=1.0, r_x_y=0.75,
     return x, y
 
 
-def generate_parable(r: float = 0.01, N: int = 1000):
-    x = generateUniform(N=N)
-    xx = SamplingData(x)
-    xx.toSlide(-0.5)
-    x = xx.raw
-    e = generateNormal(N=N)
-    y = [x[i] ** 2 + r * e[i] - 0.5 for i in range(N)]
+def generate_parable(low, high, a, b, c, sigma, N=1000):
+    x = generate_uniform(low, high, N)
+    e = generate_normal(sigma=sigma, N=N)
+    y = a + b * x + c * x ** 2 + e
     return x, y
 
 
 def generateExp2D(a=1, b=1, N: int = 1000):
-    x = generateUniform(N=N)
+    x = generate_uniform(N=N)
     y = [a * (math.exp(b * xi + r.random()) + r.random()) for xi in x]
     return x, y
 
@@ -85,7 +82,7 @@ def generateMultivariateNormal(E=None, DC=None, n: int = 3, N: int = 1000):
     A = np.zeros((n, n))
     samples = []
     for _ in range(n):
-        samples.append(generateNormal(N=N))
+        samples.append(generate_normal(N=N))
     U = np.array(samples)
     for i in range(n):
         A[i, i] = (DC[i, i] - sum(A[i, w] ** 2 for w in range(i))) ** 0.5
@@ -97,7 +94,7 @@ def generateMultivariateNormal(E=None, DC=None, n: int = 3, N: int = 1000):
 
 
 def generate_time_series(N: int):
-    norm = generateNormal(N=N)
+    norm = generate_normal(N=N)
     time_ser = np.empty(N)
     time_ser[0] = norm[0]
     for i in range(1, N):
@@ -105,15 +102,18 @@ def generate_time_series(N: int):
     return time_ser
 
 
-def generateSample(number_sample: int = 1,
-                   n: int = 1000, vec_n: int = 2,
-                   parameters=None) -> str:
+@timer
+def generate_sample(**parameters) -> str:
+    n = parameters.get('n', 1000)
+    vec_n = parameters.get('vec_n', 2)
+    number_sample = parameters.get('number_sample', 1)
+
     rozp = []
     for i in range(vec_n):
         if number_sample == 1:
-            rozp.append(generateNormal(N=n))
+            rozp.append(generate_normal(N=n))
         elif number_sample == 2:
-            rozp.append(generateUniform(N=n))
+            rozp.append(generate_uniform(N=n))
         elif number_sample == 3:
             rozp.append(generateExp(N=n))
         elif number_sample == 4:
@@ -123,25 +123,29 @@ def generateSample(number_sample: int = 1,
         elif number_sample == 6:
             rozp.append(binaryData(N=n))
         elif number_sample == 7:
-            if len(parameters) == 5:
-                x, y = generateLine(parameters[0], parameters[1],
-                                    parameters[2], parameters[3],
-                                    parameters[4], N=n)
-            else:
-                x, y = generateLine(N=n)
+            n = parameters.get('n', 1000)
+            m1 = parameters.get('m1', 0)
+            m2 = parameters.get('m2', 0)
+            sigma1 = parameters.get('sigma1', 1)
+            sigma2 = parameters.get('sigma2', 1)
+            r_x_y = parameters.get('r_x_y', 0.75)
+            x, y = generate_line(m1, m2, sigma1, sigma2,
+                                 r_x_y, N=n)
             rozp.append(x)
             rozp.append(y)
         elif number_sample == 8:
-            if parameters is not None and len(parameters) == 1:
-                x, y = generate_parable(parameters[0], N=n)
-            else:
-                x, y = generate_parable(N=n)
-            rozp.append(x)
-            rozp.append(y)
+            n = parameters.get('n', 1000)
+            low = parameters.get('low', -5)
+            high = parameters.get('high', 5)
+            a = parameters.get('a', 1)
+            b = parameters.get('b', 1)
+            c = parameters.get('c', 1)
+            sigma = parameters.get('sigma', 1)
+            x, y = generate_parable(low, high, a, b, c, sigma, n)
+            rozp += [x, y]
         elif number_sample == 9:
             x, y = generateExp2D(1, 5, n)
-            rozp.append(x)
-            rozp.append(y)
+            rozp += [x, y]
         elif number_sample == 10:
             x = generateMultivariateNormal(n=vec_n, N=n)
             for i in range(len(x)):
@@ -156,9 +160,6 @@ def generateSample(number_sample: int = 1,
 
 
 if __name__ == "__main__":
-    t1 = time()
-    all_file = generateSample(number_sample=11, vec_n=1, n=200)
-    # with open("norm5n.txt", 'w') as f:
-    #     f.write(all_file)
-    print(f"generation time={time() - t1}")
-    res = applicationLoadFromStr(all_file)
+    all_file = generate_sample(number_sample=8, vec_n=300, n=100,
+                               low=-5, high=5, a=1, b=2, c=3, sigma=2)
+    applicationLoadFromStr(all_file, range(2))

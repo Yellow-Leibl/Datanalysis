@@ -74,9 +74,9 @@ class SessionModeTimeSeries(SessionMode):
         elif num == 6:
             n = self.get_n_for_smooth()
             self.showed_smooth = self.time_series.tma_method(n)
-        elif num == 8:
+        elif num == -1:
             self.remove_all_added_lines()
-        elif num == 10 and self.showed_smooth is not None:
+        elif num == -2 and self.showed_smooth is not None:
             self.time_series.set_series(self.showed_smooth)
             self.remove_all_added_lines()
             self.window.table.update_table()

@@ -4,7 +4,7 @@ import pandas as pd
 
 class ReaderDatas:
     def read_from_text(self, text: list[str]):
-        return self.read_vectors_from_txt(text)
+        return self.read_vectors_from_txt("from_text", text)
 
     def read_from_file(self, path: str):
         last_dot_index = -path[::-1].index('.')

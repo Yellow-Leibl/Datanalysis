@@ -384,7 +384,7 @@ class SamplingData:
 
         return hist_f, lw_limit_F, F, hg_limit_F
 
-    def isNormal(self) -> bool:
+    def is_normal(self) -> bool:
         return self.kolmogorov_test(self.toCreateNormalFunc()[1])
 
     def kolmogorov_test(self, func_reproduction) -> bool:
@@ -465,7 +465,7 @@ class SamplingData:
         hist_list[-1] += self.probabilityX[-1]
         return hist_list
 
-    def critetionAbbe(self) -> float:
+    def critetion_abbe(self) -> float:
         N = len(self.raw)
         d2 = 1 / (N - 1) * sum(
             [(self.raw[i + 1] - self.raw[i]) ** 2 for i in range(N - 1)])
