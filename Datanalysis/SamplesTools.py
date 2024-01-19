@@ -77,7 +77,7 @@ def toCalcRankSeries(x):  # (xl, rx)
     return x
 
 
-def MED(r):
+def median(r):
     N = len(r)
     k = N // 2
     if 2 * k == N:

@@ -16,7 +16,7 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(file_menu, "Вийти", exit, "Ctrl+Q")
 
     edit_menu = menuBar.addMenu("Редагувати")
-    addAction(edit_menu, "Перетворити",
+    addAction(edit_menu, "Логарифмувати",
               lambda: self.edit_sample_event(0), "Ctrl+T")
     addAction(edit_menu, "Стандартизувати",
               lambda: self.edit_sample_event(1), "Ctrl+W")
@@ -28,6 +28,8 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
               lambda: self.edit_sample_event(4), "Ctrl+A")
     addAction(edit_menu, "До незалежних величин",
               lambda: self.edit_sample_event(5), "Ctrl+Y")
+    addAction(edit_menu, "Видалити проміжок",
+              lambda: self.edit_sample_event(6), "")
     edit_menu.addSeparator()
     addAction(edit_menu, "Клонувати", self.duplicate_sample, "Ctrl+C")
     addAction(edit_menu, "Зобразити розподіл", self.draw_samples, "Ctrl+D")
@@ -115,3 +117,11 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
 
     anal_menu = menuBar.addMenu("Компонентний аналіз")
     addAction(anal_menu, "Метод головних компонент", self.pca, "Ctrl+Shift+M")
+
+    clust_menu = menuBar.addMenu("Кластерний аналіз")
+    addAction(clust_menu, "Кластеризація методом k-середніх",
+              self.kmeans, "")
+    addAction(clust_menu, "Кластеризація аглоративним методом",
+              self.agglomerative_clustering, "")
+
+    class_menu = menuBar.addMenu("Класифікація")

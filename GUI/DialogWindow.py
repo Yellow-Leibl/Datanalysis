@@ -34,5 +34,9 @@ class DialogWindow(QtWidgets.QDialog):
     def get_values(self):
         vals = {}
         for i in range(0, len(self.form_list) - 2, 2):
-            vals[self.form_list[i]] = self.form_list[i + 1].value()
+            wid = self.form_list[i + 1]
+            if isinstance(wid, QtWidgets.QComboBox):
+                vals[self.form_list[i]] = wid.currentIndex()
+            else:
+                vals[self.form_list[i]] = self.form_list[i + 1].value()
         return vals

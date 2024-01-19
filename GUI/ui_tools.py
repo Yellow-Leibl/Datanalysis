@@ -69,6 +69,13 @@ class TextEdit(QtWidgets.QTextEdit):
             self.setFontFamily(get_mono_font_any_os())
 
 
+class ComboBox(QtWidgets.QComboBox):
+    def __init__(self, items_n_data: dict) -> None:
+        super().__init__()
+        for key, val in items_n_data.items():
+            self.addItem(key, val)
+
+
 class FormLayout(QtWidgets.QFormLayout):
     def __init__(self, *args) -> None:
         super().__init__()

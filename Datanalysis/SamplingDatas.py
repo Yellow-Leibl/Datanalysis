@@ -3,6 +3,7 @@ import math
 
 from Datanalysis import (
     SamplingData, DoubleSampleData, PolynomialRegressionModel)
+from Datanalysis.cluster import AgglomerativeClustering, KMeans
 from Datanalysis.SamplesCriteria import SamplesCriteria
 from Datanalysis.SamplesTools import timer, formRowNV, calculate_m
 import Datanalysis.functions as func
@@ -17,6 +18,7 @@ class SamplingDatas(SamplesCriteria):
         super().__init__()
         self.append_samples(samples)
         self.trust = trust
+        self.clusters = None
 
     def append_sample(self, s: SamplingData):
         self.samples.append(s)
@@ -25,20 +27,20 @@ class SamplingDatas(SamplesCriteria):
         if samples is not None:
             self.samples += samples
 
-    def remove_observations(self, i: list[int]):
+    def remove_observations(self, i):
         for s in self.samples:
             s.remove_observations(i)
 
+    def remove_range(self, i, a, b):
+        s = self.samples[i].raw
+        self.remove_observations(np.where(np.logical_and(a <= s, s <= b)))
+
     @timer
-    def append(self, not_ranked_series_str):
-        names, vectors = not_ranked_series_str
-        for i in range(len(names)):
-            s = SamplingData(vectors[i],
-                             move_data=True,
-                             name=names[i])
+    def append(self, samples: list[SamplingData]):
+        self.samples += samples
+        for s in samples:
             s.toRanking()
             s.toCalculateCharacteristic()
-            self.append_sample(s)
 
     def copy(self) -> 'SamplingDatas':
         samples = [s.copy() for s in self.samples]
@@ -69,6 +71,21 @@ class SamplingDatas(SamplesCriteria):
     def __iter__(self):
         return iter(self.samples)
 
+    def to_numpy(self):
+        """
+        x1 x2 ... xn\n
+        x1 x2 ... xn\n
+        ............\n
+        x1 x2 ... xn
+        """
+        return np.array([s.raw for s in self.samples]).T
+
+    def get_names(self):
+        return [s.name for s in self.samples]
+
+    def get_ticks(self):
+        return [s.ticks for s in self.samples]
+
     def getMaxDepthRangeData(self) -> int:
         if len(self.samples) == 0:
             return 0
@@ -81,6 +98,15 @@ class SamplingDatas(SamplesCriteria):
 
     def set_trust(self, trust):
         self.trust = trust
+
+    def to_calc_cluster(self, n_clusters):
+        agglom = AgglomerativeClustering(n_clusters)
+        self.clusters = agglom.fit(self.to_numpy())
+        kmeans = KMeans(n_clusters)
+        self.clusters2 = kmeans.fit(self.to_numpy())
+
+    def get_clusters(self):
+        return self.clusters
 
     @timer
     def toCalculateCharacteristic(self):
@@ -265,9 +291,6 @@ class SamplingDatas(SamplesCriteria):
         major_f_ind.sort(key=lambda i: i[1], reverse=True)
         self.fact_mat = evec_redu[:, [major_f_ind[i][0] for i in range(w)]]
 
-        logger.debug(f"Eigen value matrix:\n{eval_redu}")
-        logger.debug(f"Eigen vector matrix:\n{evec_redu}")
-
     def coeficientOfCorrelation(self, i, j, cd):
         if len(cd) >= 1:
             d = cd[-1]
@@ -438,7 +461,7 @@ class SamplingDatas(SamplesCriteria):
         vects = self.DC_eigenvects
         new_serieses = []
         for k in range(n):
-            self[k].toCentralization()
+            self[k].to_centralization()
             new_series = np.zeros(N, dtype=float)
             for i in range(N):
                 for v in range(n):
@@ -470,7 +493,7 @@ class SamplingDatas(SamplesCriteria):
         v_x_ = [s.x_ for s in self.samples]
         independet_sample = self.copy().toIndependet()
         newold_sample = independet_sample.copy().toReturnFromIndependet(w)
-        [s.toSlide(x_) for s, x_ in zip(newold_sample.samples, v_x_)]
+        [s.to_slide(x_) for s, x_ in zip(newold_sample.samples, v_x_)]
         return independet_sample, newold_sample
 
     def toCreateLinearRegressionMNK(self, yi: int):
@@ -583,7 +606,16 @@ class SamplingDatas(SamplesCriteria):
         X = np.array([s.raw for s in self.samples[:-1]])
         model.fit(X, Y)
 
-        def f(X):
-            return model.predict(X)
+        def f(*X):
+            return model.predict(np.array(X))
 
         return None, f, None
+
+    def agglomerative_clustering(self, n_clusters,
+                                 metric='euclidean', linkage='average'):
+        agglom = AgglomerativeClustering(n_clusters, linkage, metric)
+        self.clusters = agglom.fit(self.to_numpy())
+
+    def k_means_clustering(self, n_clusters, init="random"):
+        kmeans = KMeans(n_clusters, init)
+        self.clusters = kmeans.fit(self.to_numpy())

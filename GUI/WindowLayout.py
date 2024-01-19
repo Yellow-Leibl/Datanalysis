@@ -70,6 +70,8 @@ class WindowLayout(QtWidgets.QMainWindow):
 
     def open_file_act(self):
         filename = self.open_file_dialog()
+        if filename == '':
+            return
         self.open_file(filename)
 
     def open_file_dialog(self) -> str:
@@ -78,12 +80,12 @@ class WindowLayout(QtWidgets.QMainWindow):
         return file_name
 
     def save_file_act(self):
-        file_name, _ = QFileDialog().getSaveFileName(
+        filename = self.save_file_dialog()
+        if filename == '':
+            return
+        self.save_file(filename)
+
+    def save_file_dialog(self):
+        file_name, _ = QFileDialog.getSaveFileName(
             self, "Зберегти файл", os.getcwd(), "Bci файли (*)")
-        with open(file_name, 'w') as file:
-            def safe_access(lst: list, i):
-                return str(lst[i]) if len(lst) > i else ''
-            file.write('\n'.join(
-                [' '.join([safe_access(self.all_datas[j].raw, i)
-                           for j in range(len(self.all_datas))])
-                 for i in range(self.all_datas.get_max_len_raw())]))
+        return file_name

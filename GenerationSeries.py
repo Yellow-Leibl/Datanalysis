@@ -48,7 +48,7 @@ def binaryData(N=1000):
 
 
 def generate_line(m1=0.0, m2=0.0, sigma1=1.0, sigma2=1.0, r_x_y=0.75,
-                 N=1000):
+                  N=1000):
     z1 = generate_normal(N=N)
     z2 = generate_normal(N=N)
 
@@ -102,6 +102,13 @@ def generate_time_series(N: int):
     return time_ser
 
 
+def generate_sin_series(N: int):
+    x = np.linspace(-5, 5 * math.pi, N)
+    norm = generate_normal(N=N, m=10, sigma=0.1)
+    y = np.sin(x) + np.cos(x + 2) + norm
+    return y
+
+
 @timer
 def generate_sample(**parameters) -> str:
     n = parameters.get('n', 1000)
@@ -152,7 +159,7 @@ def generate_sample(**parameters) -> str:
                 rozp.append(x[i])
             break
         elif number_sample == 11:
-            rozp.append(generate_time_series(N=n))
+            rozp.append(generate_sin_series(N=n))
 
     return '\n'.join(
         [''.join([str(rozp[j][i]).ljust(24) for j in range(len(rozp))])
@@ -160,6 +167,5 @@ def generate_sample(**parameters) -> str:
 
 
 if __name__ == "__main__":
-    all_file = generate_sample(number_sample=8, vec_n=300, n=100,
-                               low=-5, high=5, a=1, b=2, c=3, sigma=2)
-    applicationLoadFromStr(all_file, range(2))
+    all_file = generate_sample(number_sample=11, vec_n=2, n=800)
+    applicationLoadFromStr(all_file, range(1))

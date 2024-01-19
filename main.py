@@ -3,12 +3,13 @@ import logging
 import numpy as np
 
 from GUI.WindowLayout import WindowLayout, QtWidgets
+from GUI import DialogWindow, DoubleSpinBox, ComboBox
 
 from Sessions import (
     SessionMode, SessionMode1D,
     SessionMode2D, SessionModeND, SessionModeTimeSeries)
 
-from Datanalysis import SamplingDatas, ReaderDatas
+from Datanalysis import SamplingDatas, IODatas
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,7 +23,7 @@ class Window(WindowLayout):
         self.session: SessionMode = None
         self.all_datas = SamplingDatas()
         self.table.set_datas(self.all_datas)
-        self.reader = ReaderDatas()
+        self.io_datas = IODatas()
         self.sel_indexes: list[int] = []
         self.datas_crits: list[list] = []
         self.open_file(file, is_file_name)
@@ -30,13 +31,17 @@ class Window(WindowLayout):
             self.auto_select(auto_select)
 
     def open_file(self, file: str, is_file_name=True):
-        if file == '':
-            return
         if is_file_name:
-            all_vectors = self.reader.read_from_file(file)
+            all_vectors = self.io_datas.read_from_file(file)
         else:
-            all_vectors = self.reader.read_from_text(file.split('\n'))
+            all_vectors = self.io_datas.read_from_text(file.split('\n'))
         self.load_from_data(all_vectors)
+
+    def save_file(self, filename):
+        self.io_datas.save_to_csv(filename,
+                                  self.all_datas.get_names(),
+                                  self.all_datas.get_ticks(),
+                                  self.all_datas.to_numpy())
 
     def load_from_data(self, vectors):
         self.all_datas.append(vectors)
@@ -52,18 +57,50 @@ class Window(WindowLayout):
 
     def edit_sample_event(self, edit_num):
         if edit_num == 0:
-            [self.all_datas[i].toLogarithmus10() for i in self.sel_indexes]
+            [self.all_datas[i].to_log10() for i in self.sel_indexes]
         elif edit_num == 1:
             [self.all_datas[i].to_standardization() for i in self.sel_indexes]
         elif edit_num == 2:
-            [self.all_datas[i].toCentralization() for i in self.sel_indexes]
+            [self.all_datas[i].to_centralization() for i in self.sel_indexes]
         elif edit_num == 3:
-            [self.all_datas[i].toSlide(1.0) for i in self.sel_indexes]
+            slide = self.get_slide()
+            [self.all_datas[i].to_slide(slide) for i in self.sel_indexes]
         elif edit_num == 4:
             self.session.auto_remove_anomalys()
         elif edit_num == 5:
             self.session.to_independent()
+        elif edit_num == 6:
+            i, a, b = self.get_remove_ranges()
+            if i == -1:
+                return
+            self.all_datas.remove_range(i, a, b)
         self.update_sample()
+
+    def get_slide(self):
+        return self.get_double_number("Введіть зсув", 0)
+
+    def get_double_number(self, title: str, default_val=None):
+        dialog_window = DialogWindow(
+            form_args=[title, DoubleSpinBox(min_v=0, max_v=100, val=0)])
+        ret = dialog_window.get_vals()
+        return ret.get(title, default_val)
+
+    def get_remove_ranges(self):
+        title1 = "Виберіть вибірку"
+        title2 = "Введіть початок діапазону"
+        title3 = "Введіть кінець діапазону"
+        items_combobox = {}
+        for i in range(len(self.all_datas)):
+            items_combobox[self.all_datas[i].name] = i
+        dialog_window = DialogWindow(form_args=[
+            title1, ComboBox(items_combobox),
+            title2, DoubleSpinBox(min_v=2.22e-308, max_v=1.79e+308, val=0),
+            title3, DoubleSpinBox(min_v=2.22e-308, max_v=1.79e+308, val=0)])
+        ret = dialog_window.get_vals()
+        i = ret.get(title1, -1)
+        a = ret.get(title2)
+        b = ret.get(title3)
+        return i, a, b
 
     def duplicate_sample(self):
         sel = self.table.get_active_rows()
@@ -253,6 +290,14 @@ class Window(WindowLayout):
         if type(self.session) is SessionModeND:
             self.session.pca()
 
+    def kmeans(self):
+        if type(self.session) is SessionModeND:
+            self.session.kmeans()
+
+    def agglomerative_clustering(self):
+        if type(self.session) is SessionModeND:
+            self.session.agglomerative_clustering()
+
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index
         self.make_session()
@@ -287,10 +332,19 @@ def demo_mode_time_series_show_1():
     launch_app(file, is_file_name=True, auto_select=range(1))
 
 
-def demo_mode_course_work():
-    # file = "data/course/student-mat.csv"
+def demo_mode_course_work_0():
     file = "data/course/CO2 Emissions_Canada.csv"
     launch_app(file, is_file_name=True, auto_select=range(12))
+
+
+def demo_mode_course_work_1():
+    file = "data/course/CO2_removed_an.csv"
+    launch_app(file, is_file_name=True, auto_select=range(11))
+
+
+def demo_mode_classification():
+    file = "data/iris_fish.txt"
+    launch_app(file, is_file_name=True, auto_select=range(3))
 
 
 def launch_app(file, is_file_name: bool, auto_select=None):
@@ -302,4 +356,5 @@ def launch_app(file, is_file_name: bool, auto_select=None):
 
 if __name__ == "__main__":
     # demo_mode_time_series_show_2()
-    demo_mode_course_work()
+    demo_mode_course_work_0()
+    # demo_mode_classification()

@@ -1,7 +1,8 @@
 from Datanalysis import (
-    DoubleSampleData, SamplingDatas, ReaderDatas, PolynomialRegressionModel)
+    DoubleSampleData, SamplingDatas, IODatas, PolynomialRegressionModel)
 from GenerationSeries import generate_sample, generate_parable
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def readFile(file_name: str) -> list[str]:
@@ -9,7 +10,7 @@ def readFile(file_name: str) -> list[str]:
         return file.readlines()
 
 
-reader = ReaderDatas()
+reader = IODatas()
 
 
 def test_calc_characteristic():
@@ -54,7 +55,7 @@ def test_multiplyCoeficient():
     series = reader.read_from_file("data/6har.dat")
     datas.append(series)
     datas.samples = datas.samples[1:]
-    [s.toLogarithmus10() for s in datas.samples]
+    [s.to_log10() for s in datas.samples]
     datas.toCalculateCharacteristic()
     for i in range(len(datas.samples)):
         print(datas.multipleCorrelationCoefficient(i))
@@ -133,7 +134,45 @@ def get_accuracy(model, x_train, y_train, x_test, y_test):
     return acc_train, acc_test
 
 
+def test_classificator():
+    sd = SamplingDatas()
+    sd.append(reader.read_from_file('data/iris_fish.txt'))
+
+    sd.toCalculateCharacteristic()
+    cluster1 = list(sd.clusters[0])
+    cluster2 = list(sd.clusters[1])
+    x1 = sd.samples[2].raw[cluster1]
+    y1 = sd.samples[1].raw[cluster1]
+
+    x2 = sd.samples[2].raw[cluster2]
+    y2 = sd.samples[1].raw[cluster2]
+    # plt.scatter(x1, y1)
+    # plt.scatter(x2, y2)
+    # plt.show()
+
+    cluster1 = sd.clusters2[0]
+    cluster2 = sd.clusters2[1]
+    x1 = cluster1.T[2]
+    y1 = cluster1.T[1]
+
+    x2 = cluster2.T[2]
+    y2 = cluster2.T[1]
+    plt.scatter(x1, y1)
+    plt.scatter(x2, y2)
+    plt.show()
+
+
 # test_calc_characteristic()
 # test_coeficientCorrelation()
 # test_multiplyCoeficient()
-test_ai_train_example()
+# test_ai_train_example()
+# test_classificator()
+
+
+# read lines from file and save with numeration as (1 line\n2 line\n...)
+
+lines = readFile("data/self/kaggle_example_200.txt")
+for i in range(len(lines)):
+    lines[i] = f"{i} {lines[i]}"
+with open("data/self/kaggle_example_200.txt", 'w') as file:
+    file.writelines(lines)

@@ -23,14 +23,13 @@ class PlotWidget(QStackedWidget):
     def __init__(self) -> None:
         super().__init__()
         self.cache_graphics = [False] * 7
+
+        self.__parallel_plot = PlotParallelWidget()
+        self.__3d_plot = Plot3dWidget()
+
         #  1D & 2D
         __2d_widget = pg.GraphicsLayoutWidget()
         self.__2d_layout = __2d_widget.ci
-        #  3D
-        __3d_figure = Figure()
-        self.update_3d = lambda: __3d_figure.canvas.draw()
-        __3d_widget = FigureCanvasQTAgg(__3d_figure)
-        self.__3d_plot: plt.Axes = __3d_figure.add_subplot(projection='3d')
         #  Diagnostic diagram
         __E_widget = pg.GraphicsLayoutWidget()
         self.__diagnostic_plot = __E_widget.ci.addPlot(
@@ -39,9 +38,6 @@ class PlotWidget(QStackedWidget):
         #  Scatter diagram
         __scatter_widget = pg.GraphicsLayoutWidget()
         self.__scatter_diagram_layout = __scatter_widget.ci
-        #  Parallel coordinates
-        __parallel_widget = pg.GraphicsLayoutWidget()
-        self.__parallel_layout = __parallel_widget.ci
         #  Heat map
         __heatmap_widget = pg.GraphicsLayoutWidget()
         self.__heatmap_layout = __heatmap_widget.ci
@@ -60,8 +56,8 @@ class PlotWidget(QStackedWidget):
         self.__nd_widget.addTab(__E_widget, "Діагностична діаграма")
         self.__nd_widget.addTab(__scatter_widget, "Діаграма розкиду")
         self.__nd_widget.addTab(__heatmap_widget, "Теплова карта")
-        self.__nd_widget.addTab(__parallel_widget, "Паралельні координати")
-        self.__nd_widget.addTab(__3d_widget, "3-вимірний простір")
+        self.__nd_widget.addTab(self.__parallel_plot, "Паралельні координати")
+        self.__nd_widget.addTab(self.__3d_plot, "3-вимірний простір")
         self.__nd_widget.addTab(__buble_widget, "Бульбашкова діаграма")
         self.__nd_widget.addTab(__glyph_widget, "Гліф діаграма")
         self.__nd_widget.setCurrentIndex(3)
@@ -132,7 +128,6 @@ class PlotWidget(QStackedWidget):
         else:
             self.set_disabled_3d()
         self.create_scatter_plot(n)
-        self.create_parallel_plot(n)
         self.setCurrentIndex(1)
 
     def create_scatter_plot(self, n):
@@ -174,18 +169,6 @@ class PlotWidget(QStackedWidget):
                     plot_item.showAxis("bottom")
                     plot_item.getAxis("bottom").setStyle(tickFont=font)
                 plot_item.setLabels(**labels)
-
-    def create_parallel_plot(self, n):
-        x = [f"X{i+1}" for i in range(n)]
-        xdict = dict(enumerate(x))
-        self.__parallel_x_data = list(xdict.keys())
-        stringaxis = pg.AxisItem(orientation='bottom')
-        stringaxis.setTicks([xdict.items()])
-
-        self.__parallel_layout.clear()
-        self.__parallel_plot = self.__parallel_layout.addPlot(
-            labels={"left": "Умовні величини"},
-            axisItems={'bottom': stringaxis})
 
     #
     #  Plotting
@@ -335,19 +318,17 @@ class PlotWidget(QStackedWidget):
         self.corr_plot.plot(x, f(x), pen=newPen((255, 0, 0), 3))
 
     def plot3D(self, d3: SamplingDatas):
-        x1_raw = d3[0].raw
-        x2_raw = d3[1].raw
-        x3_raw = d3[2].raw
-        self.__3d_plot.clear()
-        self.__3d_plot.set(
-            xlabel=d3[0].name, ylabel=d3[1].name, zlabel=d3[2].name)
-        self.__3d_plot.scatter(x1_raw, x2_raw, x3_raw)
-        self.update_3d()
+        X1 = d3[0].raw
+        X2 = d3[1].raw
+        X3 = d3[2].raw
+        names = [d3[i].name for i in range(3)]
+        self.__3d_plot.plot_observers(X1, X2, X3, names)
 
     def plotDiagnosticDiagram(self, dn: SamplingDatas, tr_l_f, f, tr_m_f):
         Y = dn[-1].raw
         X = [d.raw for d in dn[:-1]]
-        self.__diagnostic_plot.plot(Y, Y - f(*X),
+        E = Y - f(*X)
+        self.__diagnostic_plot.plot(Y, E,
                                     symbolBrush=(30, 120, 180),
                                     symbolPen=(0, 0, 0, 200),
                                     symbolSize=7, pen=None)
@@ -358,24 +339,8 @@ class PlotWidget(QStackedWidget):
     def plot3DReproduction(self, d3: SamplingDatas, tr_l_f, f, tr_m_f):
         x1 = d3[0]
         x2 = d3[1]
-        x1_lin = np.linspace(x1.min, x1.max, 2)
-        x2_lin = np.linspace(x2.min, x2.max, 2)
-        X1, X2 = np.meshgrid(x1_lin, x2_lin)
-        X3 = self.__make_plane_mesh(X1, X2, f)
-        self.__3d_plot.plot_surface(X1, X2, X3, alpha=0.65, color='red')
-        if tr_l_f is not None:
-            X3_l = self.__make_plane_mesh(X1, X2, tr_l_f)
-            X3_m = self.__make_plane_mesh(X1, X2, tr_m_f)
-            self.__3d_plot.plot_surface(
-                X1, X2, X3_l, alpha=0.25, color='purple')
-            self.__3d_plot.plot_surface(
-                X1, X2, X3_m, alpha=0.25, color='purple')
-        self.update_3d()
-
-    def __make_plane_mesh(self, X1, X2, f):
-        x3 = np.array(f(np.ravel(X1), np.ravel(X2)))
-        X3 = x3.reshape(X1.shape)
-        return X3
+        self.__3d_plot.plot_regression(x1.min, x1.max, x2.min, x2.max,
+                                       tr_l_f, f, tr_m_f)
 
     def plotScatterDiagram(self, dn: list[SamplingData], col):
         self.set_labels_for_scatter_plot(dn)
@@ -394,34 +359,16 @@ class PlotWidget(QStackedWidget):
                                       self.__scatter_diagram_plots[j])
                 self.plot_2d(d2, self.__scatter_diagram_plots[j])
 
-    def plotParallelCoordinates(self, dn: list[SamplingData]):
-        n = len(dn)
-        N = len(dn[0].raw)
-
-        def tr2v(d: SamplingData, i):
-            return (d.raw[i] - d.min) / (
-                d.max - d.min)
-        self.__parallel_plot.clear()
-        x_data = []
-        y_data = []
-        for i in range(N):
-            x_data += self.__parallel_x_data
-            y_data += [tr2v(dn[j], i) for j in range(n)]
-            x_data += self.__parallel_x_data[-2::-1]
-            y_data += [tr2v(dn[j], i) for j in range(n - 2, -1, -1)]
-
-        self.__parallel_plot.plot(x_data, y_data,
-                                  pen=newPen((0, 0, 255), 1))
-        self.__parallel_plot.setAxisItems(
-            {'bottom': self.create_bottom_axis_for_parallel_plot(dn)})
-
-    def create_bottom_axis_for_parallel_plot(self, dn: list[SamplingData]):
-        x = [s.name for s in dn]
-        xdict = dict(enumerate(x))
-        self.__parallel_x_data = list(xdict.keys())
-        stringaxis = pg.AxisItem(orientation='bottom')
-        stringaxis.setTicks([xdict.items()])
-        return stringaxis
+    def plotParallelCoordinates(self, dn: SamplingDatas):
+        self.__parallel_plot.clear_plot()
+        self.__parallel_plot.set_labels(dn.get_names())
+        # clusters = dn.get_clusters()
+        # if clusters is None:
+        self.__parallel_plot.plot_observers(dn.to_numpy().T)
+        # else:
+        #     x = dn.to_numpy()
+        #     for cluster in clusters:
+        #         self.__parallel_plot.plot_observers(x[cluster])
 
     def plotHeatMap(self, dn: SamplingDatas):
         heatmap_plot = self.create_heatmap_plot(dn)
@@ -527,7 +474,7 @@ class PlotWidget(QStackedWidget):
         if index == 2:
             self.plotHeatMap(self.datas)
         if index == 3:
-            self.plotParallelCoordinates(self.datas.samples)
+            self.plotParallelCoordinates(self.datas)
         if index == 4:
             self.plot3D(self.datas)
         if index == 5:
@@ -540,8 +487,87 @@ def newPen(color, width):
     return {'color': color, 'width': width}
 
 
+class Plot3dWidget(FigureCanvasQTAgg):
+    def __init__(self):
+        self.figure = Figure()
+        super().__init__(self.figure)
+        self.__ax: plt.Axes = self.figure.add_subplot(projection='3d')
+
+    def clear_plot(self):
+        self.__ax.clear()
+
+    def __update_plot(self):
+        self.figure.canvas.draw()
+
+    def plot_observers(self, X1, X2, X3, names):
+        self.clear_plot()
+
+        self.__ax.set(xlabel=names[0], ylabel=names[1], zlabel=names[2])
+        self.__ax.scatter(X1, X2, X3)
+        self.__update_plot()
+
+    def plot_regression(self, x1_min, x1_max, x2_min, x2_max,
+                        tr_l_f, f, tr_m_f):
+        x1_lin = np.linspace(x1_min, x1_max, 50)
+        x2_lin = np.linspace(x2_min, x2_max, 50)
+        X1, X2 = np.meshgrid(x1_lin, x2_lin)
+
+        X3 = self.__make_plane_mesh(X1, X2, f)
+        self.__ax.plot_surface(X1, X2, X3, alpha=0.65, color='red')
+
+        if tr_l_f is not None:
+            X3_l = self.__make_plane_mesh(X1, X2, tr_l_f)
+            self.__ax.plot_surface(
+                X1, X2, X3_l, alpha=0.25, color='purple')
+        if tr_m_f is not None:
+            X3_m = self.__make_plane_mesh(X1, X2, tr_m_f)
+            self.__ax.plot_surface(
+                X1, X2, X3_m, alpha=0.25, color='purple')
+
+        self.__update_plot()
+
+    def __make_plane_mesh(self, X1, X2, f):
+        x3 = np.array(f(np.ravel(X1), np.ravel(X2)))
+        X3 = x3.reshape(X1.shape)
+        return X3
+
+
+class PlotParallelWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        self.__ax: pg.PlotItem = self.ci.addPlot()
+        off_warning_for_pyqtgraph(self)
+
+    def set_labels(self, names):
+        xdict = dict(enumerate(names))
+        ax: pg.AxisItem = self.__ax.getAxis("bottom")
+        ax.setTicks([xdict.items()])
+
+        self.__ax.setLabel("left", "Умовні величини")
+
+    def clear_plot(self):
+        self.__ax.clear()
+
+    def plot_observers(self, X: np.ndarray):
+        n, N = X.shape
+
+        def tr2v(x: np.ndarray, i):
+            return (x[i] - x.min()) / (x.max() - x.min())
+
+        x_indexes = list(range(n))
+        x_data = []
+        y_data = []
+        for i in range(N):
+            x_data += x_indexes
+            y_data += [tr2v(X[j], i) for j in range(n)]
+            x_data += x_indexes[-2::-1]
+            y_data += [tr2v(X[j], i) for j in range(n - 2, -1, -1)]
+
+        self.__ax.plot(x_data, y_data, pen=newPen((0, 0, 255), 1))
+
+
 unique_colors = [
-    "#000000", "#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941",
+    "#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941",
     "#006FA6", "#A30059", "#FFDBE5", "#7A4900", "#0000A6", "#63FFAC",
     "#B79762", "#004D43", "#8FB0FF", "#997D87", "#5A0007", "#809693",
     "#FEFFE6", "#1B4400", "#4FC601", "#3B5DFF", "#4A3B53", "#FF2F80",

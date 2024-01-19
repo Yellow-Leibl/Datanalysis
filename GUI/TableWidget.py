@@ -33,22 +33,27 @@ class TableWidget(QTableWidget):
         self.setColumnCount(self.datas.get_max_len_raw()
                             + self.__info_cells_count)
         self.setRowCount(len(self.datas))
-        for s in range(len(self.datas)):
-            d = self.datas[s]
-            description = self.get_description(d)
-            self.setItem(s, 0, self.create_cell(description))
-            self.setItem(s, 1, self.create_cell(
-                self.format_sample_description(d)))
-            for i, val in enumerate(d.raw):
-                self.setItem(s, i + self.__info_cells_count,
-                             self.create_cell(self.format_cell_value(val)))
+        for i in range(len(self.datas)):
+            d = self.datas[i]
+            self.fill_row(i, d)
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.colorize_selections(self.selected_indexes)
         self.colorize_max_min_value()
 
+    def fill_row(self, i, d: SamplingData):
+        self.setItem(i, 0, self.create_cell(self.get_description(d)))
+        self.setItem(i, 1, self.create_cell(self.format_sample_description(d)))
+        for j, val in enumerate(d.raw):
+            if d.ticks is not None:
+                val = d.ticks[int(val)]
+            self.setItem(i, j + self.__info_cells_count,
+                         self.create_cell(self.format_cell_value(val)))
+
     def get_description(self, d: SamplingData):
-        return f"{d.name}: {d.discrt_res}"
+        if d.ticks is None:
+            return d.name
+        return f"{d.name}: {np.array(d.ticks)}"
 
     def format_sample_description(self, d: SamplingData):
         if np.issubdtype(type(d.min), np.integer):
@@ -57,7 +62,7 @@ class TableWidget(QTableWidget):
             return f"N={len(d.raw)}, [{d.min:.5}; {d.max:.5}]"
 
     def format_cell_value(self, val):
-        if np.issubdtype(type(val), np.integer):
+        if np.issubdtype(type(val), np.integer) or type(val) is str:
             return f"{val}"
         else:
             return f"{val:.5}"

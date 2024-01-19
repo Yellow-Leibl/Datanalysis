@@ -13,12 +13,20 @@ class PolynomialRegressionModel:
 
     def predict(self, X):
         X_poly = self.__polynomial_features(X)
-        return X_poly.dot(self.theta)
+        return X_poly @ self.theta
 
-    def __polynomial_features(self, X):
-        X_poly = np.ones((len(X), 1))
+    def __polynomial_features(self, X: np.ndarray):
+        m = 1
+        n = len(X)
+        if len(X.shape) == 2:
+            m = X.shape[0]
+            n = X.shape[1]
+        X_poly = np.ones((n, 1))
         for i in range(1, self.degree + 1):
-            X_poly = np.c_[X_poly, np.power(X, i)]
+            if m > 1:
+                X_poly = np.concatenate((X_poly, np.power(X.T, i)), axis=1)
+            else:
+                X_poly = np.c_[X_poly, np.power(X, i)]
         return X_poly
 
     def __normal_equation(self, X: np.ndarray, y: np.ndarray):

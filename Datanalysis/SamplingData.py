@@ -8,19 +8,15 @@ from Datanalysis.functions import (
     FWeibull, fWeibull, fWeibull_d_alpha, fWeibull_d_beta,
     FExp, fExp, fExp_d_lamda,
     DF1Parametr, DF2Parametr)
-from Datanalysis.SamplesTools import MED, calculate_m
+from Datanalysis.SamplesTools import median, calculate_m
 from copy import deepcopy
 
 
 class SamplingData:
     def __init__(self, not_ranked_series_x: np.ndarray, trust: float = 0.05,
-                 move_data=False, name=''):
-        name_and_discrt_res = name.split(':')
-        self.name = name_and_discrt_res[0]
-        if len(name_and_discrt_res) > 1:
-            self.discrt_res = name_and_discrt_res[1]
-        else:
-            self.discrt_res = ""
+                 move_data=False, name='', ticks=None):
+        self.name = name
+        self.ticks = ticks
         self.trust = trust
         self.set_data(not_ranked_series_x, move_data)
         self.init_characteristic()
@@ -55,7 +51,7 @@ class SamplingData:
     def __getitem__(self, i: int) -> float:
         return self._x[i]
 
-    def remove_observations(self, i: list[int]):
+    def remove_observations(self, i):
         self.setSeries(np.delete(self.raw, i))
 
     def copy(self):
@@ -84,7 +80,7 @@ class SamplingData:
         self.min = self._x[0]
         self.max = self._x[-1]
 
-        self.MED = MED(self._x)
+        self.MED = median(self._x)
         self.MAD = 1.483 * self.MED
 
         k = int(self.trust * N)
@@ -202,7 +198,7 @@ class SamplingData:
                 xl[ll] = 0.5 * (self._x[i] * self._x[j])
                 ll += 1
 
-        return MED(xl)
+        return median(xl)
 
     def setSeries(self, not_ranked_series_x: np.ndarray):
         self.set_data(not_ranked_series_x, False)
@@ -251,8 +247,11 @@ class SamplingData:
             self.setSeries(np.array(raw_x))
         return is_item_del
 
-    def toLogarithmus10(self):
-        self.setSeries(np.log10(self.raw))
+    def to_log10(self):
+        self.to_log(10)
+
+    def to_log(self, base):
+        self.setSeries(np.emath.logn(base, self.raw))
 
     def toExp(self):
         self.setSeries(np.exp(self.raw))
@@ -260,7 +259,7 @@ class SamplingData:
     def to_standardization(self):
         self.setSeries((self.raw - self.x_) / self.Sigma)
 
-    def toSlide(self, value):
+    def to_slide(self, value):
         self.setSeries(self.raw + value)
 
     def toMultiply(self, value):
@@ -272,8 +271,8 @@ class SamplingData:
     def toTransform(self, f_tr):
         self.setSeries(f_tr(self.raw))
 
-    def toCentralization(self):
-        self.toSlide(-self.x_)
+    def to_centralization(self):
+        self.to_slide(-self.x_)
 # end edit
 
     def toCreateNormalFunc(self) -> tuple:

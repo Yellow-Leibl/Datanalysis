@@ -1,6 +1,6 @@
 from Sessions.SessionMode import SessionMode
 from Datanalysis import SamplingDatas
-from GUI import DialogWindow, SpinBox
+from GUI import DialogWindow, SpinBox, ComboBox
 
 
 class SessionModeND(SessionMode):
@@ -71,3 +71,45 @@ class SessionModeND(SessionMode):
         self.window.all_datas.append_samples(ind.samples)
         self.window.all_datas.append_samples(retn.samples)
         self.window.table.update_table()
+
+    def kmeans(self):
+        title = "Введіть кількість кластерів"
+        N = len(self.datas_displayed)
+        dialog_window = DialogWindow(
+            form_args=[title, SpinBox(min_v=1, max_v=N-1)])
+        ret = dialog_window.get_vals()
+        k = ret.get(title)
+
+        active_samples = self.get_active_samples()
+        active_samples.k_means_clustering(k)
+
+    def agglomerative_clustering(self):
+        k, metric, linkage = self.get_agglomerative_parameters()
+        active_samples = self.get_active_samples()
+        active_samples.agglomerative_clustering(k, metric, linkage)
+
+    def get_agglomerative_parameters(self):
+        title1 = "Введіть кількість кластерів"
+        title2 = "Відстань між об'єктами"
+        title3 = "Відстань між кластерами"
+        metrics = {"Евклідова": "euclidean", "Манхеттенська": "manhattan",
+                   "Чебишева": "chebyshev", "Мінковського": "minkowski",
+                   "Махаланобіса": "mahalanobis"
+                   }
+        linkage = {"Найближчого сусіда": "nearest",
+                   "Найвіддаленішого сусіда": "furthest",
+                   "Зваженого середнього": "average",
+                   "Незваженого середнього": "unweighted",
+                   "Медіанного": "median",
+                   "Центроїдного": "centroid",
+                   "Уорда": "wards"
+                   }
+        dialog_window = DialogWindow(
+            form_args=[title1, SpinBox(min_v=1, max_v=50),
+                       title2, ComboBox(metrics),
+                       title3, ComboBox(linkage)])
+        ret = dialog_window.get_vals()
+        k = ret.get(title1)
+        metric = ret.get(title2)
+        linkage = ret.get(title3)
+        return k, metric, linkage

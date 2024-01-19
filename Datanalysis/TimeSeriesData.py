@@ -1,5 +1,5 @@
 from Datanalysis import SamplingData
-from Datanalysis.SamplesTools import MED, static_vars, timer
+from Datanalysis.SamplesTools import median, static_vars, timer
 import Datanalysis.functions as func
 import math
 import numpy as np
@@ -96,7 +96,7 @@ class TimeSeriesData:
 
     def series_criterion_for_trend(self):
         N = len(self.x)
-        x_m = MED(self.x)
+        x_m = median(self.x)
 
         nu_N = 0
         d_N = 0
@@ -405,7 +405,8 @@ class TimeSeriesData:
 
             X, V = self.ssa_reproduction_trajectory_matrix(A, Y, n_components)
 
-            X = self.ssa_append_forecasting_vector(V, X)
+            x = self.ssa_get_forecasting_vector(A, X)
+            X = np.c_[X, x]
 
             p = ssa_diagonal_averaging(X)
 
@@ -441,17 +442,17 @@ class TimeSeriesData:
         X = V @ Y
         return X, V
 
-    def ssa_append_forecasting_vector(self,
-                                      A: np.ndarray,
-                                      X: np.ndarray) -> np.ndarray:
+    def ssa_get_forecasting_vector(self,
+                                   A: np.ndarray,
+                                   X: np.ndarray) -> np.ndarray:
         a = A[:-1, :-1]
         b = X[1:, -1]
-        y = func.gauss_method(a, b)
+        y = np.linalg.inv(a) @ b
         p_forecast = 0.0
         for v in range(len(y)):
             p_forecast += A[-1, v] * y[v]
         last_x = np.append(b, p_forecast)
-        return np.c_[X, last_x]
+        return last_x
 
 
 def ssa_eigen_vectors(X: np.ndarray):

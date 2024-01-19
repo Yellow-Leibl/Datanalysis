@@ -3,7 +3,7 @@ import numpy as np
 
 from Datanalysis.SamplingData import SamplingData
 from Datanalysis.PolynomialRegressionModel import PolynomialRegressionModel
-from Datanalysis.SamplesTools import MED
+from Datanalysis.SamplesTools import median
 
 import Datanalysis.functions as func
 
@@ -62,12 +62,12 @@ class DoubleSampleRegression:
             for j in np.arange(i + 1, N):
                 b_l[ll] = (y[i] - y[j]) / (x[i] - x[j])
                 ll += 1
-        b = MED(b_l)
+        b = median(b_l)
 
         a_l = np.empty(N, dtype=float)
         for i in range(N):
             a_l[i] = y[i] - b * x[i]
-        a = MED(a_l)
+        a = median(a_l)
 
         self.line_a = a
         self.line_b = b
