@@ -76,6 +76,8 @@ class SamplingData:
 
     def toCalculateCharacteristic(self, MED_Walsh=True):
         N = len(self._x)
+        if N == 0 or N == 1:
+            return
 
         self.min = self._x[0]
         self.max = self._x[-1]
@@ -191,6 +193,8 @@ class SamplingData:
 
     def toCalcMEDWalsh(self):
         N = len(self._x)
+        if N < 2:
+            return self._x[0]
         xl = np.empty(N * (N - 1) // 2, dtype=float)
         ll = 0
         for i in np.arange(N):

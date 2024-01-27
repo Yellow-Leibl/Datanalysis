@@ -10,6 +10,7 @@ from Sessions import (
     SessionMode2D, SessionModeND, SessionModeTimeSeries)
 
 from Datanalysis import SamplingDatas, IODatas
+from Datanalysis.SamplesTools import timer
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,6 +48,7 @@ class Window(WindowLayout):
         self.all_datas.append(vectors)
         self.table.update_table()
 
+    @timer
     def select_new_sample(self):
         self.session.select_new_sample()
         self.table.select_rows(self.sel_indexes)
@@ -108,10 +110,6 @@ class Window(WindowLayout):
             self.all_datas.append_sample(self.all_datas[i].copy())
         self.table.update_table()
 
-    def remove_anomaly_with_range(self):
-        if type(self.session) is SessionMode1D:
-            self.session.remove_anomaly_with_range()
-
     def draw_samples(self):
         sel = self.table.get_active_rows()
         if len(sel) == 0 or sel == self.sel_indexes:
@@ -142,6 +140,27 @@ class Window(WindowLayout):
         if type(self.session) is SessionModeTimeSeries:
             self.session.remove_trend()
             self.update_sample()
+
+    def rename_sample(self):
+        sel = self.table.get_active_rows()
+        if len(sel) != 1:
+            return
+        d = self.all_datas[sel[0]]
+        new_name = self.get_name_dialog(d.name)
+        if new_name != "":
+            self.all_datas[sel[0]].name = new_name
+            if sel[0] in self.sel_indexes:
+                self.update_sample()
+            else:
+                self.table.update_table()
+
+    def get_name_dialog(self, old_name):
+        title = "Введіть нове ім'я"
+        dialog_window = DialogWindow(
+            form_args=[title, QtWidgets.QLineEdit(old_name)],
+            size=(600, 100))
+        ret = dialog_window.get_vals()
+        return ret.get(title, "")
 
     def configure_session(self):
         self.session.configure()
@@ -246,6 +265,7 @@ class Window(WindowLayout):
 
     def confirm_homogeneity(self):
         if len(self.datas_crits) < 2:
+            self.datas_crits = []
             return
         text = self.all_datas.homogeneityProtocol(
             [[self.all_datas[j] for j in i] for i in self.datas_crits])
@@ -256,8 +276,9 @@ class Window(WindowLayout):
         if sel in self.datas_crits:
             self.showMessageBox("Помилка", "Розподіл вже вибраний")
             return
-        n = len(self.datas_crits[0])
-        if len(self.datas_crits) != 0 and n != len(sel):
+
+        if len(self.datas_crits) != 0 and len(self.datas_crits[0]) != len(sel):
+            n = len(self.datas_crits[0])
             self.showMessageBox("Помилка", f"Потрібен {n}-вимірний розподіл")
             return
 
@@ -274,7 +295,7 @@ class Window(WindowLayout):
 
     def get_failed_norm_test_indexes(self, sel):
         norm_test = [self.all_datas[i].is_normal() for i in sel]
-        return np.array([i for i, res in enumerate(norm_test) if not res])
+        return np.array([i for i, res in zip(sel, norm_test) if not res])
 
     def partial_correlation(self):
         sel = self.table.get_active_rows()
@@ -287,7 +308,8 @@ class Window(WindowLayout):
             self.criterion_protocol.setText(text)
 
     def pca(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is SessionModeND or \
+                type(self.session) is SessionMode2D:
             self.session.pca()
 
     def kmeans(self):
@@ -338,7 +360,27 @@ def demo_mode_course_work_0():
 
 
 def demo_mode_course_work_1():
-    file = "data/course/CO2_removed_an.csv"
+    file = "data/course/CO2_without_mpg.csv"
+    launch_app(file, is_file_name=True, auto_select=range(11))
+
+
+def demo_mode_course_work_2():
+    file = "data/course/2_CO2_fuel_type_zx.csv"
+    launch_app(file, is_file_name=True, auto_select=range(11))
+
+
+def demo_mode_course_work_3():
+    file = "data/course/3_CO2_zx_removed_an.csv"
+    launch_app(file, is_file_name=True, auto_select=range(11))
+
+
+def demo_mode_course_work_4():
+    file = "data/course/4_CO2_zx_log.csv"
+    launch_app(file, is_file_name=True, auto_select=range(11))
+
+
+def demo_mode_course_work_5():
+    file = "data/course/5_CO2_zx_rm_tail.csv"
     launch_app(file, is_file_name=True, auto_select=range(11))
 
 
@@ -355,6 +397,7 @@ def launch_app(file, is_file_name: bool, auto_select=None):
 
 
 if __name__ == "__main__":
+    # demo_mode_classification()
     # demo_mode_time_series_show_2()
-    demo_mode_course_work_0()
+    demo_mode_course_work_5()
     # demo_mode_classification()

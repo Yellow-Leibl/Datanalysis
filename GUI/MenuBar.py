@@ -8,6 +8,10 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
         if act is not None:
             act.setShortcut(QKeySequence(shortcut))
 
+    def addSection(menu: QtWidgets.QMenu, title):
+        sec = menu.addAction(title)
+        sec.setDisabled(True)
+
     menuBar = self.menuBar()
     file_menu = menuBar.addMenu("Файл")
 
@@ -35,8 +39,9 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(edit_menu, "Зобразити розподіл", self.draw_samples, "Ctrl+D")
     addAction(edit_menu, "Видалити спостереження", self.delete_observations,
               "Ctrl+Backspace")
+    addAction(edit_menu, "Перейменувати", self.rename_sample, "Ctrl+R")
     edit_menu.addSeparator()
-    addAction(edit_menu, "Вилучення тренду", self.remove_trend, "Ctrl+R")
+    addAction(edit_menu, "Вилучення тренду", self.remove_trend, "Ctrl+T")
 
     view_menu = menuBar.addMenu("Вигляд")
     addAction(view_menu, "Наступна вкладка", self.nextProtocolTab, "Alt+Tab")
@@ -75,33 +80,36 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(regr_menu, "Поліноміальна регресія",
               lambda: self.set_reproduction_series(11), "Ctrl+Alt+]")
 
-    smth_menu = menuBar.addMenu("Згладжування")
-    addAction(smth_menu, "Ковзне середнє",
-              lambda: self.smooth_series(0), "Ctrl+Alt+S")
-    addAction(smth_menu, "Медіанне",
-              lambda: self.smooth_series(1), "Ctrl+Alt+F")
-    addAction(smth_menu, "Просте ковзне середнє  SMA",
-              lambda: self.smooth_series(2), "Ctrl+Alt+G")
-    addAction(smth_menu, "Зважене ковзне середнє WMA",
-              lambda: self.smooth_series(3), "Ctrl+Alt+J")
-    addAction(smth_menu, "Експоненціальне ковзне середнє EMA",
-              lambda: self.smooth_series(4), "Ctrl+Alt+K")
-    addAction(smth_menu, "Подвійне експоненціальне ковзне середнє DMA",
-              lambda: self.smooth_series(5), "Ctrl+Alt+L")
-    addAction(smth_menu, "Потрійне експоненціальне ковзне середнє TMA",
-              lambda: self.smooth_series(6), "Ctrl+Alt+;")
-    smth_menu.addSeparator()
-    addAction(smth_menu, "Підтвердити згладжування",
-              lambda: self.smooth_series(-2), "Ctrl+Alt+A")
+    time_menu = menuBar.addMenu("Часові ряди")
 
-    ssa_menu = menuBar.addMenu("Метод Гусені SSA")
-    addAction(ssa_menu, "Візуалізувати головні компоненти",
+    addSection(time_menu, "Згладжування")
+    addAction(time_menu, "Ковзне середнє",
+              lambda: self.smooth_series(0), "Ctrl+Alt+S")
+    addAction(time_menu, "Медіанне",
+              lambda: self.smooth_series(1), "Ctrl+Alt+F")
+    addAction(time_menu, "Просте ковзне середнє  SMA",
+              lambda: self.smooth_series(2), "Ctrl+Alt+G")
+    addAction(time_menu, "Зважене ковзне середнє WMA",
+              lambda: self.smooth_series(3), "Ctrl+Alt+J")
+    addAction(time_menu, "Експоненціальне ковзне середнє EMA",
+              lambda: self.smooth_series(4), "Ctrl+Alt+K")
+    addAction(time_menu, "Подвійне експоненціальне ковзне середнє DMA",
+              lambda: self.smooth_series(5), "Ctrl+Alt+L")
+    addAction(time_menu, "Потрійне експоненціальне ковзне середнє TMA",
+              lambda: self.smooth_series(6), "Ctrl+Alt+;")
+    time_menu.addSeparator()
+    addAction(time_menu, "Підтвердити згладжування",
+              lambda: self.smooth_series(-2), "Ctrl+Alt+A")
+    time_menu.addSeparator()
+
+    addSection(time_menu, "Метод Гусені SSA")
+    addAction(time_menu, "Візуалізувати головні компоненти",
               lambda: self.ssa(0), "Ctrl+Alt+Z")
-    addAction(ssa_menu, "Реконструкція",
+    addAction(time_menu, "Реконструкція",
               lambda: self.ssa(1), "Ctrl+Alt+X")
-    addAction(ssa_menu, "Прогнозування на наявних даних",
+    addAction(time_menu, "Прогнозування на наявних даних",
               lambda: self.ssa(2), "Ctrl+Alt+V")
-    addAction(ssa_menu, "Прогнозування майбутніх даних",
+    addAction(time_menu, "Прогнозування майбутніх даних",
               lambda: self.ssa(3), "Ctrl+Alt+B")
 
     crit_menu = menuBar.addMenu("&Критерії")

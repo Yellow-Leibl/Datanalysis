@@ -1,5 +1,5 @@
 from Sessions.SessionMode import SessionMode
-from Datanalysis import DoubleSampleData, ProtocolGenerator
+from Datanalysis import DoubleSampleData, ProtocolGenerator, SamplingDatas
 from GUI import DialogWindow, SpinBox
 
 
@@ -37,6 +37,14 @@ class SessionMode2D(SessionMode):
 
     def to_independent(self):
         self.d2.toIndependent()
+
+    def pca(self):
+        sd = SamplingDatas([self.d2.x, self.d2.y])
+        sd.toCalculateCharacteristic()
+        ind, retn = sd.pca(1)
+        self.window.all_datas.append_samples(ind.samples)
+        self.window.all_datas.append_samples(retn.samples)
+        self.window.table.update_table()
 
     def update_sample(self, number_column: int = 0):
         self.d2.set_trust(self.window.feature_area.get_trust())

@@ -171,8 +171,9 @@ def test_classificator():
 
 # read lines from file and save with numeration as (1 line\n2 line\n...)
 
-lines = readFile("data/self/kaggle_example_200.txt")
-for i in range(len(lines)):
-    lines[i] = f"{i} {lines[i]}"
-with open("data/self/kaggle_example_200.txt", 'w') as file:
-    file.writelines(lines)
+import pandas as pd
+
+df = pd.read_csv('data/course/5_CO2_zx_rm_tail.csv')
+df['Engine Power'] = df['Engine Size(L)'] * df['Cylinders'] * df['Fuel Consumption Comb']
+df.drop(['Engine Size(L)', 'Cylinders', 'Fuel Consumption Comb'], axis=1)
+df.to_csv('data/course/6_CO2_pw_eng.csv', index=False)

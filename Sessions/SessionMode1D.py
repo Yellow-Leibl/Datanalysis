@@ -22,15 +22,9 @@ class SessionMode1D(SessionMode):
     def auto_remove_anomalys(self) -> bool:
         return self.get_active_samples().auto_remove_anomalys()
 
-    def remove_anomaly_with_range(self):
-        minmax = self.window.feature_area.get_borders()
-        self.get_active_samples().remove(minmax[0], minmax[1])
-        self.update_sample()
-
     def update_sample(self, number_column: int = 0):
         d = self.get_active_samples()
         d.set_trust(self.window.feature_area.get_trust())
-        self.window.feature_area.set_borders(d.min, d.max)
         hist_data = d.get_histogram_data(number_column)
         self.window.feature_area.silent_change_number_classes(len(hist_data))
         self.plot_widget.plot1D(d, hist_data)

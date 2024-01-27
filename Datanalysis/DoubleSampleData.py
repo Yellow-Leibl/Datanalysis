@@ -48,7 +48,7 @@ class DoubleSampleData(DoubleSampleRegression):
         self.trust = trust
 
     @timer
-    def toCalculateCharacteristic(self, range_correlation=True):
+    def toCalculateCharacteristic(self):
         self.x_ = (self.x.x_, self.y.x_)
         self.pearson_correlation_coefficient()
         self.coeficientOfCorrelation()
@@ -63,13 +63,13 @@ class DoubleSampleData(DoubleSampleRegression):
     def pearson_correlation_coefficient(self):
         N = len(self)
 
-        xy_ = 0.0
-        for i in range(N):
-            xy_ += self.x.raw[i] * self.y.raw[i]
-        xy_ /= N
+        xy_ = (self.x.raw @ self.y.raw) / N
 
-        self.r = N / (N - 1) * (xy_ - self.x.x_ * self.y.x_) / (
-            self.x.Sigma * self.y.Sigma)
+        if self.x.Sigma == 0 or self.y.Sigma == 0:
+            self.r = np.nan
+        else:
+            self.r = N / (N - 1) * (xy_ - self.x.x_ * self.y.x_) / (
+                self.x.Sigma * self.y.Sigma)
         if abs(self.r) > 1.0:
             raise Exception('Error in pearson correlation coefficient')
 
@@ -82,20 +82,20 @@ class DoubleSampleData(DoubleSampleRegression):
         return self.r
 
     def generateMas3Dot3(self, k):
-        y = []
+        y = [[] for _ in range(k + 1)]
         N = len(self)
         dx = (self.x.max - self.x.min) / k
-        xy = [(self.x.raw[i], self.y.raw[i]) for i in range(N)]
-        for i in range(1, k + 1):
-            yi = []
-            rm_i = 0
-            for j in range(len(xy)):
-                if (self.x.min + (i - 1) * dx <=
-                        xy[j - rm_i][0] <= self.x.min + i * dx):
-                    yi.append(xy[j - rm_i][1])
-                    xy.pop(j - rm_i)
-                    rm_i += 1
-            y.append(yi)
+        xy = np.c_[self.x.raw, self.y.raw]
+        xy = xy[xy[:, 0].argsort()]
+
+        i = 1
+        sub_y_0 = 0
+        for j in range(N):
+            if not (self.x.min + (i-1) * dx <= xy[j, 0] <= self.x.min + i * dx):
+                y[i] = xy[sub_y_0:j - 1, 1]
+                i += 1
+                sub_y_0 = j
+        y.append(xy[sub_y_0:, 1])
         return y
 
     def coeficientOfCorrelation(self):
@@ -242,6 +242,7 @@ class DoubleSampleData(DoubleSampleRegression):
             print(f"{sigma_teta_st} <= "
                   f"{func.QuantileTStudent(1 - self.trust, n_g * m_g - 2)}")
 
+    @timer
     def rangeCorrelation(self):
         r = self.get_rank_series()
 

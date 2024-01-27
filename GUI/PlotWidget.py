@@ -153,6 +153,11 @@ class PlotWidget(QStackedWidget):
         k = 0
         font = QtGui.QFont()
         font.setPixelSize(7)
+
+        def set_axis_style(plot, axis):
+            plot_item.showAxis(axis)
+            plot_item.getAxis(axis).setStyle(tickFont=font)
+
         for i in range(n):
             for j in range(i, n):
                 plot_item = self.__scatter_diagram_plots[k]
@@ -162,12 +167,10 @@ class PlotWidget(QStackedWidget):
                 labels = {}
                 if i == 0:
                     labels["left"] = dn[j].name
-                    plot_item.showAxis("left")
-                    plot_item.getAxis("left").setStyle(tickFont=font)
+                    set_axis_style(plot_item, "left")
                 if j == n - 1:
                     labels["bottom"] = dn[i].name
-                    plot_item.showAxis("bottom")
-                    plot_item.getAxis("bottom").setStyle(tickFont=font)
+                    set_axis_style(plot_item, "bottom")
                 plot_item.setLabels(**labels)
 
     #
@@ -280,6 +283,8 @@ class PlotWidget(QStackedWidget):
 
     def plot_2d_with_details(self, d2: DoubleSampleData, hist_data):
         self.corr_plot.clear()
+        self.corr_plot.setLabel("left", d2.y.name)
+        self.corr_plot.setLabel("bottom", d2.x.name)
         self.plot_2d_histogam(d2, hist_data, self.corr_plot)
         self.plot_2d(d2, self.corr_plot)
 
@@ -362,13 +367,7 @@ class PlotWidget(QStackedWidget):
     def plotParallelCoordinates(self, dn: SamplingDatas):
         self.__parallel_plot.clear_plot()
         self.__parallel_plot.set_labels(dn.get_names())
-        # clusters = dn.get_clusters()
-        # if clusters is None:
         self.__parallel_plot.plot_observers(dn.to_numpy().T)
-        # else:
-        #     x = dn.to_numpy()
-        #     for cluster in clusters:
-        #         self.__parallel_plot.plot_observers(x[cluster])
 
     def plotHeatMap(self, dn: SamplingDatas):
         heatmap_plot = self.create_heatmap_plot(dn)
@@ -551,17 +550,21 @@ class PlotParallelWidget(pg.GraphicsLayoutWidget):
     def plot_observers(self, X: np.ndarray):
         n, N = X.shape
 
-        def tr2v(x: np.ndarray, i):
-            return (x[i] - x.min()) / (x.max() - x.min())
+        def tr2v(x: np.ndarray):
+            dx = x.max() - x.min()
+            if dx == 0:
+                return 0.5
+            return (x - x.min()) / dx
 
         x_indexes = list(range(n))
-        x_data = []
-        y_data = []
-        for i in range(N):
-            x_data += x_indexes
-            y_data += [tr2v(X[j], i) for j in range(n)]
-            x_data += x_indexes[-2::-1]
-            y_data += [tr2v(X[j], i) for j in range(n - 2, -1, -1)]
+        x_data = (x_indexes + x_indexes[-2::-1]) * N
+
+        y_data = np.empty((N, n * 2 - 1), dtype=float)
+        for j in range(n - 1):
+            y_data[:, j] = tr2v(X[j])
+            y_data[:, -j-1] = y_data[:, j]
+        y_data[:, n-1] = tr2v(X[n - 1])
+        y_data = y_data.reshape((n * 2 - 1) * N)
 
         self.__ax.plot(x_data, y_data, pen=newPen((0, 0, 255), 1))
 

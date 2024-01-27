@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QStackedWidget)
+from PyQt6.QtWidgets import (QWidget, QStackedWidget)
 from GUI.ui_tools import (FormLayout, SpinBox, WidgetWithLayout,
-                          DoubleSpinBox, HBoxLayout, VBoxLayout)
+                          DoubleSpinBox, VBoxLayout)
 
 
 class FeatureArea(QStackedWidget):
@@ -15,38 +15,13 @@ class FeatureArea(QStackedWidget):
         self.__trust_value = DoubleSpinBox(
             parent.update_sample, 0.0, 1.0, 5, 0.05)
 
-        self.__spin_box_min_x = DoubleSpinBox(decimals=5)
-        self.__spin_box_max_x = DoubleSpinBox(decimals=5)
-        self.__remove_anomaly = QPushButton("Видалити аномалії")
-        self.__remove_anomaly.clicked.connect(parent.remove_anomaly_with_range)
-
         form_widget = FormLayout(
             "Кількість класів:", self.__spin_number_column,
             "Рівень значущості:", self.__trust_value)
 
-        self.borders = HBoxLayout(QLabel("min"),
-                                  self.__spin_box_min_x,
-                                  QLabel("max"),
-                                  self.__spin_box_max_x)
-
-        form_func = VBoxLayout(form_widget,
-                               self.borders,
-                               self.__remove_anomaly)
+        form_func = VBoxLayout(form_widget)
 
         return WidgetWithLayout(form_func)
-
-    def set_borders(self, min_x, max_x):
-        self.__spin_box_min_x.setMinimum(min_x)
-        self.__spin_box_min_x.setMaximum(max_x)
-        self.__spin_box_min_x.setValue(min_x)
-
-        self.__spin_box_max_x.setMinimum(min_x)
-        self.__spin_box_max_x.setMaximum(max_x)
-        self.__spin_box_max_x.setValue(max_x)
-
-    def get_borders(self):
-        return (self.__spin_box_min_x.value(),
-                self.__spin_box_max_x.value())
 
     def silent_change_number_classes(self, n: int):
         self.__spin_number_column.blockSignals(True)

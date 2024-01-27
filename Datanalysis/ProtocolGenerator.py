@@ -339,10 +339,12 @@ class ProtocolGenerator:
             addForm(f"X{i+1}", *[data.R[i][j] for j in range(n)])
 
         add_text()
+        addForm("Множинні коефіцієнти кореляції")
+        addForm("Якщо нерівність виконується, то, приймаємо H0: r=0")
         for i in range(n):
             addForm(f"Множинний коефіцієнт кореляції X{i+1}",
                     "", data.r_multi[i][0])
-            addForm("Т-тест коефіцієнту",
+            addForm("F-тест коефіцієнту",
                     data.r_multi[i][1],
                     "≥",
                     data.r_multi[i][2])

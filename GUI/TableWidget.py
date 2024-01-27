@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
 from PyQt6 import QtGui
 from Datanalysis import SamplingDatas, SamplingData
 import numpy as np
+from Datanalysis.SamplesTools import timer
 
 
 class TableWidget(QTableWidget):
@@ -24,10 +25,11 @@ class TableWidget(QTableWidget):
     def get_val_item(self, row, col):
         return self.item(row, col + self.__info_cells_count)
 
-    def create_cell(self, text):
+    def set_text(self, row, col, text):
         item = QTableWidgetItem(text)
-        return item
+        self.setItem(row, col, item)
 
+    @timer
     def update_table(self):
         self.clear()
         self.setColumnCount(self.datas.get_max_len_raw()
@@ -41,37 +43,48 @@ class TableWidget(QTableWidget):
         self.colorize_selections(self.selected_indexes)
         self.colorize_max_min_value()
 
+    def select_rows(self, indexes: list[int]):
+        self.clearSelection()
+        self.selected_indexes = indexes
+        self.colorize_selections(indexes)
+        self.colorize_max_min_value()
+
+    @timer
     def fill_row(self, i, d: SamplingData):
-        self.setItem(i, 0, self.create_cell(self.get_description(d)))
-        self.setItem(i, 1, self.create_cell(self.format_sample_description(d)))
+        self.set_text(i, 0, self.get_description(d))
+        self.set_text(i, 1, self.format_sample_description(d))
+        if self.is_int(d.raw[0]) or d.ticks is not None:
+            self.fill_unformat_row(i, d)
+        else:
+            self.fill_double_row(i, d)
+
+    def is_int(self, val):
+        return np.issubdtype(type(val), np.integer)
+
+    def fill_double_row(self, i, d: SamplingData):
+        for j, val in enumerate(d.raw):
+            self.set_text(i, j + self.__info_cells_count, f"{val:.5}")
+
+    def fill_unformat_row(self, i, d: SamplingData):
         for j, val in enumerate(d.raw):
             if d.ticks is not None:
                 val = d.ticks[int(val)]
-            self.setItem(i, j + self.__info_cells_count,
-                         self.create_cell(self.format_cell_value(val)))
+            self.set_text(i, j + self.__info_cells_count, f"{val}")
 
     def get_description(self, d: SamplingData):
         if d.ticks is None:
             return d.name
-        return f"{d.name}: {np.array(d.ticks)}"
+        if len(d.ticks) > 40:
+            ticks_str = f"{str(np.array(d.ticks[:25]))[:-1]} ..."
+        else:
+            ticks_str = f"{np.array(d.ticks)}"
+        return f"{d.name}: {ticks_str}"
 
     def format_sample_description(self, d: SamplingData):
         if np.issubdtype(type(d.min), np.integer):
             return f"N={len(d.raw)}, [{d.min}; {d.max}]"
         else:
             return f"N={len(d.raw)}, [{d.min:.5}; {d.max:.5}]"
-
-    def format_cell_value(self, val):
-        if np.issubdtype(type(val), np.integer) or type(val) is str:
-            return f"{val}"
-        else:
-            return f"{val:.5}"
-
-    def select_rows(self, indexes: list[int]):
-        self.clearSelection()
-        self.selected_indexes = indexes
-        self.colorize_selections(indexes)
-        self.colorize_max_min_value()
 
     def colorize_selections(self, sel_indexes: list[int]):
         if sel_indexes is None:
@@ -80,8 +93,8 @@ class TableWidget(QTableWidget):
             color = QtGui.QColor()
             if i in sel_indexes:
                 color = self.__selected_row_color
-            for j in range(len(self.datas[i].raw) + self.__info_cells_count):
-                self.item(i, j).setBackground(color)
+            self.item(i, 0).setBackground(color)
+            self.item(i, 1).setBackground(color)
 
     def colorize_max_min_value(self):
         for i in range(self.rowCount()):
