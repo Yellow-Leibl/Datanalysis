@@ -3,7 +3,10 @@ import math
 
 from Datanalysis import (
     SamplingData, DoubleSampleData, PolynomialRegressionModel)
-from Datanalysis.cluster import AgglomerativeClustering, KMeans
+from Datanalysis.cluster import KMeans
+import Datanalysis.cluster.AgglomerativeClustering as ac
+import Datanalysis.cluster.SignifCluster as sc
+import Datanalysis.cluster.distances as DIST
 from Datanalysis.SamplesCriteria import SamplesCriteria
 from Datanalysis.SamplesTools import timer, formRowNV, calculate_m
 import Datanalysis.functions as func
@@ -99,12 +102,6 @@ class SamplingDatas(SamplesCriteria):
     def set_trust(self, trust):
         self.trust = trust
 
-    def to_calc_cluster(self, n_clusters):
-        agglom = AgglomerativeClustering(n_clusters)
-        self.clusters = agglom.fit(self.to_numpy())
-        kmeans = KMeans(n_clusters)
-        self.clusters2 = kmeans.fit(self.to_numpy())
-
     def get_clusters(self):
         return self.clusters
 
@@ -133,6 +130,20 @@ class SamplingDatas(SamplesCriteria):
 
         self.calculate_pca()
         self.calculate_exploratory_data_analysis()
+        self.to_calc_cluster_signif()
+
+    def to_calc_cluster_signif(self):
+        if self[0].clusters is None:
+            return
+        clusters = self[0].clusters
+        X = self.to_numpy()
+        S = [X[cluster] for cluster in clusters]
+        d = DIST.get_distance_metric_one_interface(self[0].metric, X)
+
+        self.signif_weighted_sum = sc.signif_weighted_sum(S, d)
+        self.signif_pair_sum = sc.signif_pair_sum(S, d)
+        self.signif_general_dispersion = sc.signif_general_dispersion(S)
+        self.signif_relation_functionals = sc.signif_relation_functionals(S, d)
 
     def calculate_pca(self):
         n = len(self.samples)
@@ -613,9 +624,27 @@ class SamplingDatas(SamplesCriteria):
 
     def agglomerative_clustering(self, n_clusters,
                                  metric='euclidean', linkage='average'):
-        agglom = AgglomerativeClustering(n_clusters, linkage, metric)
-        self.clusters = agglom.fit(self.to_numpy())
+        clusters, dend_items = ac.linkage(self.to_numpy(), n_clusters,
+                                          linkage=linkage, metric=metric)
+        [s.set_clusters(clusters, metric) for s in self.samples]
+        return clusters, dend_items
 
-    def k_means_clustering(self, n_clusters, init="random"):
-        kmeans = KMeans(n_clusters, init)
-        self.clusters = kmeans.fit(self.to_numpy())
+    def k_means_clustering(self, n_clusters,
+                           init="random", metric="euclidean"):
+        kmeans = KMeans(n_clusters, init, metric)
+        clusters = kmeans.fit(self.to_numpy())
+        [s.set_clusters(clusters, metric) for s in self.samples]
+
+    def split_on_clusters(self):
+        clusters = self[0].clusters
+        X = self.to_numpy()
+        S = [X[cluster] for cluster in clusters]
+        samples = []
+        for sample, s in zip(self.samples, S):
+            for x in s.T:
+                samplingdata = SamplingData(x, sample.trust, True,
+                                            sample.name, sample.ticks)
+                samplingdata.toRanking()
+                samplingdata.toCalculateCharacteristic()
+                samples.append(samplingdata)
+        return samples

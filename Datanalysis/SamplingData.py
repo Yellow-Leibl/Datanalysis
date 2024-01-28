@@ -18,8 +18,17 @@ class SamplingData:
         self.name = name
         self.ticks = ticks
         self.trust = trust
+        self.clusters = None
+        self.metric = None
         self.set_data(not_ranked_series_x, move_data)
         self.init_characteristic()
+
+    def set_clusters(self, clusters, metric):
+        self.clusters = clusters
+        self.metric = metric
+
+    def remove_clusters(self):
+        self.set_clusters(None, None)
 
     def set_data(self, not_ranked_series_x: np.ndarray, move_data):
         if move_data:

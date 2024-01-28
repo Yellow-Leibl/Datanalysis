@@ -1,8 +1,10 @@
 from Datanalysis import (
     DoubleSampleData, SamplingDatas, IODatas, PolynomialRegressionModel)
+from Datanalysis.cluster import AgglomerativeClustering as ac
 from GenerationSeries import generate_sample, generate_parable
 import numpy as np
 import matplotlib.pyplot as plt
+from GUI.PlotWidget import PlotDendrogramWidget
 
 
 def readFile(file_name: str) -> list[str]:
@@ -139,27 +141,52 @@ def test_classificator():
     sd.append(reader.read_from_file('data/iris_fish.txt'))
 
     sd.toCalculateCharacteristic()
-    cluster1 = list(sd.clusters[0])
-    cluster2 = list(sd.clusters[1])
+    sd.agglomerative_clustering(2)
+    cluster1 = list(sd[0].clusters[0])
+    cluster2 = list(sd[0].clusters[1])
     x1 = sd.samples[2].raw[cluster1]
     y1 = sd.samples[1].raw[cluster1]
 
     x2 = sd.samples[2].raw[cluster2]
     y2 = sd.samples[1].raw[cluster2]
-    # plt.scatter(x1, y1)
-    # plt.scatter(x2, y2)
-    # plt.show()
-
-    cluster1 = sd.clusters2[0]
-    cluster2 = sd.clusters2[1]
-    x1 = cluster1.T[2]
-    y1 = cluster1.T[1]
-
-    x2 = cluster2.T[2]
-    y2 = cluster2.T[1]
     plt.scatter(x1, y1)
     plt.scatter(x2, y2)
     plt.show()
+
+
+def test_visualize_dendo():
+    from scipy.cluster.hierarchy import dendrogram, linkage
+    from matplotlib import pyplot as plt
+    import numpy as np
+    # suppress scientific float notation
+    np.set_printoptions(precision=5, suppress=True)
+
+    # generating a random sample of 10 with 3 features
+    # np.random.seed(4711)
+    X = np.random.rand(10, 3)
+
+    # generating the linkage matrix
+    c, z = ac.linkage(X, 2, "median")
+    Z = linkage(X, 'median')
+    print(Z)
+    print(c)
+    print(z)
+
+    pl = PlotDendrogramWidget()
+    pl.plot_observers(c, z)
+    import sys
+    from PyQt6 import QtWidgets
+    app = QtWidgets.QApplication(sys.argv)
+    widget = QtWidgets.QWidget()
+    widget.setLayout(QtWidgets.QVBoxLayout())
+    widget.layout().addWidget(pl)
+    widget.show()
+
+    fig = plt.figure(figsize=(25, 10))
+    dn = dendrogram(Z)
+    plt.show()
+
+    sys.exit(app.exec())
 
 
 # test_calc_characteristic()
@@ -167,13 +194,4 @@ def test_classificator():
 # test_multiplyCoeficient()
 # test_ai_train_example()
 # test_classificator()
-
-
-# read lines from file and save with numeration as (1 line\n2 line\n...)
-
-import pandas as pd
-
-df = pd.read_csv('data/course/5_CO2_zx_rm_tail.csv')
-df['Engine Power'] = df['Engine Size(L)'] * df['Cylinders'] * df['Fuel Consumption Comb']
-df.drop(['Engine Size(L)', 'Cylinders', 'Fuel Consumption Comb'], axis=1)
-df.to_csv('data/course/6_CO2_pw_eng.csv', index=False)
+test_visualize_dendo()

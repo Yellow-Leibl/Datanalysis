@@ -54,6 +54,7 @@ class SessionMode2D(SessionMode):
             len(self.hist_data_2d))
         self.plot_widget.plot_2d_with_details(self.d2, self.hist_data_2d)
         self.drawReproductionSeries2D(self.d2)
+        super().update_sample(number_column)
 
     def drawReproductionSeries2D(self, d2):
         f = self.toCreateReproductionFunc2D(d2, self.selected_regr_num)
@@ -85,3 +86,8 @@ class SessionMode2D(SessionMode):
         # TODO: move this into ProtocolGenerator and print it in protocol
         text = ProtocolGenerator.xixi_test_2d(self.d2, self.hist_data_2d)
         self.window.criterion_protocol.setText(text)
+
+    def remove_clusters(self):
+        self.d2.x.remove_clusters()
+        self.d2.y.remove_clusters()
+        self.update_sample()

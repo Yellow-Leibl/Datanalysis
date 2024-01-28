@@ -1,12 +1,18 @@
 from Sessions.SessionMode import SessionMode
 from Datanalysis import SamplingDatas
 from GUI import DialogWindow, SpinBox, ComboBox
+from GUI.PlotWidget import PlotDendrogramWidget, PlotDialogWindow
 
 
 class SessionModeND(SessionMode):
     def __init__(self, window):
         super().__init__(window)
         self.datas_displayed = None
+        self.__supported_metrics = {
+            "Евклідова": "euclidean", "Манхеттенська": "manhattan",
+            "Чебишева": "chebyshev", "Мінковського": "minkowski",
+            "Махаланобіса": "mahalanobis"
+            }
 
     def create_plot_layout(self):
         self.plot_widget.create_nd_plot(len(self.window.sel_indexes))
@@ -35,6 +41,7 @@ class SessionModeND(SessionMode):
         self.datas_displayed.toCalculateCharacteristic()
         self.plot_widget.plotND(self.datas_displayed, number_column)
         self.drawReproductionSeriesND(self.datas_displayed)
+        super().update_sample(number_column)
 
     def drawReproductionSeriesND(self, datas):
         f = self.toCreateReproductionFuncND(datas, self.selected_regr_num)
@@ -73,29 +80,45 @@ class SessionModeND(SessionMode):
         self.window.table.update_table()
 
     def kmeans(self):
-        title = "Введіть кількість кластерів"
-        N = len(self.datas_displayed)
-        dialog_window = DialogWindow(
-            form_args=[title, SpinBox(min_v=1, max_v=N-1)])
-        ret = dialog_window.get_vals()
-        k = ret.get(title)
-
+        k, metric, init = self.get_kmeans_parameters()
         active_samples = self.get_active_samples()
-        active_samples.k_means_clustering(k)
+        active_samples.k_means_clustering(k, init, metric)
+        self.update_sample()
+
+    def get_kmeans_parameters(self):
+        title1 = "Введіть кількість кластерів"
+        title2 = "Відстань між об'єктами"
+        title3 = "Вибір центрів кластерів"
+        init = {"Випадковий": "random",
+                "Перші k точок": "first"}
+        N = len(self.datas_displayed[0])
+        dialog_window = DialogWindow(
+            form_args=[title1, SpinBox(min_v=2, max_v=N-1),
+                       title2, ComboBox(self.__supported_metrics),
+                       title3, ComboBox(init)])
+        ret = dialog_window.get_vals()
+        k = ret.get(title1)
+        metric = ret.get(title2)
+        init = ret.get(title3)
+        return k, metric, init
 
     def agglomerative_clustering(self):
         k, metric, linkage = self.get_agglomerative_parameters()
+
         active_samples = self.get_active_samples()
-        active_samples.agglomerative_clustering(k, metric, linkage)
+        c, z = active_samples.agglomerative_clustering(k, metric, linkage)
+        self.update_sample()
+
+        plot_widget = PlotDendrogramWidget()
+        d = PlotDialogWindow(plot=plot_widget,
+                             size=(1333, 733))
+        plot_widget.plot_observers(c, z)
+        d.exec()
 
     def get_agglomerative_parameters(self):
         title1 = "Введіть кількість кластерів"
         title2 = "Відстань між об'єктами"
         title3 = "Відстань між кластерами"
-        metrics = {"Евклідова": "euclidean", "Манхеттенська": "manhattan",
-                   "Чебишева": "chebyshev", "Мінковського": "minkowski",
-                   "Махаланобіса": "mahalanobis"
-                   }
         linkage = {"Найближчого сусіда": "nearest",
                    "Найвіддаленішого сусіда": "furthest",
                    "Зваженого середнього": "average",
@@ -104,12 +127,23 @@ class SessionModeND(SessionMode):
                    "Центроїдного": "centroid",
                    "Уорда": "wards"
                    }
+        N = len(self.datas_displayed[0].raw)
         dialog_window = DialogWindow(
-            form_args=[title1, SpinBox(min_v=1, max_v=50),
-                       title2, ComboBox(metrics),
+            form_args=[title1, SpinBox(min_v=2, max_v=N-1),
+                       title2, ComboBox(self.__supported_metrics),
                        title3, ComboBox(linkage)])
         ret = dialog_window.get_vals()
         k = ret.get(title1)
         metric = ret.get(title2)
         linkage = ret.get(title3)
         return k, metric, linkage
+
+    def remove_clusters(self):
+        for s in self.datas_displayed.samples:
+            s.remove_clusters()
+        self.update_sample()
+
+    def split_on_clusters(self):
+        a_s = self.datas_displayed.split_on_clusters()
+        self.window.all_datas.append_samples(a_s)
+        self.window.table.update_table()

@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QStackedWidget, QTabWidget
+import GUI.ui_tools as gui
 from PyQt6 import QtCore, QtGui
 import pyqtgraph as pg
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -7,6 +7,7 @@ from Datanalysis import (
     SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData)
 from Datanalysis.SamplesTools import calculate_m
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 
 pg.setConfigOption('imageAxisOrder', 'row-major')
@@ -19,15 +20,18 @@ def off_warning_for_pyqtgraph(widget: pg.GraphicsLayoutWidget):
         QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
 
 
-class PlotWidget(QStackedWidget):
+class PlotWidget(gui.QtWidgets.QStackedWidget):
     def __init__(self) -> None:
         super().__init__()
         self.cache_graphics = [False] * 7
 
         self.__parallel_plot = PlotParallelWidget()
         self.__3d_plot = Plot3dWidget()
+        self.__heatmap_plot = PlotHeatMapWidget()
+        self.__buble_plot = PlotBubleWidget()
+        self.__glyph_plot = PlotGlyphWidget()
 
-        #  1D & 2D
+        #  1D & 2D & Time Series
         __2d_widget = pg.GraphicsLayoutWidget()
         self.__2d_layout = __2d_widget.ci
         #  Diagnostic diagram
@@ -38,28 +42,16 @@ class PlotWidget(QStackedWidget):
         #  Scatter diagram
         __scatter_widget = pg.GraphicsLayoutWidget()
         self.__scatter_diagram_layout = __scatter_widget.ci
-        #  Heat map
-        __heatmap_widget = pg.GraphicsLayoutWidget()
-        self.__heatmap_layout = __heatmap_widget.ci
-        #  Buble diagram
-        __buble_widget = pg.GraphicsLayoutWidget()
-        self.__buble_plot = __buble_widget.ci.addPlot(
-            labels={"left": "Y", "bottom": "X"})
-        #  Glyph diagram
-        __glyph_widget = pg.GraphicsLayoutWidget()
-        self.__glyph_plot = __glyph_widget.ci.addPlot(
-            labels={"left": "Y", "bottom": "X"})
-        colorMap = pg.colormap.get("CET-D1")
-        self.__glyph_bar = pg.ColorBarItem(colorMap=colorMap)
         #  N canvas
-        self.__nd_widget = QTabWidget()
-        self.__nd_widget.addTab(__E_widget, "Діагностична діаграма")
-        self.__nd_widget.addTab(__scatter_widget, "Діаграма розкиду")
-        self.__nd_widget.addTab(__heatmap_widget, "Теплова карта")
-        self.__nd_widget.addTab(self.__parallel_plot, "Паралельні координати")
-        self.__nd_widget.addTab(self.__3d_plot, "3-вимірний простір")
-        self.__nd_widget.addTab(__buble_widget, "Бульбашкова діаграма")
-        self.__nd_widget.addTab(__glyph_widget, "Гліф діаграма")
+        self.__nd_widget = gui.TabWidget(
+            __E_widget, "Діагностична діаграма",
+            __scatter_widget, "Діаграма розкиду",
+            self.__heatmap_plot, "Теплова карта",
+            self.__parallel_plot, "Паралельні координати",
+            self.__3d_plot, "3-вимірний простір",
+            self.__buble_plot, "Бульбашкова діаграма",
+            self.__glyph_plot, "Гліф діаграма")
+
         self.__nd_widget.setCurrentIndex(3)
         self.__nd_widget.currentChanged.connect(self.updateCharts)
         #  General canvas
@@ -84,6 +76,32 @@ class PlotWidget(QStackedWidget):
 
     def getCurrentTabIndex(self):
         return self.__nd_widget.currentIndex()
+
+    def plotND(self, dn: SamplingDatas, col=0):
+        self.__diagnostic_plot.clear()
+        self.column_count = col
+        self.datas = dn
+        self.cache_graphics = [False] * 7
+        self.updateCharts()
+
+    def updateCharts(self):
+        index = self.getCurrentTabIndex()
+        if self.cache_graphics[index]:
+            return
+        self.cache_graphics[index] = True
+        if index == 1:
+            self.plotScatterDiagram(self.datas.samples, self.column_count)
+        if index == 2:
+            self.plotHeatMap(self.datas)
+        if index == 3:
+            self.plotParallelCoordinates(self.datas)
+        if index == 4:
+            self.plot3D(self.datas)
+        if index == 5:
+            self.plotBubleDiagram(self.datas.samples)
+        if index == 6:
+            self.plotGlyphDiagram(self.datas.samples, self.column_count)
+
     #
     #  Creating plot
     #
@@ -154,9 +172,9 @@ class PlotWidget(QStackedWidget):
         font = QtGui.QFont()
         font.setPixelSize(7)
 
-        def set_axis_style(plot, axis):
-            plot_item.showAxis(axis)
-            plot_item.getAxis(axis).setStyle(tickFont=font)
+        def set_axis_style(plot: pg.PlotItem, axis):
+            plot.showAxis(axis)
+            plot.getAxis(axis).setStyle(tickFont=font)
 
         for i in range(n):
             for j in range(i, n):
@@ -285,13 +303,13 @@ class PlotWidget(QStackedWidget):
         self.corr_plot.clear()
         self.corr_plot.setLabel("left", d2.y.name)
         self.corr_plot.setLabel("bottom", d2.x.name)
-        self.plot_2d_histogam(d2, hist_data, self.corr_plot)
+        self.plot_2d_histogram(d2, hist_data, self.corr_plot)
         self.plot_2d(d2, self.corr_plot)
 
-    def plot_2d_histogam(self,
-                         d2: DoubleSampleData,
-                         hist_data,
-                         corr_plot: pg.PlotItem):
+    def plot_2d_histogram(self,
+                          d2: DoubleSampleData,
+                          hist_data,
+                          corr_plot: pg.PlotItem):
         x = d2.x
         y = d2.y
 
@@ -306,10 +324,17 @@ class PlotWidget(QStackedWidget):
         x = d2.x
         y = d2.y
 
-        corr_plot.plot(x.raw, y.raw,
-                       symbolBrush=(30, 120, 240),
-                       symbolPen=(0, 0, 0, 200), symbolSize=6,
-                       pen=None)
+        if x.clusters is not None:
+            for i, cluster in enumerate(x.clusters):
+                corr_plot.plot(x.raw[cluster], y.raw[cluster],
+                               symbolBrush=unique_colors[i],
+                               symbolPen=(0, 0, 0, 200), symbolSize=6,
+                               pen=None)
+        else:
+            corr_plot.plot(x.raw, y.raw,
+                           symbolBrush=(30, 120, 240),
+                           symbolPen=(0, 0, 0, 200), symbolSize=6,
+                           pen=None)
 
     def plot2DReproduction(self, d2: DoubleSampleData,
                            tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f):
@@ -360,8 +385,8 @@ class PlotWidget(QStackedWidget):
             for j in range(diag_i - n + i + 1, diag_i):
                 d2 = DoubleSampleData(dn[i], dn[(j + slide_cells) % n])
                 self.__scatter_diagram_plots[j].clear()
-                self.plot_2d_histogam(d2, d2.get_histogram_data(col),
-                                      self.__scatter_diagram_plots[j])
+                self.plot_2d_histogram(d2, d2.get_histogram_data(col),
+                                       self.__scatter_diagram_plots[j])
                 self.plot_2d(d2, self.__scatter_diagram_plots[j])
 
     def plotParallelCoordinates(self, dn: SamplingDatas):
@@ -370,116 +395,13 @@ class PlotWidget(QStackedWidget):
         self.__parallel_plot.plot_observers(dn.to_numpy().T)
 
     def plotHeatMap(self, dn: SamplingDatas):
-        heatmap_plot = self.create_heatmap_plot(dn)
-
-        histogram_image = pg.ImageItem()
-        values_image = np.array([s.raw for s in dn.samples])
-        for i, row in enumerate(values_image):
-            values_image[i] = (row - dn[i].min) / (dn[i].max - dn[i].min)
-        histogram_image.setImage(values_image.transpose())
-        n = len(dn)
-        N = len(dn[0].raw)
-        histogram_image.setRect(-0.5, -0.5, n, N)
-        heatmap_plot.addItem(histogram_image)
-
-    def create_heatmap_plot(self, dn: SamplingDatas) -> pg.PlotItem:
-        n = len(dn)
-        cols = [f"X{i+1}" for i in range(n)]
-        colsdict = dict(enumerate(cols))
-        colsaxis = pg.AxisItem(orientation='bottom')
-        colsaxis.setTicks([colsdict.items()])
-
-        self.__heatmap_layout.clear()
-        heatmap_plot = self.__heatmap_layout.addPlot(
-            axisItems={'bottom': colsaxis})
-        heatmap_plot.getViewBox().invertY(True)
-        heatmap_plot.getViewBox().setDefaultPadding(0.0)
-
-        N = len(dn[0].raw)
-        t = dict((i, f"{i+1}") for i in range(N)).items()
-        heatmap_plot.getAxis("left").setTicks((t, []))
-
-        return heatmap_plot
+        self.__heatmap_plot.plot_observers(dn)
 
     def plotBubleDiagram(self, dn: list[SamplingData]):
-        x_raw = dn[0].raw
-        y_raw = dn[1].raw
-        z_raw = dn[2].raw
-        sz = dn[2]
-        def f_norm(z): return (z - sz.min) / (sz.max - sz.min)
-        z_norm = [f_norm(z) * 25 + 2 for z in z_raw]
-
-        self.__buble_plot.clear()
-        self.__buble_plot.plot(x_raw, y_raw,
-                               symbolSize=z_norm, alphaHint=0.6, pen=None)
+        self.__buble_plot.plot_observers(dn)
 
     def plotGlyphDiagram(self, dn: list[SamplingData], col):
-        x_raw = dn[0].raw
-        y_raw = dn[1].raw
-        z_raw = dn[2].raw
-        x = dn[0]
-        y = dn[1]
-        if col == 0:
-            col = calculate_m(len(x_raw))
-
-        glyph_data_sum = np.zeros((col, col))
-        glyph_data_count = np.zeros((col, col), dtype=np.uint8)
-        h_x = (x.max - x.min) / col
-        h_y = (y.max - y.min) / col
-        for i, z in enumerate(z_raw):
-            c = math.floor((x_raw[i] - x.min) / h_x)
-            if c == col:
-                c -= 1
-            r = math.floor((y_raw[i] - y.min) / h_y)
-            if r == col:
-                r -= 1
-            glyph_data_count[r, c] += 1
-            glyph_data_sum[r, c] += z
-
-        glyph_data = glyph_data_sum
-        for i in range(col):
-            for j in range(col):
-                if glyph_data_count[i, j] != 0:
-                    glyph_data[i, j] /= glyph_data_count[i, j]
-
-        glyph_image = pg.ImageItem(glyph_data)
-        width = x.max - x.min
-        height = y.max - y.min
-        glyph_image.setRect(x.min, y.min, width, height)
-        self.__glyph_plot.clear()
-        self.__glyph_plot.addItem(glyph_image)
-        self.__glyph_bar.values = glyph_image.quickMinMax()
-        self.__glyph_bar.setImageItem(glyph_image, insert_in=self.__glyph_plot)
-
-        self.__glyph_plot.plot(x_raw, y_raw,
-                               symbolBrush=(30, 120, 180),
-                               symbolPen=(0, 0, 0, 200), symbolSize=5,
-                               pen=None)
-
-    def plotND(self, dn: SamplingDatas, col=0):
-        self.__diagnostic_plot.clear()
-        self.column_count = col
-        self.datas = dn
-        self.cache_graphics = [False] * 7
-        self.updateCharts()
-
-    def updateCharts(self):
-        index = self.getCurrentTabIndex()
-        if self.cache_graphics[index]:
-            return
-        self.cache_graphics[index] = True
-        if index == 1:
-            self.plotScatterDiagram(self.datas.samples, self.column_count)
-        if index == 2:
-            self.plotHeatMap(self.datas)
-        if index == 3:
-            self.plotParallelCoordinates(self.datas)
-        if index == 4:
-            self.plot3D(self.datas)
-        if index == 5:
-            self.plotBubleDiagram(self.datas.samples)
-        if index == 6:
-            self.plotGlyphDiagram(self.datas.samples, self.column_count)
+        self.__glyph_plot.plot_observers(dn)
 
 
 def newPen(color, width):
@@ -569,6 +491,177 @@ class PlotParallelWidget(pg.GraphicsLayoutWidget):
         self.__ax.plot(x_data, y_data, pen=newPen((0, 0, 255), 1))
 
 
+class PlotHeatMapWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        self.__heatmap_layout = self.ci
+
+    def plot_observers(self, dn: SamplingDatas):
+        heatmap_plot = self.__create_plot(dn)
+
+        histogram_image = pg.ImageItem()
+        values_image = np.array([s.raw for s in dn.samples])
+        for i, row in enumerate(values_image):
+            values_image[i] = (row - dn[i].min) / (dn[i].max - dn[i].min)
+        histogram_image.setImage(values_image.transpose())
+        n = len(dn)
+        N = len(dn[0].raw)
+        histogram_image.setRect(-0.5, -0.5, n, N)
+        heatmap_plot.addItem(histogram_image)
+
+    def __create_plot(self, dn: SamplingDatas) -> pg.PlotItem:
+        n = len(dn)
+        cols = [f"X{i+1}" for i in range(n)]
+        colsdict = dict(enumerate(cols))
+        colsaxis = pg.AxisItem(orientation='bottom')
+        colsaxis.setTicks([colsdict.items()])
+
+        self.__heatmap_layout.clear()
+        heatmap_plot = self.__heatmap_layout.addPlot(
+            axisItems={'bottom': colsaxis})
+        heatmap_plot.getViewBox().invertY(True)
+        heatmap_plot.getViewBox().setDefaultPadding(0.0)
+
+        N = len(dn[0].raw)
+        t = dict((i, f"{i+1}") for i in range(N)).items()
+        heatmap_plot.getAxis("left").setTicks((t, []))
+
+        return heatmap_plot
+
+
+class PlotBubleWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        self.__buble_plot = self.ci.addPlot(
+            labels={"left": "Y", "bottom": "X"})
+
+    def plot_observers(self, dn: list[SamplingData]):
+        x_raw = dn[0].raw
+        y_raw = dn[1].raw
+        z_raw = dn[2].raw
+        sz = dn[2]
+        def f_norm(z): return (z - sz.min) / (sz.max - sz.min)
+        z_norm = [f_norm(z) * 25 + 2 for z in z_raw]
+
+        self.__buble_plot.clear()
+        self.__buble_plot.plot(x_raw, y_raw,
+                               symbolSize=z_norm, alphaHint=0.6, pen=None)
+
+
+class PlotGlyphWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        self.__glyph_plot = self.ci.addPlot(
+            labels={"left": "Y", "bottom": "X"})
+        colorMap = pg.colormap.get("CET-D1")
+        self.__glyph_bar = pg.ColorBarItem(colorMap=colorMap)
+
+    def plot_observers(self, dn: list[SamplingData]):
+        x_raw = dn[0].raw
+        y_raw = dn[1].raw
+        z_raw = dn[2].raw
+        x = dn[0]
+        y = dn[1]
+        col = calculate_m(len(x_raw))
+
+        glyph_data_sum = np.zeros((col, col))
+        glyph_data_count = np.zeros((col, col), dtype=np.uint8)
+        h_x = (x.max - x.min) / col
+        h_y = (y.max - y.min) / col
+        for i, z in enumerate(z_raw):
+            c = math.floor((x_raw[i] - x.min) / h_x)
+            if c == col:
+                c -= 1
+            r = math.floor((y_raw[i] - y.min) / h_y)
+            if r == col:
+                r -= 1
+            glyph_data_count[r, c] += 1
+            glyph_data_sum[r, c] += z
+
+        glyph_data = glyph_data_sum
+        for i in range(col):
+            for j in range(col):
+                if glyph_data_count[i, j] != 0:
+                    glyph_data[i, j] /= glyph_data_count[i, j]
+
+        glyph_image = pg.ImageItem(glyph_data)
+        width = x.max - x.min
+        height = y.max - y.min
+        glyph_image.setRect(x.min, y.min, width, height)
+        self.__glyph_plot.clear()
+        self.__glyph_plot.addItem(glyph_image)
+        self.__glyph_bar.values = glyph_image.quickMinMax()
+        self.__glyph_bar.setImageItem(glyph_image, insert_in=self.__glyph_plot)
+
+        self.__glyph_plot.plot(x_raw, y_raw,
+                               symbolBrush=(30, 120, 180),
+                               symbolPen=(0, 0, 0, 200), symbolSize=5,
+                               pen=None)
+
+
+class PlotDendrogramWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        self.__dendrogram_plot = self.ci.addPlot(
+            labels={"left": "Відстань", "bottom": "Кластери"})
+        self.__dendrogram_plot.getViewBox().setDefaultPadding(0.0)
+
+    def plot_observers(self, C, Z):
+        self.__dendrogram_plot.clear()
+
+        self.set_ticks(C)
+
+        indexes_arr = []
+        for c in C:
+            indexes_arr += c
+        cluster2index = dict([(ind, i) for i, ind in enumerate(indexes_arr)])
+
+        def find_prev_cluster(i):
+            d1 = 0
+            d2 = 0
+            for j in range(i - 1, -1, -1):
+                if Z[i][0] in Z[j][:3] and d1 == 0:
+                    d1 = Z[j][2]
+                if Z[i][1] in Z[j][:3] and d2 == 0:
+                    d2 = Z[j][2]
+            return d1, d2
+
+        for i in range(len(Z)):
+            z = Z[i]
+            x1 = cluster2index[z[0]]
+            x2 = cluster2index[z[1]]
+            y = z[2]
+            y1, y2 = find_prev_cluster(i)
+            cluster2index[z[0]] = (x1 + x2) / 2
+            self.__dendrogram_plot.plot(
+                [x1, x1, x2, x2], [y1, y, y, y2],
+                pen=newPen((30, 120, 240), 3))
+
+    def set_ticks(self, clusters):
+        ticks = []
+        for cluster in clusters:
+            ticks += [f"{i}" for i in cluster]
+        xdict = dict(enumerate(ticks))
+        self.__dendrogram_plot.getAxis("bottom").setTicks([xdict.items()])
+
+
+class PlotDialogWindow(gui.QtWidgets.QDialog):
+    def __init__(self, **args):
+        super().__init__()
+        title = args.get("title", "")
+        self.setWindowTitle(title)
+        size = args.get("size", (0, 0))
+        self.resize(size[0], size[1])
+
+        plot_widget = args.get("plot")
+
+        self.setModal(True)
+
+        vbox = gui.QtWidgets.QVBoxLayout()
+        vbox.addWidget(plot_widget)
+        self.setLayout(vbox)
+
+
 unique_colors = [
     "#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941",
     "#006FA6", "#A30059", "#FFDBE5", "#7A4900", "#0000A6", "#63FFAC",
@@ -594,19 +687,3 @@ unique_colors = [
     "#1E0200", "#5B4E51", "#C895C5", "#320033", "#FF6832", "#66E1D3",
     "#CFCDAC", "#D0AC94", "#7ED379", "#012C58"
 ]
-
-
-#  Example matplotlib 3d
-if __name__ == "__main__":
-    from mpl_toolkits.mplot3d import axes3d
-    import matplotlib.pyplot as plt
-    ax = plt.figure().add_subplot(projection='3d')
-    X, Y, Z = axes3d.get_test_data(0.025)
-    ax.plot_surface(X, Y, Z, edgecolor='royalblue', lw=0.5,
-                    rstride=8, cstride=8, alpha=0.3)
-    ax.contour(X, Y, Z, zdir='z', offset=-100, cmap='coolwarm')
-    ax.contour(X, Y, Z, zdir='x', offset=-40, cmap='coolwarm')
-    ax.contour(X, Y, Z, zdir='y', offset=40, cmap='coolwarm')
-    ax.set(xlim=(-40, 40), ylim=(-40, 40), zlim=(-100, 100),
-           xlabel='X', ylabel='Y', zlabel='Z')
-    plt.show()

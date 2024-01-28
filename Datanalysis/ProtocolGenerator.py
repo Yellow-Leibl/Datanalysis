@@ -430,6 +430,19 @@ class ProtocolGenerator:
                 addForm(f"Параметр a{k+1}", "", a)
                 add_text()
 
+        if hasattr(data, "signif_weighted_sum"):
+            add_text()
+            add_text("Оцінка якості кластеризації")
+            add_text()
+            addForm("Сума («зважена») внутрішньокластерних дисперсій",
+                    "", data.signif_weighted_sum)
+            addForm("Сума попарних внутрішньокластерних",
+                    "", data.signif_pair_sum)
+            addForm("Загальна внутрішньокластерна дисперсія",
+                    "", data.signif_general_dispersion)
+            addForm("Відношення функціоналів",
+                    "", data.signif_relation_functionals)
+
         return "\n".join(inf_protocol)
 
     @staticmethod

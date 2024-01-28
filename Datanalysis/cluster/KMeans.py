@@ -1,35 +1,36 @@
-# from sklearn.cluster import KMeans
-from Datanalysis.cluster.distances import (
-    get_distance_metric, centroid_distance)
+import Datanalysis.cluster.distances as DIST
 import numpy as np
 
 
 class KMeans:
-    def __init__(self, n_clusters, init='random'):
+    def __init__(self, n_clusters, init='random', metric="euclidean"):
         self.n_clusters = n_clusters
         self.init = init
+        self.metric = metric
 
     def fit(self, X):
-        d = get_distance_metric("euclidean")
+        d = DIST.get_distance_metric_one_interface(self.metric, X)
         k_indexes = self.get_init_points(X)
         clusters = [X[i].reshape((1, len(X[i]))) for i in k_indexes]
-        X = np.delete(X, k_indexes, axis=0)
+        clusters_indexes = [[i] for i in k_indexes]
 
-        for x in X:
+        for j, x in enumerate(X):
+            if j in k_indexes:
+                continue
             s1 = x.reshape((1, len(x)))
             min_dist = np.inf
             min_i = -1
             for i in range(len(clusters)):
-                dist = centroid_distance(s1, clusters[i], d)
+                dist = DIST.centroid_distance(s1, clusters[i], d)
                 if dist < min_dist:
                     min_dist = dist
                     min_i = i
             clusters[min_i] = np.append(clusters[min_i], s1, axis=0)
-        return clusters
+            clusters_indexes[min_i].append(j)
+        return clusters_indexes
 
-    def get_init_points(self, X):
-        return random(X, self.n_clusters)
-
-
-def random(X, n):
-    return np.random.randint(0, len(X), n)
+    def get_init_points(self, X, method="random"):
+        if method == "random":
+            return np.random.randint(0, len(X), self.n_clusters)
+        elif method == "first":
+            return [i for i in range(self.n_clusters)]

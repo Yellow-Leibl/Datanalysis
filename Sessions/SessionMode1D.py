@@ -29,6 +29,7 @@ class SessionMode1D(SessionMode):
         self.window.feature_area.silent_change_number_classes(len(hist_data))
         self.plot_widget.plot1D(d, hist_data)
         self.drawReproductionSeries1D()
+        super().update_sample(number_column)
 
     def drawReproductionSeries1D(self):
         d = self.get_active_samples()
@@ -64,3 +65,7 @@ class SessionMode1D(SessionMode):
         n = self.window.feature_area.get_number_classes()
         hist_class = d.get_histogram_data(n)
         return '\n' + ProtocolGenerator.xixi_test_1d(d, hist_class, F)
+
+    def remove_clusters(self):
+        self.get_active_samples().remove_clusters()
+        self.update_sample()

@@ -36,7 +36,7 @@ class DialogWindow(QtWidgets.QDialog):
         for i in range(0, len(self.form_list) - 2, 2):
             wid = self.form_list[i + 1]
             if isinstance(wid, QtWidgets.QComboBox):
-                vals[self.form_list[i]] = wid.currentIndex()
+                vals[self.form_list[i]] = wid.currentData()
             elif isinstance(wid, QtWidgets.QLineEdit):
                 vals[self.form_list[i]] = wid.text()
             else:

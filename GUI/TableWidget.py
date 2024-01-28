@@ -29,27 +29,30 @@ class TableWidget(QTableWidget):
         item = QTableWidgetItem(text)
         self.setItem(row, col, item)
 
+    def get_column_count(self):
+        return 300
+        # return self.datas.get_max_len_raw() + self.__info_cells_count
+
     @timer
     def update_table(self):
         self.clear()
-        self.setColumnCount(self.datas.get_max_len_raw()
-                            + self.__info_cells_count)
+        self.setColumnCount(self.get_column_count())
         self.setRowCount(len(self.datas))
+        self.setVerticalHeaderLabels(self.datas.get_names())
         for i in range(len(self.datas)):
             d = self.datas[i]
             self.fill_row(i, d)
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.colorize_selections(self.selected_indexes)
-        self.colorize_max_min_value()
+        # self.colorize_max_min_value()
 
     def select_rows(self, indexes: list[int]):
         self.clearSelection()
         self.selected_indexes = indexes
         self.colorize_selections(indexes)
-        self.colorize_max_min_value()
+        # self.colorize_max_min_value()
 
-    @timer
     def fill_row(self, i, d: SamplingData):
         self.set_text(i, 0, self.get_description(d))
         self.set_text(i, 1, self.format_sample_description(d))
@@ -73,12 +76,11 @@ class TableWidget(QTableWidget):
 
     def get_description(self, d: SamplingData):
         if d.ticks is None:
-            return d.name
+            return ""
         if len(d.ticks) > 40:
-            ticks_str = f"{str(np.array(d.ticks[:25]))[:-1]} ..."
+            return f"{str(np.array(d.ticks[:25]))[:-1]} ..."
         else:
-            ticks_str = f"{np.array(d.ticks)}"
-        return f"{d.name}: {ticks_str}"
+            return f"{np.array(d.ticks)}"
 
     def format_sample_description(self, d: SamplingData):
         if np.issubdtype(type(d.min), np.integer):
@@ -110,6 +112,9 @@ class TableWidget(QTableWidget):
             if item[1] >= self.__info_cells_count:
                 obser_col = item[1] - self.__info_cells_count
                 obsers_to_remove[item[0]].append(obser_col)
+            else:
+                obsers_to_remove[item[0]] = list(
+                    range(len(self.datas[item[0]].raw)))
         return obsers_to_remove
 
     def get_active_items(self):

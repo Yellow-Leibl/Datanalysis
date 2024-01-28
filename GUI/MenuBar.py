@@ -127,9 +127,16 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(anal_menu, "Метод головних компонент", self.pca, "Ctrl+Shift+M")
 
     clust_menu = menuBar.addMenu("Кластерний аналіз")
+    addSection(clust_menu, "Кластеризація")
     addAction(clust_menu, "Кластеризація методом k-середніх",
               self.kmeans, "")
     addAction(clust_menu, "Кластеризація аглоративним методом",
               self.agglomerative_clustering, "")
+    clust_menu.addSeparator()
+    addAction(clust_menu, "Прибрати кластери",
+              self.remove_clusters, "")
+    addAction(clust_menu, "Поділити на кластери",
+              self.split_on_clusters, "")
 
-    class_menu = menuBar.addMenu("Класифікація")
+    clust_menu.addSeparator()
+    addSection(clust_menu, "Класифікація")

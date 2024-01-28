@@ -29,11 +29,10 @@ class SessionMode:
 
     def select_new_sample(self):
         self.update_sample(self.window.feature_area.get_number_classes())
-        self.write_protocol()
-        self.write_critetion()
 
     def update_sample(self, number_column=0):
-        pass
+        self.write_protocol()
+        self.write_critetion()
 
     def write_protocol(self):
         act_sample = self.get_active_samples()

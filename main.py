@@ -320,6 +320,16 @@ class Window(WindowLayout):
         if type(self.session) is SessionModeND:
             self.session.agglomerative_clustering()
 
+    def remove_clusters(self):
+        if (type(self.session) is SessionModeND or
+                type(self.session) is SessionMode2D or
+                type(self.session) is SessionMode1D):
+            self.session.remove_clusters()
+
+    def split_on_clusters(self):
+        if type(self.session) is SessionModeND:
+            self.session.split_on_clusters()
+
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index
         self.make_session()
@@ -386,7 +396,7 @@ def demo_mode_course_work_5():
 
 def demo_mode_classification():
     file = "data/iris_fish.txt"
-    launch_app(file, is_file_name=True, auto_select=range(3))
+    launch_app(file, is_file_name=True, auto_select=range(4))
 
 
 def launch_app(file, is_file_name: bool, auto_select=None):
@@ -397,7 +407,7 @@ def launch_app(file, is_file_name: bool, auto_select=None):
 
 
 if __name__ == "__main__":
-    # demo_mode_classification()
+    demo_mode_classification()
     # demo_mode_time_series_show_2()
-    demo_mode_course_work_5()
+    # demo_mode_course_work_5()
     # demo_mode_classification()

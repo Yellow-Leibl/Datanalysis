@@ -2,6 +2,23 @@ import numpy as np
 from Datanalysis.SamplesTools import median
 
 
+def get_distance_metric_one_interface(metric: str, X: np.ndarray, param=None):
+    d = get_distance_metric(metric)
+    if metric == "minkowski":
+        m = 3 if param is None else param
+
+        def d_minkowski(x1, x2):
+            return d(x1, x2, m)
+        d = d_minkowski
+    elif metric == "mahalanobis":
+        cov = np.cov(X.T)
+
+        def d_mahalanobis(x1, x2):
+            return d(x1, x2, cov)
+        d = d_mahalanobis
+    return d
+
+
 def get_distance_metric(metric: str):
     if metric == 'euclidean':
         return euclidean_distance
@@ -107,60 +124,53 @@ def lance_williams_distance(d12, d13, d23, alpha1, alpha2, beta, eps):
 
 def get_distance_method_consts(method: str):
     if method == 'nearest':
-        return nearest_neighbor_distance_alpha_beta_eps()
+        return nearest_neighbor_distance_alpha_beta_eps
     elif method == 'furthest':
-        return furthest_neighbor_distance_alpha_beta_eps()
+        return furthest_neighbor_distance_alpha_beta_eps
     elif method == 'average':
-        return weighted_average_distance_alpha_beta_eps()
+        return weighted_average_distance_alpha_beta_eps
     elif method == 'unweighted':
-        return unweighted_average_distance_alpha_beta_eps()
+        return unweighted_average_distance_alpha_beta_eps
     elif method == 'median':
-        return median_distance_alpha_beta_eps()
+        return median_distance_alpha_beta_eps
     elif method == 'centroid':
-        return centroid_distance_alpha_beta_eps()
+        return centroid_distance_alpha_beta_eps
     elif method == 'wards':
-        return wards_distance_alpha_beta_eps()
+        return wards_distance_alpha_beta_eps
     else:
         raise ValueError('Unknown method')
 
 
-def nearest_neighbor_distance_alpha_beta_eps():
+def nearest_neighbor_distance_alpha_beta_eps(N1, N2, N3):
     return 0.5, 0.5, 0, -0.5
 
 
-def furthest_neighbor_distance_alpha_beta_eps():
+def furthest_neighbor_distance_alpha_beta_eps(N1, N2, N3):
     return 0.5, 0.5, 0, 0.5
 
 
-def weighted_average_distance_alpha_beta_eps(s1, s2):
-    N1 = len(s1)
-    N2 = len(s2)
+def weighted_average_distance_alpha_beta_eps(N1, N2, N3):
     alpha1 = N1 / (N1 + N2)
     alpha2 = N2 / (N1 + N2)
     return alpha1, alpha2, 0, 0
 
 
-def unweighted_average_distance_alpha_beta_eps():
+def unweighted_average_distance_alpha_beta_eps(N1, N2, N3):
     return 0.5, 0.5, 0, 0
 
 
-def median_distance_alpha_beta_eps():
+def median_distance_alpha_beta_eps(N1, N2, N3):
     return 0.5, 0.5, -0.25, 0
 
 
-def centroid_distance_alpha_beta_eps(s1, s2):
-    N1 = len(s1)
-    N2 = len(s2)
+def centroid_distance_alpha_beta_eps(N1, N2, N3):
     alpha1 = N1 / (N1 + N2)
     alpha2 = N2 / (N1 + N2)
     beta = -alpha1 * alpha2
     return alpha1, alpha2, beta, 0
 
 
-def wards_distance_alpha_beta_eps(s1, s2, s3):
-    N1 = len(s1)
-    N2 = len(s2)
-    N3 = len(s3)
+def wards_distance_alpha_beta_eps(N1, N2, N3):
     alpha1 = (N3 + N1) / (N1 + N2 + N3)
     alpha2 = (N3 + N2) / (N1 + N2 + N3)
     beta = -N3 / (N1 + N2 + N3)
