@@ -25,9 +25,10 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         super().__init__()
         self.cache_graphics = [False] * 7
 
+        self.__scatter_plot = PlotScatterWidget()
+        self.__heatmap_plot = PlotHeatMapWidget()
         self.__parallel_plot = PlotParallelWidget()
         self.__3d_plot = Plot3dWidget()
-        self.__heatmap_plot = PlotHeatMapWidget()
         self.__buble_plot = PlotBubleWidget()
         self.__glyph_plot = PlotGlyphWidget()
 
@@ -39,30 +40,24 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         self.__diagnostic_plot = __E_widget.ci.addPlot(
             title="Похибка регресії",
             labels={"left": "ε", "bottom": "Y"})
-        #  Scatter diagram
-        __scatter_widget = pg.GraphicsLayoutWidget()
-        self.__scatter_diagram_layout = __scatter_widget.ci
         #  N canvas
         self.__nd_widget = gui.TabWidget(
             __E_widget, "Діагностична діаграма",
-            __scatter_widget, "Діаграма розкиду",
+            self.__scatter_plot, "Діаграма розкиду",
             self.__heatmap_plot, "Теплова карта",
             self.__parallel_plot, "Паралельні координати",
             self.__3d_plot, "3-вимірний простір",
             self.__buble_plot, "Бульбашкова діаграма",
             self.__glyph_plot, "Гліф діаграма")
 
-        self.__nd_widget.setCurrentIndex(3)
+        self.__nd_widget.setCurrentIndex(1)
         self.__nd_widget.currentChanged.connect(self.updateCharts)
-        #  General canvas
+
         self.addWidget(__2d_widget)
         self.addWidget(self.__nd_widget)
 
-        # fix warning
         off_warning_for_pyqtgraph(__2d_widget)
-        for i in range(self.__nd_widget.count()):
-            if type(self.__nd_widget.widget(i)) is pg.GraphicsLayoutWidget:
-                off_warning_for_pyqtgraph(self.__nd_widget.widget(i))
+        off_warning_for_pyqtgraph(__E_widget)
 
     def set_enabled_3d(self):
         self.__nd_widget.setTabEnabled(4, True)
@@ -92,15 +87,17 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         if index == 1:
             self.plotScatterDiagram(self.datas.samples, self.column_count)
         if index == 2:
-            self.plotHeatMap(self.datas)
+            self.__heatmap_plot.plot_observers(self.datas)
         if index == 3:
-            self.plotParallelCoordinates(self.datas)
+            self.__parallel_plot.plot_observers(self.datas.to_numpy().T,
+                                                self.datas.get_names())
         if index == 4:
             self.plot3D(self.datas)
         if index == 5:
-            self.plotBubleDiagram(self.datas.samples)
+            self.__buble_plot.plot_observers(self.datas.samples)
         if index == 6:
-            self.plotGlyphDiagram(self.datas.samples, self.column_count)
+            self.__glyph_plot.plot_observers(self.datas.samples,
+                                             self.column_count)
 
     #
     #  Creating plot
@@ -145,51 +142,8 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
             self.set_enabled_3d()
         else:
             self.set_disabled_3d()
-        self.create_scatter_plot(n)
+        self.__scatter_plot.create_scatter_plot(n)
         self.setCurrentIndex(1)
-
-    def create_scatter_plot(self, n):
-        self.__scatter_diagram_plots: list[pg.PlotItem] = []
-        self.__scatter_diagram_layout.clear()
-        #
-        # 111 ... ... ...
-        # 000 111 ... ...
-        # 000 000 111 ...
-        # 000 000 000 111
-        #
-        # 111 000 000 000 111 000 000 111 000 111
-        #
-        for i in range(n):
-            for j in range(i, n):
-                plot_item = self.__scatter_diagram_layout.addPlot(
-                    row=j, col=i)
-                plot_item.getViewBox().setDefaultPadding(0.0)
-                self.__scatter_diagram_plots.append(plot_item)
-
-    def set_labels_for_scatter_plot(self, dn: list[SamplingData]):
-        n = len(dn)
-        k = 0
-        font = QtGui.QFont()
-        font.setPixelSize(7)
-
-        def set_axis_style(plot: pg.PlotItem, axis):
-            plot.showAxis(axis)
-            plot.getAxis(axis).setStyle(tickFont=font)
-
-        for i in range(n):
-            for j in range(i, n):
-                plot_item = self.__scatter_diagram_plots[k]
-                k += 1
-                plot_item.hideAxis("left")
-                plot_item.hideAxis("bottom")
-                labels = {}
-                if i == 0:
-                    labels["left"] = dn[j].name
-                    set_axis_style(plot_item, "left")
-                if j == n - 1:
-                    labels["bottom"] = dn[i].name
-                    set_axis_style(plot_item, "bottom")
-                plot_item.setLabels(**labels)
 
     #
     #  Plotting
@@ -373,35 +327,22 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
                                        tr_l_f, f, tr_m_f)
 
     def plotScatterDiagram(self, dn: list[SamplingData], col):
-        self.set_labels_for_scatter_plot(dn)
+        self.__scatter_plot.set_labels_for_scatter_plot(dn)
+        plots = self.__scatter_plot.get_plots()
         n = len(dn)
         diag_i = 0
         slide_cells = 0
         for i in range(n):
             self.plot1DHist(dn[i], dn[i].get_histogram_data(col),
-                            self.__scatter_diagram_plots[diag_i])
+                            plots[diag_i])
             diag_i += n - i
             slide_cells += i
             for j in range(diag_i - n + i + 1, diag_i):
                 d2 = DoubleSampleData(dn[i], dn[(j + slide_cells) % n])
-                self.__scatter_diagram_plots[j].clear()
+                plots[j].clear()
                 self.plot_2d_histogram(d2, d2.get_histogram_data(col),
-                                       self.__scatter_diagram_plots[j])
-                self.plot_2d(d2, self.__scatter_diagram_plots[j])
-
-    def plotParallelCoordinates(self, dn: SamplingDatas):
-        self.__parallel_plot.clear_plot()
-        self.__parallel_plot.set_labels(dn.get_names())
-        self.__parallel_plot.plot_observers(dn.to_numpy().T)
-
-    def plotHeatMap(self, dn: SamplingDatas):
-        self.__heatmap_plot.plot_observers(dn)
-
-    def plotBubleDiagram(self, dn: list[SamplingData]):
-        self.__buble_plot.plot_observers(dn)
-
-    def plotGlyphDiagram(self, dn: list[SamplingData], col):
-        self.__glyph_plot.plot_observers(dn)
+                                       plots[j])
+                self.plot_2d(d2, plots[j])
 
 
 def newPen(color, width):
@@ -456,6 +397,7 @@ class Plot3dWidget(FigureCanvasQTAgg):
 class PlotParallelWidget(pg.GraphicsLayoutWidget):
     def __init__(self):
         super().__init__()
+        off_warning_for_pyqtgraph(self)
         self.__ax: pg.PlotItem = self.ci.addPlot()
         off_warning_for_pyqtgraph(self)
 
@@ -466,10 +408,10 @@ class PlotParallelWidget(pg.GraphicsLayoutWidget):
 
         self.__ax.setLabel("left", "Умовні величини")
 
-    def clear_plot(self):
+    def plot_observers(self, X: np.ndarray, names):
         self.__ax.clear()
+        self.set_labels(names)
 
-    def plot_observers(self, X: np.ndarray):
         n, N = X.shape
 
         def tr2v(x: np.ndarray):
@@ -494,6 +436,7 @@ class PlotParallelWidget(pg.GraphicsLayoutWidget):
 class PlotHeatMapWidget(pg.GraphicsLayoutWidget):
     def __init__(self):
         super().__init__()
+        off_warning_for_pyqtgraph(self)
         self.__heatmap_layout = self.ci
 
     def plot_observers(self, dn: SamplingDatas):
@@ -532,6 +475,7 @@ class PlotHeatMapWidget(pg.GraphicsLayoutWidget):
 class PlotBubleWidget(pg.GraphicsLayoutWidget):
     def __init__(self):
         super().__init__()
+        off_warning_for_pyqtgraph(self)
         self.__buble_plot = self.ci.addPlot(
             labels={"left": "Y", "bottom": "X"})
 
@@ -551,18 +495,20 @@ class PlotBubleWidget(pg.GraphicsLayoutWidget):
 class PlotGlyphWidget(pg.GraphicsLayoutWidget):
     def __init__(self):
         super().__init__()
+        off_warning_for_pyqtgraph(self)
         self.__glyph_plot = self.ci.addPlot(
             labels={"left": "Y", "bottom": "X"})
         colorMap = pg.colormap.get("CET-D1")
         self.__glyph_bar = pg.ColorBarItem(colorMap=colorMap)
 
-    def plot_observers(self, dn: list[SamplingData]):
+    def plot_observers(self, dn: list[SamplingData], col=0):
         x_raw = dn[0].raw
         y_raw = dn[1].raw
         z_raw = dn[2].raw
         x = dn[0]
         y = dn[1]
-        col = calculate_m(len(x_raw))
+        if col == 0:
+            col = calculate_m(len(x_raw))
 
         glyph_data_sum = np.zeros((col, col))
         glyph_data_count = np.zeros((col, col), dtype=np.uint8)
@@ -599,9 +545,64 @@ class PlotGlyphWidget(pg.GraphicsLayoutWidget):
                                pen=None)
 
 
+class PlotScatterWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        off_warning_for_pyqtgraph(self)
+        self.__scatter_diagram_layout = self.ci
+        self.__scatter_diagram_plots: list[pg.PlotItem] = []
+
+    def get_plots(self):
+        return self.__scatter_diagram_plots
+
+    def create_scatter_plot(self, n):
+        self.__scatter_diagram_plots: list[pg.PlotItem] = []
+        self.__scatter_diagram_layout.clear()
+        #
+        # 111 ... ... ...
+        # 000 111 ... ...
+        # 000 000 111 ...
+        # 000 000 000 111
+        #
+        # 111 000 000 000 111 000 000 111 000 111
+        #
+        for i in range(n):
+            for j in range(i, n):
+                plot_item = self.__scatter_diagram_layout.addPlot(
+                    row=j, col=i)
+                plot_item.getViewBox().setDefaultPadding(0.0)
+                self.__scatter_diagram_plots.append(plot_item)
+
+    def set_labels_for_scatter_plot(self, dn: list[SamplingData]):
+        n = len(dn)
+        k = 0
+        font = QtGui.QFont()
+        font.setPixelSize(7)
+
+        def set_axis_style(plot: pg.PlotItem, axis):
+            plot.showAxis(axis)
+            plot.getAxis(axis).setStyle(tickFont=font)
+
+        for i in range(n):
+            for j in range(i, n):
+                plot_item = self.__scatter_diagram_plots[k]
+                k += 1
+                plot_item.hideAxis("left")
+                plot_item.hideAxis("bottom")
+                labels = {}
+                if i == 0:
+                    labels["left"] = dn[j].name
+                    set_axis_style(plot_item, "left")
+                if j == n - 1:
+                    labels["bottom"] = dn[i].name
+                    set_axis_style(plot_item, "bottom")
+                plot_item.setLabels(**labels)
+
+
 class PlotDendrogramWidget(pg.GraphicsLayoutWidget):
     def __init__(self):
         super().__init__()
+        off_warning_for_pyqtgraph(self)
         self.__dendrogram_plot = self.ci.addPlot(
             labels={"left": "Відстань", "bottom": "Кластери"})
         self.__dendrogram_plot.getViewBox().setDefaultPadding(0.0)
@@ -645,7 +646,7 @@ class PlotDendrogramWidget(pg.GraphicsLayoutWidget):
         self.__dendrogram_plot.getAxis("bottom").setTicks([xdict.items()])
 
 
-class PlotDialogWindow(gui.QtWidgets.QDialog):
+class PlotDialogWindow(gui.QtWidgets.QWidget):
     def __init__(self, **args):
         super().__init__()
         title = args.get("title", "")
@@ -655,11 +656,24 @@ class PlotDialogWindow(gui.QtWidgets.QDialog):
 
         plot_widget = args.get("plot")
 
-        self.setModal(True)
-
         vbox = gui.QtWidgets.QVBoxLayout()
         vbox.addWidget(plot_widget)
         self.setLayout(vbox)
+
+
+class PlotRocCurveWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        off_warning_for_pyqtgraph(self)
+        self.__roc_curve_plot = self.ci.addPlot(
+            labels={"left": "True Positive Rate",
+                    "bottom": "False Positive Rate"})
+
+    def plot_observers(self, fpr: np.ndarray, tpr: np.ndarray):
+        self.__roc_curve_plot.clear()
+        self.__roc_curve_plot.plot([0, 1], [0, 1], pen=pg.mkPen(
+            'r', width=3, style=QtCore.Qt.PenStyle.DashLine))
+        self.__roc_curve_plot.plot(fpr, tpr, pen=newPen((0, 0, 255), 3))
 
 
 unique_colors = [

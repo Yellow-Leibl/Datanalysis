@@ -17,6 +17,8 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
 
     addAction(file_menu, "Відкрити", self.open_file_act, "Ctrl+O")
     addAction(file_menu, "Зберегти", self.save_file_act, "Ctrl+S")
+    addAction(file_menu, "Зберегти як обʼєкт", self.save_file_as_obj_act,
+              "Ctrl+Shift+S")
     addAction(file_menu, "Вийти", exit, "Ctrl+Q")
 
     edit_menu = menuBar.addMenu("Редагувати")
@@ -52,6 +54,7 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     self.reprod_num = -1
 
     regr_menu = menuBar.addMenu("&Регресія")
+    addSection(regr_menu, "Одновимірна регресія")
     addAction(regr_menu, "&Нормальний",
               lambda: self.set_reproduction_series(0), "Ctrl+Alt+Q")
     addAction(regr_menu, "&Рівномірний",
@@ -63,6 +66,7 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(regr_menu, "&Арксинус",
               lambda: self.set_reproduction_series(4), "Ctrl+Alt+T")
     regr_menu.addSeparator()
+    addSection(regr_menu, "Двовимірна регресія")
     addAction(regr_menu, "Лінійна МНК (2D)",
               lambda: self.set_reproduction_series(5), "Ctrl+Alt+Y")
     addAction(regr_menu, "Лінійна Метод Тейла",
@@ -72,6 +76,7 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     addAction(regr_menu, "Квазілінійна y = a * exp(b * x)",
               lambda: self.set_reproduction_series(8), "Ctrl+Alt+O")
     regr_menu.addSeparator()
+    addSection(regr_menu, "Многовимірна регресія")
     addAction(regr_menu, "Лінійна МНК",
               lambda: self.set_reproduction_series(9), "Ctrl+Alt+P")
     addAction(regr_menu, "Лінійне різноманіття",
@@ -128,9 +133,9 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
 
     clust_menu = menuBar.addMenu("Кластерний аналіз")
     addSection(clust_menu, "Кластеризація")
-    addAction(clust_menu, "Кластеризація методом k-середніх",
+    addAction(clust_menu, "K-середніх",
               self.kmeans, "")
-    addAction(clust_menu, "Кластеризація аглоративним методом",
+    addAction(clust_menu, "Агломеративний метод",
               self.agglomerative_clustering, "")
     clust_menu.addSeparator()
     addAction(clust_menu, "Прибрати кластери",
@@ -140,3 +145,11 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
 
     clust_menu.addSeparator()
     addSection(clust_menu, "Класифікація")
+    addAction(clust_menu, "Найближчого сусіда NN",
+              self.nearest_neighbor_classification, "")
+    addAction(clust_menu, "Модифікація найближчого сусіда NN",
+              self.mod_nearest_neighbor_classification, "")
+    addAction(clust_menu, "K-найближчих сусідів kNN",
+              self.k_nearest_neighbor_classification, "")
+    addAction(clust_menu, "Логістична регресія",
+              self.logistic_regression, "")

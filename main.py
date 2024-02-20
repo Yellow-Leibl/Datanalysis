@@ -33,10 +33,10 @@ class Window(WindowLayout):
 
     def open_file(self, file: str, is_file_name=True):
         if is_file_name:
-            all_vectors = self.io_datas.read_from_file(file)
+            samples = self.io_datas.read_from_file(file)
         else:
-            all_vectors = self.io_datas.read_from_text(file.split('\n'))
-        self.load_from_data(all_vectors)
+            samples = self.io_datas.read_from_text(file.split('\n'))
+        self.load_from_data(samples)
 
     def save_file(self, filename):
         self.io_datas.save_to_csv(filename,
@@ -44,8 +44,14 @@ class Window(WindowLayout):
                                   self.all_datas.get_ticks(),
                                   self.all_datas.to_numpy())
 
-    def load_from_data(self, vectors):
-        self.all_datas.append(vectors)
+    def save_file_as_obj(self, filename):
+        self.io_datas.save_project(filename, self.all_datas.samples)
+
+    def load_from_data(self, sampling_datas):
+        if not hasattr(sampling_datas[0], "calculated"):
+            self.all_datas.append_calculate(sampling_datas)
+        else:
+            self.all_datas.append_samples(sampling_datas)
         self.table.update_table()
 
     @timer
@@ -83,7 +89,7 @@ class Window(WindowLayout):
 
     def get_double_number(self, title: str, default_val=None):
         dialog_window = DialogWindow(
-            form_args=[title, DoubleSpinBox(min_v=0, max_v=100, val=0)])
+            form_args=[title, DoubleSpinBox(min_v=0, max_v=100, value=0)])
         ret = dialog_window.get_vals()
         return ret.get(title, default_val)
 
@@ -96,8 +102,8 @@ class Window(WindowLayout):
             items_combobox[self.all_datas[i].name] = i
         dialog_window = DialogWindow(form_args=[
             title1, ComboBox(items_combobox),
-            title2, DoubleSpinBox(min_v=2.22e-308, max_v=1.79e+308, val=0),
-            title3, DoubleSpinBox(min_v=2.22e-308, max_v=1.79e+308, val=0)])
+            title2, DoubleSpinBox(min_v=-1.79e+308, max_v=1.79e+308, value=0),
+            title3, DoubleSpinBox(min_v=-1.79e+308, max_v=1.79e+308, value=0)])
         ret = dialog_window.get_vals()
         i = ret.get(title1, -1)
         a = ret.get(title2)
@@ -330,6 +336,22 @@ class Window(WindowLayout):
         if type(self.session) is SessionModeND:
             self.session.split_on_clusters()
 
+    def nearest_neighbor_classification(self):
+        if type(self.session) is SessionModeND:
+            self.session.nearest_neighbor_classification()
+
+    def mod_nearest_neighbor_classification(self):
+        if type(self.session) is SessionModeND:
+            self.session.mod_nearest_neighbor_classification()
+
+    def k_nearest_neighbor_classification(self):
+        if type(self.session) is SessionModeND:
+            self.session.k_nearest_neighbor_classification()
+
+    def logistic_regression(self):
+        if type(self.session) is SessionModeND:
+            self.session.logistic_regression()
+
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index
         self.make_session()
@@ -397,6 +419,11 @@ def demo_mode_course_work_5():
 def demo_mode_classification():
     file = "data/iris_fish.txt"
     launch_app(file, is_file_name=True, auto_select=range(4))
+
+
+def demo_mode_1():
+    file = "/Users/user/Downloads/dst_ind.txt"
+    launch_app(file, is_file_name=True, auto_select=range(1))
 
 
 def launch_app(file, is_file_name: bool, auto_select=None):

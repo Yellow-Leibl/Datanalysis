@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from Datanalysis.SamplingData import SamplingData
+import pickle
 
 
 class IODatas:
@@ -14,6 +15,8 @@ class IODatas:
         ext_name = path[last_dot_index:]
         if ext_name == 'csv':
             (names, ticks), arr = self.read_from_file_csv(path)
+        elif ext_name == 'sdatas':
+            return self.load_project(path)
         else:
             names, arr = self.read_from_file_txt(path)
             ticks = [None for _ in names]
@@ -36,8 +39,13 @@ class IODatas:
         n = len(np.fromstring(text[0], dtype=float, sep=' '))
 
         vectors = np.empty((len(text), n), dtype=float)
+        empty_lines = 0
         for j, line in enumerate(text):
+            if len(line) == 1:
+                empty_lines += 1
+                continue
             vectors[j] = np.fromstring(line, dtype=float, sep=' ')
+        vectors = vectors[:len(text) - empty_lines]
         names = [f"{filename}_{i}" for i in range(n)]
         return names, vectors.transpose()
 
@@ -77,3 +85,12 @@ class IODatas:
         if filename.split('.')[-1] != 'csv':
             filename += '.csv'
         df.to_csv(filename, index=False)
+
+    def save_project(self, filename: str, datas: list[SamplingData]):
+        with open(filename+".sdatas", 'wb') as file:
+            pickle.dump(datas, file)
+
+    def load_project(self, filename: str):
+        with open(filename, 'rb') as file:
+            datas = pickle.load(file)
+        return datas

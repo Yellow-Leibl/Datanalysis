@@ -6,16 +6,10 @@ def get_distance_metric_one_interface(metric: str, X: np.ndarray, param=None):
     d = get_distance_metric(metric)
     if metric == "minkowski":
         m = 3 if param is None else param
-
-        def d_minkowski(x1, x2):
-            return d(x1, x2, m)
-        d = d_minkowski
+        return lambda x1, x2: d(x1, x2, m)
     elif metric == "mahalanobis":
         cov = np.cov(X.T)
-
-        def d_mahalanobis(x1, x2):
-            return d(x1, x2, cov)
-        d = d_mahalanobis
+        return lambda x1, x2: d(x1, x2, cov)
     return d
 
 

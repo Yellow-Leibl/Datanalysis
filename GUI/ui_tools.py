@@ -1,4 +1,4 @@
-from PyQt6 import QtWidgets
+from PyQt6 import QtWidgets, QtGui
 import platform
 
 
@@ -39,34 +39,37 @@ class HBoxLayout(QtWidgets.QHBoxLayout):
 
 class SpinBox(QtWidgets.QSpinBox):
     def __init__(self, val_changed_f=None,
-                 min_v=0, max_v=1, val=0):
+                 min_v=0, max_v=1, value=0):
         super().__init__()
         self.setMinimum(min_v)
         self.setMaximum(max_v)
-        self.setValue(val)
+        self.setValue(value)
         if val_changed_f is not None:
             self.valueChanged.connect(val_changed_f)
 
 
 class DoubleSpinBox(QtWidgets.QDoubleSpinBox):
     def __init__(self, val_changed_f=None,
-                 min_v=0, max_v=1, decimals=None, val=0):
+                 min_v=0, max_v=1, decimals=None, value=0):
         super().__init__()
         self.setMinimum(min_v)
         self.setMaximum(max_v)
         if decimals is not None:
             self.setDecimals(decimals)
-        self.setValue(val)
+        self.setValue(value)
         if val_changed_f is not None:
             self.valueChanged.connect(val_changed_f)
 
 
 class TextEdit(QtWidgets.QTextEdit):
-    def __init__(self, text="", read_only=False, mono_font=False) -> None:
+    def __init__(self, text="", read_only=False, mono_font=False,
+                 nowrap=False):
         super().__init__(text)
         self.setReadOnly(read_only)
         if mono_font:
             self.setFontFamily(get_mono_font_any_os())
+        if nowrap:
+            self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
 
 
 class ComboBox(QtWidgets.QComboBox):

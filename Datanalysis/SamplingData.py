@@ -84,6 +84,7 @@ class SamplingData:
         self.trust = trust
 
     def toCalculateCharacteristic(self, MED_Walsh=True):
+        self.calculated = True
         N = len(self._x)
         if N == 0 or N == 1:
             return

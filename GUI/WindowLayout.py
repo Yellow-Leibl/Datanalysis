@@ -8,10 +8,11 @@ import logging
 from PyQt6.QtWidgets import (QMessageBox, QSplitter,
                              QFileDialog)
 from PyQt6.QtCore import Qt
-from PyQt6 import QtGui, QtWidgets
-from GUI import (PlotWidget, TableWidget, fill_menu_bar,
+from PyQt6 import QtWidgets
+from GUI import (TableWidget, fill_menu_bar,
                  TextEdit, TabWidget,
                  FeatureArea, BoxWithObjects)
+import GUI.PlotWidget as cplt
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,16 +23,15 @@ class WindowLayout(QtWidgets.QMainWindow):
         self.setGeometry(150, 100, 1333, 733)
         self.setWindowTitle("Аналіз даних")
 
-        self.plot_widget = PlotWidget()
+        self.plot_widget = cplt.PlotWidget()
+        self.additional_plot_widget = None
 
         self.table = TableWidget(cell_double_clicked=self.draw_samples)
 
-        self.protocol = TextEdit(read_only=True, mono_font=True)
-        self.protocol.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
+        self.protocol = TextEdit(read_only=True, mono_font=True, nowrap=True)
 
-        self.criterion_protocol = TextEdit(read_only=True, mono_font=True)
-        self.criterion_protocol.setWordWrapMode(
-            QtGui.QTextOption.WrapMode.NoWrap)
+        self.criterion_protocol = TextEdit(read_only=True, mono_font=True,
+                                           nowrap=True)
 
         self.tab_info = TabWidget(self.protocol, "Протокол",
                                   self.criterion_protocol, "Критерії",
@@ -84,6 +84,12 @@ class WindowLayout(QtWidgets.QMainWindow):
         if filename == '':
             return
         self.save_file(filename)
+
+    def save_file_as_obj_act(self):
+        filename = self.save_file_dialog()
+        if filename == '':
+            return
+        self.save_file_as_obj(filename)
 
     def save_file_dialog(self):
         file_name, _ = QFileDialog.getSaveFileName(

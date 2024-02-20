@@ -3,13 +3,14 @@ import math
 
 from Datanalysis import (
     SamplingData, DoubleSampleData, PolynomialRegressionModel)
+from Datanalysis.SamplesCriteria import SamplesCriteria
+from Datanalysis.SamplesTools import timer, formRowNV, calculate_m
+import Datanalysis.functions as func
 from Datanalysis.cluster import KMeans
 import Datanalysis.cluster.AgglomerativeClustering as ac
 import Datanalysis.cluster.SignifCluster as sc
 import Datanalysis.cluster.distances as DIST
-from Datanalysis.SamplesCriteria import SamplesCriteria
-from Datanalysis.SamplesTools import timer, formRowNV, calculate_m
-import Datanalysis.functions as func
+import Datanalysis.cluster as clstr
 
 import logging
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class SamplingDatas(SamplesCriteria):
         self.remove_observations(np.where(np.logical_and(a <= s, s <= b)))
 
     @timer
-    def append(self, samples: list[SamplingData]):
+    def append_calculate(self, samples: list[SamplingData]):
         self.samples += samples
         for s in samples:
             s.toRanking()
@@ -648,3 +649,159 @@ class SamplingDatas(SamplesCriteria):
                 samplingdata.toCalculateCharacteristic()
                 samples.append(samplingdata)
         return samples
+
+    def nearest_neighbor_classification_scores(self,
+                                               train_size=0.7,
+                                               metric="euclidean"):
+        nn = clstr.NeighborsClassifier(metric)
+        accuracy, ppv, tpr, fpr, fnr =\
+            self.get_scores_from_model(nn, train_size)
+        self.acc_class = accuracy
+        self.ppv_class = ppv
+        self.tpr_class = tpr
+        self.fpr_class = fpr
+        self.fnr_class = fnr
+
+    def mod_nearest_neighbor_classification_scores(self,
+                                                   train_size=0.7,
+                                                   metric="euclidean"):
+        nnm = clstr.NeighborsModClassifier(metric)
+        accuracy, ppv, tpr, fpr, fnr =\
+            self.get_scores_from_model(nnm, train_size)
+        self.acc_class = accuracy
+        self.ppv_class = ppv
+        self.tpr_class = tpr
+        self.fpr_class = fpr
+        self.fnr_class = fnr
+
+    def k_nearest_neighbor_classification_scores(self,
+                                                 train_size=0.7,
+                                                 k_neighbors=3,
+                                                 metric="euclidean"):
+        knn = clstr.KNeighborsClassifier(k_neighbors, metric)
+        accuracy, ppv, tpr, fpr, fnr =\
+            self.get_scores_from_model(knn, train_size)
+        self.acc_class = accuracy
+        self.ppv_class = ppv
+        self.tpr_class = tpr
+        self.fpr_class = fpr
+        self.fnr_class = fnr
+
+    def get_scores_from_model(self, model, train_size):
+        X = self.to_numpy()
+        Y = self.get_tags_array()
+        x_train, x_test, y_train, y_test = \
+            self.test_train_split(X, Y, train_size)
+        model.fit(x_train, y_train)
+
+        y_pred = model.predict(x_test)
+        return self.scores(y_test, y_pred)
+
+    def get_tags_array(self):
+        clusters = self[0].clusters
+        N = len(self[0].raw)
+        Y = np.empty(N, dtype=int)
+        for i, cluster in enumerate(clusters):
+            Y[cluster] = i
+        return Y
+
+    def test_train_split(self, x, y, train_size=0.7):
+        N = len(x)
+        indexes = np.arange(N)
+        np.random.shuffle(indexes)
+        train_ind = indexes[:int(N * train_size)]
+        test_ind = indexes[int(N * train_size):]
+        return x[train_ind], x[test_ind], y[train_ind], y[test_ind]
+
+    def scores(self, y_true: np.ndarray, y_pred: np.ndarray):
+        K = self.get_error_matrix(y_true, y_pred)
+        n = K.shape[0]
+        ppv = np.zeros(n)
+        tpr = np.zeros(n)
+        fpr = np.zeros(n)
+        fnr = np.zeros(n)
+        for j in range(n):
+            if K[:, j].sum() == 0:
+                ppv[j] = 0
+            else:
+                ppv[j] = K[j, j] / K[:, j].sum()
+            tpr[j] = K[j, j] / K[j, :].sum()
+            fpr[j] = 1 - tpr[j]
+            fnr[j] = 1 - ppv[j]
+        accuracy = K.diagonal().sum() / K.sum()
+        return accuracy, ppv, tpr, fpr, fnr
+
+    def logistic_regression_scores(self, train_size, train_speed, num_iter):
+        lc = clstr.LogisticClassifier()
+        X = self.to_numpy()
+        Y = self.get_tags_array()
+        x_train, x_test, y_train, y_test = \
+            self.test_train_split(X, Y, train_size)
+        lc.fit(x_train, y_train, train_speed, num_iter)
+        fpr_arr, tpr_arr = self.roc_curve_data(x_test, y_test, lc)
+
+        accuracy, ppv, tpr, fpr, fnr = self.scores(y_test, lc.predict(X))
+        self.acc_class = accuracy
+        self.ppv_class = ppv
+        self.tpr_class = tpr
+        self.fpr_class = fpr
+        self.fnr_class = fnr
+
+        return fpr_arr, tpr_arr
+
+    def roc_curve_data(self, x, y_true: np.ndarray,
+                       lc: clstr.LogisticClassifier):
+        xrange = np.arange(1.0, -0.01, -0.01)
+        fpr = np.empty(len(xrange))
+        tpr = np.empty(len(xrange))
+        for i, a in enumerate(xrange):
+            y_pred = lc.predict(x, a)
+            fpr_i, tpr_i = self.binary_fpr_tpr(y_true, y_pred)
+            fpr[i] = fpr_i
+            tpr[i] = tpr_i
+        return fpr, tpr
+
+    def binary_fpr_tpr(self, y_true: np.ndarray, y_pred: np.ndarray):
+        K = self.get_error_matrix(y_true, y_pred)
+        TP, FN = K[0, 0], K[0, 1]
+        FP, TN = K[1, 0], K[1, 1]
+        P, N = TP + FN, FP + TN
+        TPR = TP / P
+        FPR = FP / N
+        return FPR, TPR
+
+    def binary_scores(self, y_true: np.ndarray, y_pred: np.ndarray):
+        K = self.get_error_matrix(y_true, y_pred)
+        TP, FP = K[0, 0], K[0, 1]
+        FN, TN = K[1, 0], K[1, 1]
+        P, N = TP + FN, FP + TN
+        P_ = TP + FP
+        N_ = FN + TN
+        sensitivity = TP / P
+        FPR = FP / N
+        FNR = FN / P
+        specificity = TN / N
+        precision = TP / P_
+        NPV = TN / N_
+        FDR = FP / P_
+        FOR = FN / N_
+        accuracy = (TP + TN) / (TP + TN + FP + FN)
+        char = {
+            "sensitivity": sensitivity,
+            "specificity": specificity,
+            "PPV": precision,
+            "NPV": NPV,
+            "FPR": FPR,
+            "FNR": FNR,
+            "FDR": FDR,
+            "FOR": FOR,
+            "accuracy": accuracy
+        }
+        return char
+
+    def get_error_matrix(self, y_true: np.ndarray, y_pred: np.ndarray):
+        n = y_true.max() - y_true.min() + 1
+        K = np.zeros((n, n))
+        for i, j in zip(y_true, y_pred):
+            K[n - i - 1, n - j - 1] += 1
+        return K

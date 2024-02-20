@@ -91,7 +91,8 @@ class DoubleSampleData(DoubleSampleRegression):
         i = 1
         sub_y_0 = 0
         for j in range(N):
-            if not (self.x.min + (i-1) * dx <= xy[j, 0] <= self.x.min + i * dx):
+            if not (self.x.min + (i-1) * dx <= xy[j, 0]
+                    <= self.x.min + i * dx):
                 y[i] = xy[sub_y_0:j - 1, 1]
                 i += 1
                 sub_y_0 = j

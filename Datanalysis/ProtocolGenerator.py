@@ -1,5 +1,5 @@
 from Datanalysis import (
-        SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData)
+    SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData)
 from Datanalysis.SamplesTools import formRowNV, PROTOCOL_TITLE
 
 import Datanalysis.functions as func
@@ -442,6 +442,16 @@ class ProtocolGenerator:
                     "", data.signif_general_dispersion)
             addForm("Відношення функціоналів",
                     "", data.signif_relation_functionals)
+
+        if hasattr(data, "acc_class"):
+            add_text()
+            add_text("Оцінка якості класифікації")
+            add_text()
+            addForm("Точність класифікації", "", data.acc_class)
+            addForm("PPV", "", data.ppv_class)
+            addForm("TPR", "", data.tpr_class)
+            addForm("FPR", "", data.fpr_class)
+            addForm("FNR", "", data.fnr_class)
 
         return "\n".join(inf_protocol)
 
