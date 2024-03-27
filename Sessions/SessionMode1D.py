@@ -47,7 +47,7 @@ class SessionMode1D(SessionMode):
         elif func_num == 1:
             return d.toCreateUniformFunc()
         elif func_num == 2:
-            return d.toCreateExponentialFunc()
+            return d.to_create_exp_func()
         elif func_num == 3:
             return d.toCreateWeibullFunc()
         elif func_num == 4:

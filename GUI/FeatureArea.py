@@ -1,14 +1,13 @@
-from PyQt6.QtWidgets import (QWidget, QStackedWidget)
 from GUI.ui_tools import (FormLayout, SpinBox, WidgetWithLayout,
-                          DoubleSpinBox, VBoxLayout)
+                          DoubleSpinBox, VBoxLayout, QtWidgets)
 
 
-class FeatureArea(QStackedWidget):
+class FeatureArea(QtWidgets.QStackedWidget):
     def __init__(self, parent):
         super().__init__()
         self.addWidget(self.create_1d_layout(parent))
 
-    def create_1d_layout(self, parent) -> QWidget:
+    def create_1d_layout(self, parent) -> QtWidgets.QWidget:
         self.__spin_number_column = SpinBox(
             val_changed_f=parent.update_sample)
 

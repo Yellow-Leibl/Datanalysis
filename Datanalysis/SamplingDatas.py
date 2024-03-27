@@ -408,11 +408,8 @@ class SamplingDatas(SamplesCriteria):
             if in_space(p, ranges):
                 del_ind.append(i)
 
-        samples_raw = [list(s.raw) for s in self.samples]
-        for i in del_ind[::-1]:
-            [row.pop(i) for row in samples_raw]
-        for s, s_raw in zip(self.samples, samples_raw):
-            s.raw = s_raw
+        for s in self.samples:
+            s.raw = np.delete(s.raw, del_ind)
         return len(del_ind)
 
     def get_histogram_data(self, column_number=0):

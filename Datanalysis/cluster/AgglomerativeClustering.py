@@ -26,9 +26,9 @@ def linkage(X: np.ndarray, n_clusters, linkage="median", metric="euclidean"):
         n3 = clusters_cnt
         col_d = DIST.lance_williams_distance(d12, d13, d23,
                                              *linkage_consts_f(n1, n2, n3))
-        col_d[min_k] = -99999
-        distances[min_k, :] = -99999
-        distances[:, min_k] = -99999
+        col_d[min_k] = np.nan
+        distances[min_k, :] = np.nan
+        distances[:, min_k] = np.nan
         distances[min_j, :] = col_d
         distances[:, min_j] = col_d
 
@@ -61,10 +61,9 @@ def distance_matrix(X: np.ndarray, d):
         for j in range(i + 1, N):
             xi = X[i].reshape((1, m))
             xj = X[j].reshape((1, m))
-            distances[i, j] = d(xi, xj)
-            if np.isnan(distances[i, j]) or np.isinf(distances[i, j]):
-                raise ValueError('Distance function returned NaN or Inf')
-            distances[j, i] = distances[i, j]
+            distances[i, j] = distances[j, i] = d(xi, xj)
+    if np.isnan(distances).any() or np.isinf(distances).any():
+        raise ValueError('Distance function returned NaN or Inf')
     return distances
 
 

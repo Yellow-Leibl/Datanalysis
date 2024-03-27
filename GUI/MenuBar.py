@@ -47,8 +47,12 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
 
     view_menu = menuBar.addMenu("Вигляд")
     addAction(view_menu, "Наступна вкладка", self.nextProtocolTab, "Alt+Tab")
-    addAction(view_menu, "Часовий ряд/Часовий зріз",
-              self.change_sample_type_mode, "Alt+T")
+    addAction(view_menu, "Часовий зріз",
+              lambda: self.change_sample_type_mode(0), "Alt+R")
+    addAction(view_menu, "Часовий ряд",
+              lambda: self.change_sample_type_mode(1), "Alt+T")
+    addAction(view_menu, "ТМО",
+              lambda: self.change_sample_type_mode(2), "Alt+Y")
     addAction(view_menu, "Очистити графік", self.clear_plot, "Ctrl+Alt+C")
 
     self.reprod_num = -1

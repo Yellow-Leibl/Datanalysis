@@ -30,7 +30,7 @@ class TableWidget(QTableWidget):
         self.setItem(row, col, item)
 
     def get_column_count(self):
-        return 300
+        return 30
         # return self.datas.get_max_len_raw() + self.__info_cells_count
 
     @timer

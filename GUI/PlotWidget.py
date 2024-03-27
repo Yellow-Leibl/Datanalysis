@@ -1,5 +1,6 @@
 import GUI.ui_tools as gui
-from PyQt6 import QtCore, QtGui
+from GUI.ui_tools import QtGui
+from PyQt6 import QtCore
 import pyqtgraph as pg
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -182,11 +183,11 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
             self.time_val_plot.plot(t, components[i],
                                     pen=newPen(unique_colors[-i], 3))
 
-    def plot1D(self, d: SamplingData, hist_data: list):
+    def plot1D(self, d: SamplingData, hist_data):
         self.plot1DHist(d, hist_data)
         self.plot1DEmp(d, hist_data)
 
-    def plot1DHist(self, d: SamplingData, hist_data: list,
+    def plot1DHist(self, d: SamplingData, hist_data: np.ndarray,
                    hist_plot: pg.PlotItem = None):
         h = abs(d.max - d.min) / len(hist_data)
         x = np.empty(len(hist_data) * 3, dtype=float)
@@ -208,29 +209,33 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
                        brush=(30, 120, 180),
                        pen=newPen((0, 0, 0), 1))
 
-    def plot1DEmp(self, d: SamplingData, hist_data: list):
-        h = abs(d.max - d.min) / len(hist_data)
-        x_class = np.empty(len(hist_data) * 3, dtype=float)
-        y_class = np.empty(len(hist_data) * 3, dtype=float)
-        col_height = 0.0
-        for p, i in enumerate(hist_data):
-            if col_height > 1:
-                col_height = 1
-            x_class[p*3] = x_class[p*3+1] = (d.min + p * h)
-            x_class[p*3+2] = d.min + (p + 1) * h
-            y_class[p*3] = col_height
-            y_class[p*3+1] = y_class[p*3+2] = col_height + i
-            col_height += i
+    def plot_emp_hist(self, d: SamplingData, hist_data: np.ndarray):
+        x_class = np.empty((len(hist_data), 3), dtype=float)
+        y_class = np.empty((len(hist_data), 3), dtype=float)
+        cum_hist_data = np.cumsum(hist_data)
+        y_class[:, 0] = cum_hist_data
+        y_class[:, 1] = cum_hist_data
+        y_class[:, 2] = np.nan
 
-        y_stat = np.empty(len(d.probabilityX), dtype=float)
-        y_stat[0] = d.probabilityX[0]
-        for i, prob in enumerate(d.probabilityX[1:]):
-            y_stat[i + 1] = y_stat[i] + prob
+        x = np.linspace(d.min, d.max, len(hist_data) + 1, dtype=float)
+        x_class[:, 0] = x[:-1]
+        x_class[:, 1] = x[1:]
+        x_class[:, 2] = np.nan
+
+        # flatten: always returns a copy
+        # ravel: returns a view of the original array whenever possible
+        x_class = x_class.ravel()
+        y_class = y_class.ravel()
 
         self.emp_plot.clear()
         self.emp_plot.getAxis("bottom").setLabel(text=d.name)
         self.emp_plot.plot(x_class, y_class,
                            pen=newPen((255, 0, 0), 2))
+
+    def plot1DEmp(self, d: SamplingData, hist_data: np.ndarray):
+        self.plot_emp_hist(d, hist_data)
+
+        y_stat = np.cumsum(d.probabilityX)
         self.emp_plot.plot(d._x, y_stat,
                            pen=newPen((0, 255, 0), 2))
 
@@ -421,14 +426,13 @@ class PlotParallelWidget(pg.GraphicsLayoutWidget):
             return (x - x.min()) / dx
 
         x_indexes = list(range(n))
-        x_data = (x_indexes + x_indexes[-2::-1]) * N
+        x_data = (x_indexes + [np.nan]) * N
 
-        y_data = np.empty((N, n * 2 - 1), dtype=float)
-        for j in range(n - 1):
+        y_data = np.empty((N, n + 1), dtype=float)
+        for j in range(n):
             y_data[:, j] = tr2v(X[j])
-            y_data[:, -j-1] = y_data[:, j]
-        y_data[:, n-1] = tr2v(X[n - 1])
-        y_data = y_data.reshape((n * 2 - 1) * N)
+        y_data[:, n] = np.nan
+        y_data = y_data.reshape((n + 1) * N)
 
         self.__ax.plot(x_data, y_data, pen=newPen((0, 0, 255), 1))
 

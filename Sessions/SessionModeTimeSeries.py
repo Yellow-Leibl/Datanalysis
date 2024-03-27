@@ -1,5 +1,5 @@
 from Sessions.SessionMode import SessionMode
-from Datanalysis import SamplingData, TimeSeriesData
+from Datanalysis import TimeSeriesData
 from GUI import DialogWindow, SpinBox
 
 
@@ -28,7 +28,7 @@ class SessionModeTimeSeries(SessionMode):
         data = self.window.all_datas[self.window.sel_indexes[0]]
         return TimeSeriesData(data)
 
-    def get_active_samples(self) -> SamplingData:
+    def get_active_samples(self):
         return self.time_series
 
     def is_changed_sample(self):
@@ -53,6 +53,7 @@ class SessionModeTimeSeries(SessionMode):
         if self.showed_components is not None:
             self.plot_widget.plot_time_series_components(
                 self.showed_components)
+        super().update_sample()
 
     def smooth_time_series(self, num):
         if num == 0:

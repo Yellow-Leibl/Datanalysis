@@ -1,5 +1,5 @@
 from Datanalysis import (
-    SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData)
+    SamplingData, DoubleSampleData, SamplingDatas, TimeSeriesData, ProcessData)
 from Datanalysis.SamplesTools import formRowNV, PROTOCOL_TITLE
 
 import Datanalysis.functions as func
@@ -15,7 +15,9 @@ class ProtocolGenerator:
         elif isinstance(data, SamplingDatas):
             return ProtocolGenerator.get_for_sampling_datas(data)
         elif isinstance(data, TimeSeriesData):
-            return ProtocolGenerator.get_protocol_time_series(data)
+            return ProtocolGenerator.get_for_time_series(data)
+        elif isinstance(data, ProcessData):
+            return ProtocolGenerator.get_for_process_data(data)
         else:
             raise TypeError("data is not a valid type")
 
@@ -455,8 +457,16 @@ class ProtocolGenerator:
 
         return "\n".join(inf_protocol)
 
+#
+#
+#
+#
+#
+#
+#
+
     @staticmethod
-    def get_protocol_time_series(data: TimeSeriesData):
+    def get_for_time_series(data: TimeSeriesData):
         inf_protocol = []
         def add_text(text=""): inf_protocol.append(text)
         def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
@@ -541,5 +551,28 @@ class ProtocolGenerator:
                     data.critetion_abbe, ">",
                     data.critetion_abbe_signif)
             add_text("Результати спостережень стохастично залежні")
+
+        return "\n".join(inf_protocol)
+
+#
+#
+#
+#
+#
+#
+#
+
+    def get_for_process_data(data: ProcessData):
+        inf_protocol = []
+        def add_text(text=""): inf_protocol.append(text)
+        def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
+
+        add_text(PROTOCOL_TITLE)
+        addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
+        add_text()
+
+        add_text('Перевірка на стаціонарність')
+        addForm('Критерій згоди Пірсона',
+                data.kolmogorov_pz_exp, '>=', data.kolmogorov_alpha)
 
         return "\n".join(inf_protocol)

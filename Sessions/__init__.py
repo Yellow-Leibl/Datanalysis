@@ -3,3 +3,4 @@ from Sessions.SessionMode1D import SessionMode1D
 from Sessions.SessionMode2D import SessionMode2D
 from Sessions.SessionModeND import SessionModeND
 from Sessions.SessionModeTimeSeries import SessionModeTimeSeries
+from Sessions.SessionModeTMO import SessionModeTMO

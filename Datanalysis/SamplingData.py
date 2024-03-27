@@ -315,7 +315,7 @@ class SamplingData:
         def DF(x): return (x - b) ** 2 / (b - a) ** 4
         return f, F, DF
 
-    def toCreateExponentialFunc(self) -> tuple:
+    def to_create_exp_func(self) -> tuple:
         # MM
         N = len(self._x)
         lamd_a = 1 / self.x_
@@ -324,8 +324,8 @@ class SamplingData:
 
         def F(x): return FExp(x, lamd_a)
 
-        def DF(x): return DF1Parametr(fExp_d_lamda(x, lamd_a),
-                                      lamd_a ** 2 / N)
+        d_theta = lamd_a ** 2 / N
+        def DF(x): return DF1Parametr(fExp_d_lamda(x, lamd_a), d_theta)
         return f, F, DF
 
     def toCreateWeibullFunc(self) -> tuple:
@@ -428,11 +428,9 @@ class SamplingData:
                  8 * k ** 4 * z ** 4))
         Kz = 1 + 2 * Kz
         Pz = 1 - Kz
-        alpha_zgodi = 0.0
+        alpha_zgodi = 0.3
         if N > 100:
             alpha_zgodi = 0.05
-        else:
-            alpha_zgodi = 0.3
         self.kolmogorov_pz = Pz
         self.kolmogorov_alpha_zgodi = alpha_zgodi
         return Pz >= alpha_zgodi
@@ -464,14 +462,14 @@ class SamplingData:
         self.xixitest_quant = Xi2
         return Xi < Xi2
 
-    def get_histogram_data(self, column_number=0) -> list:
+    def get_histogram_data(self, column_number=0):
         if column_number <= 0:
             column_number = calculate_m(len(self.raw))
             column_number = min(column_number, len(self._x))
 
         n = len(self._x)
         h = (self.max - self.min) / column_number
-        hist_list = [0.0] * column_number
+        hist_list = np.zeros(column_number)
         for i in range(n - 1):
             j = math.floor((self._x[i] - self.min) / h)
             hist_list[j] += self.probabilityX[i]

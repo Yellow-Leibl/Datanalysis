@@ -67,7 +67,7 @@ class TextEdit(QtWidgets.QTextEdit):
         super().__init__(text)
         self.setReadOnly(read_only)
         if mono_font:
-            self.setFontFamily(get_mono_font_any_os())
+            self.setFontFamily(get_mono_font())
         if nowrap:
             self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
 
@@ -102,11 +102,12 @@ class TabWidget(QtWidgets.QTabWidget):
             self.addTab(args[i], args[i + 1])
 
 
-def get_mono_font_any_os():
+platform_2_font = {
+        "Windows": "Consolas",
+        "Darwin": "Andale Mono"
+}
+
+
+def get_mono_font():
     name = platform.system()
-    if name == "Windows":
-        return "Consolas"
-    elif name == 'Darwin':
-        return "Andale Mono"
-    else:
-        return "Monospace"
+    return platform_2_font.get(name, "Monospace")

@@ -5,9 +5,7 @@ import numpy as np
 from GUI.WindowLayout import WindowLayout, QtWidgets
 from GUI import DialogWindow, DoubleSpinBox, ComboBox
 
-from Sessions import (
-    SessionMode, SessionMode1D,
-    SessionMode2D, SessionModeND, SessionModeTimeSeries)
+import Sessions as ses
 
 from Datanalysis import SamplingDatas, IODatas
 from Datanalysis.SamplesTools import timer
@@ -21,7 +19,7 @@ class Window(WindowLayout):
                  is_file_name=True,
                  auto_select: list = None):
         super().__init__()
-        self.session: SessionMode = None
+        self.session: ses.SessionMode = None
         self.all_datas = SamplingDatas()
         self.table.set_datas(self.all_datas)
         self.io_datas = IODatas()
@@ -126,24 +124,25 @@ class Window(WindowLayout):
 
     def make_session(self):
         if len(self.sel_indexes) == 1:
-            if type(self.session) is not SessionModeTimeSeries:
-                self.session = SessionMode1D(self)
+            if (type(self.session) is not ses.SessionModeTimeSeries and
+                    type(self.session) is not ses.SessionModeTMO):
+                self.session = ses.SessionMode1D(self)
         elif len(self.sel_indexes) == 2:
-            self.session = SessionMode2D(self)
+            self.session = ses.SessionMode2D(self)
         elif len(self.sel_indexes) >= 2:
-            self.session = SessionModeND(self)
+            self.session = ses.SessionModeND(self)
 
-    def change_sample_type_mode(self):
-        if type(self.session) is SessionMode1D:
-            self.session = SessionModeTimeSeries(self)
-        elif type(self.session) is SessionModeTimeSeries:
-            self.session = SessionMode1D(self)
-        else:
-            return
+    def change_sample_type_mode(self, mode: int):
+        if mode == 0:
+            self.session = ses.SessionMode1D(self)
+        elif mode == 1:
+            self.session = ses.SessionModeTimeSeries(self)
+        elif mode == 2:
+            self.session = ses.SessionModeTMO(self)
         self.configure_session()
 
     def remove_trend(self):
-        if type(self.session) is SessionModeTimeSeries:
+        if type(self.session) is ses.SessionModeTimeSeries:
             self.session.remove_trend()
             self.update_sample()
 
@@ -198,12 +197,12 @@ class Window(WindowLayout):
         self.session.set_regression_number(regr_num)
 
     def smooth_series(self, smth_num):
-        if type(self.session) is SessionModeTimeSeries:
+        if type(self.session) is ses.SessionModeTimeSeries:
             self.session.smooth_time_series(smth_num)
             self.session.update_sample()
 
     def ssa(self, ssa_num):
-        if type(self.session) is SessionModeTimeSeries:
+        if type(self.session) is ses.SessionModeTimeSeries:
             if ssa_num == 0:
                 self.session.ssa_visualize_components()
             elif ssa_num == 1:
@@ -314,42 +313,42 @@ class Window(WindowLayout):
             self.criterion_protocol.setText(text)
 
     def pca(self):
-        if type(self.session) is SessionModeND or \
-                type(self.session) is SessionMode2D:
+        if type(self.session) is ses.SessionModeND or \
+                type(self.session) is ses.SessionMode2D:
             self.session.pca()
 
     def kmeans(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is ses.SessionModeND:
             self.session.kmeans()
 
     def agglomerative_clustering(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is ses.SessionModeND:
             self.session.agglomerative_clustering()
 
     def remove_clusters(self):
-        if (type(self.session) is SessionModeND or
-                type(self.session) is SessionMode2D or
-                type(self.session) is SessionMode1D):
+        if type(self.session) in [ses.SessionModeND,
+                                  ses.SessionMode2D,
+                                  ses.SessionMode1D]:
             self.session.remove_clusters()
 
     def split_on_clusters(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is ses.SessionModeND:
             self.session.split_on_clusters()
 
     def nearest_neighbor_classification(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is ses.SessionModeND:
             self.session.nearest_neighbor_classification()
 
     def mod_nearest_neighbor_classification(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is ses.SessionModeND:
             self.session.mod_nearest_neighbor_classification()
 
     def k_nearest_neighbor_classification(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is ses.SessionModeND:
             self.session.k_nearest_neighbor_classification()
 
     def logistic_regression(self):
-        if type(self.session) is SessionModeND:
+        if type(self.session) is ses.SessionModeND:
             self.session.logistic_regression()
 
     def auto_select(self, sel_index):
@@ -418,11 +417,6 @@ def demo_mode_course_work_5():
 
 def demo_mode_classification():
     file = "data/iris_fish.txt"
-    launch_app(file, is_file_name=True, auto_select=range(4))
-
-
-def demo_mode_1():
-    file = "/Users/user/Downloads/dst_ind.txt"
     launch_app(file, is_file_name=True, auto_select=range(1))
 
 
@@ -435,6 +429,3 @@ def launch_app(file, is_file_name: bool, auto_select=None):
 
 if __name__ == "__main__":
     demo_mode_classification()
-    # demo_mode_time_series_show_2()
-    # demo_mode_course_work_5()
-    # demo_mode_classification()
