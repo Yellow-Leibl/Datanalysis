@@ -11,7 +11,7 @@ class SessionMode1D(SessionMode):
         self.plot_widget.show_1d_plot()
 
     def get_active_samples(self) -> SamplingData:
-        return self.window.all_datas[self.window.sel_indexes[0]]
+        return self.get_selected_samples()[0]
 
     def configure(self):
         super().configure()

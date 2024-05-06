@@ -9,11 +9,9 @@ def BoxWithObjects(box, *args):
 
 def box_with_objects(box: QtWidgets.QBoxLayout, *args):
     for arg in args:
-        bases = str(arg.__class__.__bases__)
-        type_name = str(arg.__class__.__name__)
-        if 'Layout' in bases or 'Layout' in type_name:
+        if issubclass(type(arg), QtWidgets.QLayout):
             box.addLayout(arg)
-        elif 'Widget' in bases or 'Widget' in type_name:
+        elif issubclass(type(arg), QtWidgets.QWidget):
             box.addWidget(arg)
         else:
             raise Exception()

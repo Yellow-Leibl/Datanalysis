@@ -404,7 +404,6 @@ class PlotParallelWidget(pg.GraphicsLayoutWidget):
         super().__init__()
         off_warning_for_pyqtgraph(self)
         self.__ax: pg.PlotItem = self.ci.addPlot()
-        off_warning_for_pyqtgraph(self)
 
     def set_labels(self, names):
         xdict = dict(enumerate(names))

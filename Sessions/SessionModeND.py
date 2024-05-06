@@ -1,24 +1,19 @@
 from Sessions.SessionMode import SessionMode
 from Datanalysis import SamplingDatas
-from GUI import DialogWindow, SpinBox, ComboBox, DoubleSpinBox
-import GUI.PlotWidget as cplt
+from GUI import DialogWindow, SpinBox
 
 
 class SessionModeND(SessionMode):
     def __init__(self, window):
         super().__init__(window)
         self.datas_displayed = None
-        self.__supported_metrics = {
-            "Евклідова": "euclidean", "Манхеттенська": "manhattan",
-            "Чебишева": "chebyshev", "Мінковського": "minkowski",
-            "Махаланобіса": "mahalanobis"
-            }
 
     def create_plot_layout(self):
-        self.plot_widget.create_nd_plot(len(self.window.sel_indexes))
+        n = len(self.get_selected_indexes())
+        self.plot_widget.create_nd_plot(n)
 
     def create_n_samples(self) -> SamplingDatas:
-        samples = [self.window.all_datas[i] for i in self.window.sel_indexes]
+        samples = self.get_selected_samples()
         return SamplingDatas(samples, self.window.feature_area.get_trust())
 
     def get_active_samples(self) -> SamplingDatas:
@@ -75,154 +70,6 @@ class SessionModeND(SessionMode):
 
         active_samples = self.get_active_samples()
         ind, retn = active_samples.pca(w)
-        self.window.all_datas.append_samples(ind.samples)
-        self.window.all_datas.append_samples(retn.samples)
+        self.get_all_datas().append_samples(ind.samples)
+        self.get_all_datas().append_samples(retn.samples)
         self.window.table.update_table()
-
-    def kmeans(self):
-        k, metric, init = self.get_kmeans_parameters()
-        active_samples = self.get_active_samples()
-        active_samples.k_means_clustering(k, init, metric)
-        self.update_sample()
-
-    def get_kmeans_parameters(self):
-        title1 = "Введіть кількість кластерів"
-        title2 = "Відстань між об'єктами"
-        title3 = "Вибір центрів кластерів"
-        init = {"Випадковий": "random",
-                "Перші k точок": "first"}
-        N = len(self.datas_displayed[0].raw)
-        dialog_window = DialogWindow(
-            form_args=[title1, SpinBox(min_v=2, max_v=N-1),
-                       title2, ComboBox(self.__supported_metrics),
-                       title3, ComboBox(init)])
-        ret = dialog_window.get_vals()
-        k = ret.get(title1)
-        metric = ret.get(title2)
-        init = ret.get(title3)
-        return k, metric, init
-
-    def agglomerative_clustering(self):
-        k, metric, linkage = self.get_agglomerative_parameters()
-
-        active_samples = self.get_active_samples()
-        c, z = active_samples.agglomerative_clustering(k, metric, linkage)
-        self.update_sample()
-        self.show_dendogram_plot(c, z)
-
-    def get_agglomerative_parameters(self):
-        title1 = "Введіть кількість кластерів"
-        title2 = "Відстань між об'єктами"
-        title3 = "Відстань між кластерами"
-        linkage = {"Найближчого сусіда": "nearest",
-                   "Найвіддаленішого сусіда": "furthest",
-                   "Зваженого середнього": "average",
-                   "Незваженого середнього": "unweighted",
-                   "Медіанного": "median",
-                   "Центроїдного": "centroid",
-                   "Уорда": "wards"
-                   }
-        N = len(self.datas_displayed[0].raw)
-        dialog_window = DialogWindow(
-            form_args=[title1, SpinBox(min_v=2, max_v=N-1),
-                       title2, ComboBox(self.__supported_metrics),
-                       title3, ComboBox(linkage)])
-        ret = dialog_window.get_vals()
-        k = ret.get(title1)
-        metric = ret.get(title2)
-        linkage = ret.get(title3)
-        return k, metric, linkage
-
-    def show_dendogram_plot(self, c, z):
-        plot_widget = cplt.PlotDendrogramWidget()
-        d = cplt.PlotDialogWindow(plot=plot_widget,
-                                  size=(1333, 733))
-        plot_widget.plot_observers(c, z)
-        self.keep_additional_window_is_open(d)
-        d.show()
-
-    def remove_clusters(self):
-        for s in self.datas_displayed.samples:
-            s.remove_clusters()
-        self.update_sample()
-
-    def split_on_clusters(self):
-        a_s = self.datas_displayed.split_on_clusters()
-        self.window.all_datas.append_samples(a_s)
-        self.window.table.update_table()
-
-    def nearest_neighbor_classification(self):
-        train_size, metric = self.get_nearest_neighbor_parameters()
-        self.datas_displayed.nearest_neighbor_classification_scores(
-            train_size, metric)
-        self.write_protocol()
-
-    def mod_nearest_neighbor_classification(self):
-        train_size, metric = self.get_nearest_neighbor_parameters()
-        self.datas_displayed.nearest_neighbor_classification_scores(
-            train_size, metric)
-        self.write_protocol()
-
-    def get_nearest_neighbor_parameters(self):
-        title1 = "Навчальна вибірка"
-        title2 = "Відстань між об'єктами"
-        dialog_window = DialogWindow(
-            form_args=[title1, DoubleSpinBox(min_v=0, max_v=1,
-                                             decimals=5, value=0.7),
-                       title2, ComboBox(self.__supported_metrics)])
-        ret = dialog_window.get_vals()
-        train_size = ret.get(title1)
-        metric = ret.get(title2)
-        return train_size, metric
-
-    def k_nearest_neighbor_classification(self):
-        train_size, k, metric = self.get_k_nearest_neighbor_parameters()
-        self.datas_displayed.k_nearest_neighbor_classification_scores(
-            train_size, k, metric)
-        self.write_protocol()
-
-    def get_k_nearest_neighbor_parameters(self):
-        title1 = "Навчальна вибірка"
-        title2 = "Кількість сусідів"
-        title3 = "Відстань між об'єктами"
-        dialog_window = DialogWindow(
-            form_args=[title1, DoubleSpinBox(min_v=0, max_v=1,
-                                             decimals=5, value=0.7),
-                       title2, ComboBox(self.__supported_metrics),
-                       title3, SpinBox(min_v=1, max_v=100)])
-        ret = dialog_window.get_vals()
-        train_size = ret.get(title1)
-        k = ret.get(title2)
-        metric = ret.get(title3)
-        return train_size, k, metric
-
-    def logistic_regression(self):
-        train_size, alpha, num_iter = self.get_logistic_regression_parameters()
-        fpr, tpr = self.datas_displayed.logistic_regression_scores(
-            train_size, alpha, num_iter)
-        plot_widget = cplt.PlotRocCurveWidget()
-        d = cplt.PlotDialogWindow(plot=plot_widget,
-                                  size=(400, 400))
-        plot_widget.plot_observers(fpr, tpr)
-        self.keep_additional_window_is_open(d)
-        d.show()
-        self.write_protocol()
-
-    def get_logistic_regression_parameters(self):
-        title1 = "Навчальна вибірка"
-        title2 = "Швидкість навчання"
-        title3 = "Кількість ітерацій"
-        dialog_window = DialogWindow(
-            form_args=[title1, DoubleSpinBox(min_v=0, max_v=1,
-                                             decimals=5, value=0.7),
-                       title2, DoubleSpinBox(min_v=0, max_v=1,
-                                             decimals=5, value=0.1),
-                       title3, SpinBox(min_v=1, max_v=1000, value=100)])
-        ret = dialog_window.get_vals()
-        train_size = ret.get(title1)
-        alpha = ret.get(title2)
-        num_iter = ret.get(title3)
-        return train_size, alpha, num_iter
-
-    def keep_additional_window_is_open(self, widget):
-        self.additional_plot_widget = widget

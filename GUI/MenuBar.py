@@ -58,7 +58,7 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     self.reprod_num = -1
 
     regr_menu = menuBar.addMenu("&Регресія")
-    addSection(regr_menu, "Одновимірна регресія")
+    addSection(regr_menu, "Одновимірний розподіл")
     addAction(regr_menu, "&Нормальний",
               lambda: self.set_reproduction_series(0), "Ctrl+Alt+Q")
     addAction(regr_menu, "&Рівномірний",

@@ -42,7 +42,7 @@ def test_coeficientCorrelation():
         generate_sample(number_sample=7, vec_n=k*n, n=500).split('\n'))
     datas.append(data)
     datas.toCalculateCharacteristic()
-    print(datas.coeficientOfCorrelation(0, 1, [2]))
+    print(datas.partial_coef_corr(0, 1, [2]))
     d2 = DoubleSampleData(datas[0], datas[1])
     d2.pearson_correlation_coefficient()
     print(d2.r)

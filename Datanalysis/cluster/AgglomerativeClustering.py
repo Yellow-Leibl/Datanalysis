@@ -12,10 +12,12 @@ def linkage(X: np.ndarray, n_clusters, linkage="median", metric="euclidean"):
     distances = distance_matrix(X, d)
 
     N = X.shape[0]
-    clusters_cnt = np.ones(N, np.int64)
+    clusters_cnt = np.ones(N, np.int16)
     dendrogram_items = np.empty((N - 1, 4))
     clusters = [[i] for i in range(N)]
     for i in range(N - 1):
+        print(f"Clusters: {N - i}")
+
         min_dist, min_j, min_k = get_min_distance(distances, N)
 
         d12 = distances[min_j, min_k]
@@ -37,7 +39,7 @@ def linkage(X: np.ndarray, n_clusters, linkage="median", metric="euclidean"):
         dendrogram_items[i, 2] = min_dist
         dendrogram_items[i, 3] = clusters_cnt[min_j] + clusters_cnt[min_k]
         clusters_cnt[min_j] = dendrogram_items[i, 3]
-        clusters_cnt[min_k] = -99999
+        clusters_cnt[min_k] = 0
 
         if i < N - n_clusters:
             merged_cluster = clusters[min_j] + clusters[min_k]
@@ -55,9 +57,9 @@ def linkage(X: np.ndarray, n_clusters, linkage="median", metric="euclidean"):
 def distance_matrix(X: np.ndarray, d):
     N = len(X)
     distances = np.empty((N, N))
+    np.fill_diagonal(distances, 0)
     m = X.shape[1]
     for i in range(N):
-        distances[i, i] = 0
         for j in range(i + 1, N):
             xi = X[i].reshape((1, m))
             xj = X[j].reshape((1, m))

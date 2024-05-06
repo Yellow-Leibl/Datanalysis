@@ -352,6 +352,21 @@ class ProtocolGenerator:
                     data.r_multi[i][2])
 
         add_text()
+        add_text("Оцінка частинних коефіцієнтів кореляції "
+                 "(i, j від усіх інших)")
+        addForm("", *[f"X{i+1}" for i in range(n)])
+        for i in range(n):
+            addForm(f"X{i+1}", *[data.r_part[i][j] for j in range(n)])
+
+        add_text()
+        add_text("Значимість частинних коефіцієнтів кореляції")
+        add_text("Якщо Так, то, приймаємо H0: r=0")
+        def is_signif(signif): return "Так" if signif else "Ні"
+        for i in range(n):
+            addForm(f"X{i+1}", *[is_signif(data.r_part_t_test[i][j])
+                                 for j in range(n)])
+
+        add_text()
         add_text("Власні вектори")
         addForm("", *[f"F{i+1}" for i in range(n)] + ["Сума"])
         for i in range(n):
@@ -569,6 +584,9 @@ class ProtocolGenerator:
 
         add_text(PROTOCOL_TITLE)
         addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
+        add_text()
+
+        addForm('Інтенсивність при стаціонарності', '', data.intens_stat)
         add_text()
 
         add_text('Перевірка на стаціонарність')

@@ -132,6 +132,19 @@ class SamplingDatas(SamplesCriteria):
         self.calculate_pca()
         self.calculate_exploratory_data_analysis()
         self.to_calc_cluster_signif()
+        self.calculate_partial_coef_corrs()
+
+    def calculate_partial_coef_corrs(self):
+        self.r_part = np.eye(len(self))
+        self.r_part_t_test = np.zeros((len(self), len(self)), dtype=bool)
+        indexes = np.arange(len(self))
+        for i in range(len(self)):
+            for j in range(i + 1, len(self)):
+                part_r = self.partial_coef_corr(i, j,
+                                                np.delete(indexes, [i, j]))
+                t_test = self.partial_coef_corr_t_test(part_r, len(self) - 2)
+                self.r_part[i][j] = self.r_part[j][i] = part_r
+                self.r_part_t_test[i][j] = self.r_part_t_test[j][i] = t_test
 
     def to_calc_cluster_signif(self):
         if self[0].clusters is None:
@@ -303,20 +316,20 @@ class SamplingDatas(SamplesCriteria):
         major_f_ind.sort(key=lambda i: i[1], reverse=True)
         self.fact_mat = evec_redu[:, [major_f_ind[i][0] for i in range(w)]]
 
-    def coeficientOfCorrelation(self, i, j, cd):
+    def partial_coef_corr(self, i, j, cd):
         if len(cd) >= 1:
             d = cd[-1]
             c = cd[:-1]
-            r_ij_c = self.coeficientOfCorrelation(i, j, c)
-            r_id_c = self.coeficientOfCorrelation(i, d, c)
-            r_jd_c = self.coeficientOfCorrelation(j, d, c)
+            r_ij_c = self.partial_coef_corr(i, j, c)
+            r_id_c = self.partial_coef_corr(i, d, c)
+            r_jd_c = self.partial_coef_corr(j, d, c)
             r_ij_cd = (r_ij_c - r_id_c * r_jd_c) / (
                 (1 - r_id_c ** 2) * (1 - r_jd_c ** 2)) ** 0.5
             return r_ij_cd
         else:
             return self.R[i][j]
 
-    def coeficientOfCorrelationTTest(self, r_ij_c, w):
+    def partial_coef_corr_t_test(self, r_ij_c, w):
         N = len(self.samples[0].raw)
         signif_r_ij_c = r_ij_c * (N - w - 2) ** 0.5 / (1 - r_ij_c ** 2) ** 0.5
         t = func.QuantileTStudent(1 - self.trust / 2, N - w - 2)
@@ -342,9 +355,9 @@ class SamplingDatas(SamplesCriteria):
         addForm('Характеристика', 'INF', 'Значення', 'SUP', 'SKV')
         info_protocol.append("")
 
-        self.partial_r = self.coeficientOfCorrelation(i, j, cd)
+        self.partial_r = self.partial_coef_corr(i, j, cd)
         self.coeficientOfCorrelationIntervals(self.partial_r, len(cd) + 2)
-        self.coeficientOfCorrelationTTest(self.partial_r, len(cd) + 2)
+        self.partial_coef_corr_t_test(self.partial_r, len(cd) + 2)
         addForm("Частковий коефіцієнт кореляції",
                 self.det_less_partial_r,
                 self.partial_r,
@@ -372,9 +385,9 @@ class SamplingDatas(SamplesCriteria):
         if len(cd) >= 1:
             d = cd[-1]
             c = cd[:-1]
-            r_ij_c = self.coeficientOfCorrelation(i, j, c)
-            r_id_c = self.coeficientOfCorrelation(i, d, c)
-            r_jd_c = self.coeficientOfCorrelation(j, d, c)
+            r_ij_c = self.partial_coef_corr(i, j, c)
+            r_id_c = self.partial_coef_corr(i, d, c)
+            r_jd_c = self.partial_coef_corr(j, d, c)
             r_ij_cd = (r_ij_c - r_id_c * r_jd_c) / (
                 (1 - r_id_c ** 2) * (1 - r_jd_c ** 2)) ** 0.5
             return r_ij_cd

@@ -13,8 +13,7 @@ class SessionMode2D(SessionMode):
         self.plot_widget.show_2d_plot()
 
     def create_d2_sample(self) -> DoubleSampleData:
-        x = self.window.all_datas[self.window.sel_indexes[0]]
-        y = self.window.all_datas[self.window.sel_indexes[1]]
+        x, y = self.get_selected_samples()
         return DoubleSampleData(x, y, self.window.feature_area.get_trust())
 
     def get_active_samples(self) -> DoubleSampleData:
@@ -42,8 +41,8 @@ class SessionMode2D(SessionMode):
         sd = SamplingDatas([self.d2.x, self.d2.y])
         sd.toCalculateCharacteristic()
         ind, retn = sd.pca(1)
-        self.window.all_datas.append_samples(ind.samples)
-        self.window.all_datas.append_samples(retn.samples)
+        self.get_all_datas().append_samples(ind.samples)
+        self.get_all_datas().append_samples(retn.samples)
         self.window.table.update_table()
 
     def update_sample(self, number_column: int = 0):

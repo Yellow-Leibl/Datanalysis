@@ -18,23 +18,20 @@ class ProcessData:
         if column_number <= 0:
             column_number = stool.calculate_m(len(self.data.raw))
             column_number = min(column_number, len(self.data._x))
-        teta = np.linspace(self.data.min, self.data.max, column_number)
-        h = teta[-1] / column_number
+        teta = np.linspace(0.0, self.data.max, column_number)
 
         n = np.empty(column_number)
-        teta_0 = 0
-        for i in range(column_number):
-            n[i] = len([x for x in self.data.raw if teta_0 < x <= teta[i]])
-            teta_0 = teta[i]
+        for i in range(column_number-1):
+            n[i] = len([x for x in self.data.raw if teta[i] < x <= teta[i+1]])
 
         def N(i):
-            return sum([n[j] for j in range(i + 1)])
+            return sum([n[j] for j in range(i)])
         N_g = len(self.data.raw)
 
         alpha_arr = np.empty(column_number - 1)
+        h = (teta[-1] - teta[0]) / (column_number - 1)
         for i in range(column_number - 1):
             alpha_arr[i] = n[i] / ((N_g - N(i)) * h)
-            alpha_arr[i] = n[i] / (N_g * h)
 
         to_del = []
 
@@ -47,7 +44,7 @@ class ProcessData:
             v = n[i] + n[i + 1] - 2
             t_q = func.QuantileTStudent(1 - self.data.trust / 2, v)
             if abs(t) <= t_q:
-                alpha_arr[i] = (n[i] + n[i + 1]) / ((N_g - N(i + 1)) * h * 2)
+                alpha_arr[i] = (alpha_arr[i] + alpha_arr[i+1]) / 2
                 alpha_arr[i + 1] = alpha_arr[i]
                 to_del.append(i)
                 n[i + 1] = n[i] + n[i + 1]
@@ -57,6 +54,7 @@ class ProcessData:
 
     def to_calculate_characteristics(self):
         self.is_stationary_process()
+        self.intens_stat = 1 / self.data.x_
 
     def is_stationary_process(self):
         _, F, _ = self.data.to_create_exp_func()

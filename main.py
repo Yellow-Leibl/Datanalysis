@@ -318,38 +318,28 @@ class Window(WindowLayout):
             self.session.pca()
 
     def kmeans(self):
-        if type(self.session) is ses.SessionModeND:
-            self.session.kmeans()
+        self.session.kmeans()
 
     def agglomerative_clustering(self):
-        if type(self.session) is ses.SessionModeND:
-            self.session.agglomerative_clustering()
+        self.session.agglomerative_clustering()
 
     def remove_clusters(self):
-        if type(self.session) in [ses.SessionModeND,
-                                  ses.SessionMode2D,
-                                  ses.SessionMode1D]:
-            self.session.remove_clusters()
+        self.session.remove_clusters()
 
     def split_on_clusters(self):
-        if type(self.session) is ses.SessionModeND:
-            self.session.split_on_clusters()
+        self.session.split_on_clusters()
 
     def nearest_neighbor_classification(self):
-        if type(self.session) is ses.SessionModeND:
-            self.session.nearest_neighbor_classification()
+        self.session.nearest_neighbor_classification()
 
     def mod_nearest_neighbor_classification(self):
-        if type(self.session) is ses.SessionModeND:
-            self.session.mod_nearest_neighbor_classification()
+        self.session.mod_nearest_neighbor_classification()
 
     def k_nearest_neighbor_classification(self):
-        if type(self.session) is ses.SessionModeND:
-            self.session.k_nearest_neighbor_classification()
+        self.session.k_nearest_neighbor_classification()
 
     def logistic_regression(self):
-        if type(self.session) is ses.SessionModeND:
-            self.session.logistic_regression()
+        self.session.logistic_regression()
 
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index
@@ -417,6 +407,11 @@ def demo_mode_course_work_5():
 
 def demo_mode_classification():
     file = "data/iris_fish.txt"
+    launch_app(file, is_file_name=True, auto_select=range(4))
+
+
+def demo_mode_tmo():
+    file = "data/500/exp.txt"
     launch_app(file, is_file_name=True, auto_select=range(1))
 
 
