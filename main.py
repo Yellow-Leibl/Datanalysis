@@ -341,6 +341,9 @@ class Window(WindowLayout):
     def logistic_regression(self):
         self.session.logistic_regression()
 
+    def discriminant_analysis(self):
+        self.session.discriminant_analysis()
+
     def auto_select(self, sel_index):
         self.sel_indexes = sel_index
         self.make_session()
@@ -407,7 +410,7 @@ def demo_mode_course_work_5():
 
 def demo_mode_classification():
     file = "data/iris_fish.txt"
-    launch_app(file, is_file_name=True, auto_select=range(4))
+    launch_app(file, is_file_name=True, auto_select=[2, 3])
 
 
 def demo_mode_tmo():

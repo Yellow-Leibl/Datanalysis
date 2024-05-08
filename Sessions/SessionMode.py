@@ -14,15 +14,22 @@ class SessionMode:
             "Чебишева": "chebyshev", "Мінковського": "minkowski",
             "Махаланобіса": "mahalanobis"
             }
+        self.datas_displayed = self.create_active_sampling_datas()
+
+    def create_active_sampling_datas(self):
+        sampling = da.SamplingDatas(self.get_selected_samples())
+        if len(sampling) > 1:
+            sampling.toCalculateCharacteristic()
+        return sampling
+
+    def get_active_sampling_datas(self):
+        return self.datas_displayed
 
     def get_all_datas(self) -> da.SamplingDatas:
         return self.window.all_datas
 
     def get_selected_indexes(self) -> list:
         return self.window.sel_indexes
-
-    def get_active_sampling_datas(self):
-        return da.SamplingDatas(self.get_selected_samples())
 
     def get_selected_samples(self) -> list:
         return [self.window.all_datas[i] for i in self.get_selected_indexes()]
@@ -56,6 +63,15 @@ class SessionMode:
     def write_protocol(self):
         act_sample = self.get_active_samples()
         protocol_text = da.ProtocolGenerator.getProtocol(act_sample)
+
+        if not isinstance(act_sample, da.SamplingDatas):
+            sampling_datas = self.get_active_sampling_datas()
+            protocol = []
+            if sampling_datas.classifier is not None:
+                da.ProtocolGenerator.get_for_classification(sampling_datas,
+                                                            protocol)
+            protocol_text += "\n".join(protocol)
+
         self.window.protocol.setText(protocol_text)
 
     def write_critetion(self):
@@ -173,8 +189,8 @@ class SessionMode:
         dialog_window = DialogWindow(
             form_args=[title1, DoubleSpinBox(min_v=0, max_v=1,
                                              decimals=5, value=0.7),
-                       title2, ComboBox(self.__supported_metrics),
-                       title3, SpinBox(min_v=1, max_v=100)])
+                       title2, SpinBox(min_v=1, max_v=100),
+                       title3, ComboBox(self.__supported_metrics)])
         ret = dialog_window.get_vals()
         train_size = ret.get(title1)
         k = ret.get(title2)
@@ -186,12 +202,7 @@ class SessionMode:
         act_sample = self.get_active_sampling_datas()
         fpr, tpr = act_sample.logistic_regression_scores(
             train_size, alpha, num_iter)
-        plot_widget = cplt.PlotRocCurveWidget()
-        d = cplt.PlotDialogWindow(plot=plot_widget,
-                                  size=(400, 400))
-        plot_widget.plot_observers(fpr, tpr)
-        self.keep_additional_window_is_open(d)
-        d.show()
+        self.plot_roc_curve(fpr, tpr)
         self.update_sample()
         self.write_protocol()
 
@@ -211,5 +222,29 @@ class SessionMode:
         num_iter = ret.get(title3)
         return train_size, alpha, num_iter
 
+    def plot_roc_curve(self, fpr, tpr):
+        plot_widget = cplt.PlotRocCurveWidget()
+        d = cplt.PlotDialogWindow(plot=plot_widget,
+                                  size=(400, 400))
+        plot_widget.plot_observers(fpr, tpr)
+        self.keep_additional_window_is_open(d)
+        d.show()
+
     def keep_additional_window_is_open(self, widget):
         self.additional_plot_widget = widget
+
+    def discriminant_analysis(self):
+        train_size = self.get_discriminant_analysis_parameters()
+        act_sample = self.get_active_sampling_datas()
+        act_sample.discriminant_analysis(train_size)
+        self.update_sample()
+        self.write_protocol()
+
+    def get_discriminant_analysis_parameters(self):
+        title1 = "Навчальна вибірка"
+        dialog_window = DialogWindow(
+            form_args=[title1, DoubleSpinBox(min_v=0, max_v=1,
+                                             decimals=5, value=0.7)])
+        ret = dialog_window.get_vals()
+        train_size = ret.get(title1)
+        return train_size

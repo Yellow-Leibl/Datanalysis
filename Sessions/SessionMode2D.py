@@ -51,7 +51,9 @@ class SessionMode2D(SessionMode):
         self.hist_data_2d = self.d2.get_histogram_data(number_column)
         self.window.feature_area.silent_change_number_classes(
             len(self.hist_data_2d))
-        self.plot_widget.plot_2d_with_details(self.d2, self.hist_data_2d)
+        classifier = self.get_active_sampling_datas().classifier
+        self.plot_widget.plot_2d_with_details(self.d2, self.hist_data_2d,
+                                              classifier)
         self.drawReproductionSeries2D(self.d2)
         super().update_sample(number_column)
 
@@ -59,7 +61,7 @@ class SessionMode2D(SessionMode):
         f = self.toCreateReproductionFunc2D(d2, self.selected_regr_num)
         if f is None:
             return
-        self.plot_widget.plot2DReproduction(d2, *f)
+        self.plot_widget.plot_2d_reproduction(d2, *f)
 
     def toCreateReproductionFunc2D(self, d_d: DoubleSampleData, func_num):
         if func_num == 5:

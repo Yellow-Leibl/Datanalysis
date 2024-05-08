@@ -109,6 +109,21 @@ def generate_sin_series(N: int):
     return y
 
 
+def generate_several_normal(parameters):
+    norm_x = []
+    norm_y = []
+    for i in range(5, len(parameters)+1, 5):
+        m1, m2, sigma1, sigma2, N = parameters[i-5:i]
+        x, y = generate_line(m1, m2, sigma1, sigma2, 0, N)
+        norm_x.append(x)
+        norm_y.append(y)
+
+    x = np.concatenate(norm_x)
+    y = np.concatenate(norm_y)
+
+    return x, y
+
+
 @timer
 def generate_sample(**parameters) -> str:
     n = parameters.get('n', 1000)
@@ -161,11 +176,24 @@ def generate_sample(**parameters) -> str:
         elif number_sample == 11:
             rozp.append(generate_sin_series(N=n))
 
-    return '\n'.join(
-        [''.join([str(rozp[j][i]).ljust(24) for j in range(len(rozp))])
-         for i in range(n)])
+    return sample_to_str(rozp)
+
+
+def sample_to_str(sample):
+    text = []
+    for i in range(len(sample[0])):
+        line = ''
+        for j in range(len(sample)):
+            line += str(sample[j][i]).ljust(24)
+        text.append(line)
+    return '\n'.join(text)
 
 
 if __name__ == "__main__":
-    all_file = generate_sample(number_sample=11, vec_n=2, n=800)
-    applicationLoadFromStr(all_file, range(1))
+    x, y = generate_several_normal([0, 0, 1, 1, 100,
+                                    -5, 5, 1, 1, 100,
+                                    10, 7, 1, 1, 100,
+                                    15, -15, 1, 1, 100,
+                                    -20, 20, 1, 1, 100])
+    all_file = sample_to_str([x, y])
+    applicationLoadFromStr(all_file, range(2))

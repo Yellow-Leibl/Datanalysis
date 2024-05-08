@@ -32,18 +32,17 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         self.__3d_plot = Plot3dWidget()
         self.__buble_plot = PlotBubleWidget()
         self.__glyph_plot = PlotGlyphWidget()
+        self.__diag_plot = PlotDiagnosticWidget()
 
         #  1D & 2D & Time Series
         __2d_widget = pg.GraphicsLayoutWidget()
-        self.__2d_layout = __2d_widget.ci
-        #  Diagnostic diagram
-        __E_widget = pg.GraphicsLayoutWidget()
-        self.__diagnostic_plot = __E_widget.ci.addPlot(
-            title="Похибка регресії",
-            labels={"left": "ε", "bottom": "Y"})
-        #  N canvas
+
+        self.__1d_plot = Plot1d(__2d_widget.ci)
+        self.__2d_plot = Plot2d(__2d_widget.ci)
+        self.__time_series_plot = PlotTimeSeries(__2d_widget.ci)
+
         self.__nd_widget = gui.TabWidget(
-            __E_widget, "Діагностична діаграма",
+            self.__diag_plot, "Діагностична діаграма",
             self.__scatter_plot, "Діаграма розкиду",
             self.__heatmap_plot, "Теплова карта",
             self.__parallel_plot, "Паралельні координати",
@@ -58,7 +57,6 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         self.addWidget(self.__nd_widget)
 
         off_warning_for_pyqtgraph(__2d_widget)
-        off_warning_for_pyqtgraph(__E_widget)
 
     def set_enabled_3d(self):
         self.__nd_widget.setTabEnabled(4, True)
@@ -73,8 +71,8 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
     def getCurrentTabIndex(self):
         return self.__nd_widget.currentIndex()
 
-    def plotND(self, dn: SamplingDatas, col=0):
-        self.__diagnostic_plot.clear()
+    def plot_nd(self, dn: SamplingDatas, col=0):
+        self.__diag_plot.clear()
         self.column_count = col
         self.datas = dn
         self.cache_graphics = [False] * 7
@@ -85,8 +83,10 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         if self.cache_graphics[index]:
             return
         self.cache_graphics[index] = True
+        samples = self.datas.samples
+        col = self.column_count
         if index == 1:
-            self.plotScatterDiagram(self.datas.samples, self.column_count)
+            self.__scatter_plot.plot_observers(samples, col)
         if index == 2:
             self.__heatmap_plot.plot_observers(self.datas)
         if index == 3:
@@ -95,48 +95,21 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         if index == 4:
             self.plot3D(self.datas)
         if index == 5:
-            self.__buble_plot.plot_observers(self.datas.samples)
+            self.__buble_plot.plot_observers(samples)
         if index == 6:
-            self.__glyph_plot.plot_observers(self.datas.samples,
-                                             self.column_count)
-
-    #
-    #  Creating plot
-    #
+            self.__glyph_plot.plot_observers(samples, col)
 
     def create_time_series_plot(self):
         self.setCurrentIndex(0)
-        self.__2d_layout.clear()
-        self.time_val_plot = self.__2d_layout.addPlot(
-            title="Часовий ряд",
-            labels={"left": "X(t)", "bottom": "t"},
-            row=0, col=0)
-        self.time_auto_cor_plot = self.__2d_layout.addPlot(
-            title="Автокореляційна функція",
-            labels={"left": "r(𝜏)", "bottom": "𝜏"},
-            row=0, col=1)
+        self.__time_series_plot.create_layout()
 
     def show_1d_plot(self):
         self.setCurrentIndex(0)
-        self.create_1d_plot()
-
-    def create_1d_plot(self):
-        self.__2d_layout.clear()
-        self.hist_plot = self.__2d_layout.addPlot(
-            title="Гістограмна оцінка",
-            labels={"left": "P"})
-        self.emp_plot = self.__2d_layout.addPlot(
-            title="Емпірична функція розподілу",
-            labels={"left": "P"})
+        self.__1d_plot.create_layout()
 
     def show_2d_plot(self):
         self.setCurrentIndex(0)
-        self.create_2d_plot()
-
-    def create_2d_plot(self):
-        self.__2d_layout.clear()
-        self.corr_plot = self.__2d_layout.addPlot(
-            title="Корреляційне поле")
+        self.__2d_plot.create_layout()
 
     def create_nd_plot(self, n: int):
         if n == 3:
@@ -146,49 +119,100 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         self.__scatter_plot.create_scatter_plot(n)
         self.setCurrentIndex(1)
 
-    #
-    #  Plotting
-    #
-
     def plot_time_series(self, d: TimeSeriesData):
-        N = len(d.x)
-        t = np.arange(N)
-        self.time_val_plot.clear()
-        self.time_val_plot.plot(t, d.x,
-                                pen=newPen(unique_colors[-1], 3),
-                                symbol='o', symbolSize=5,)
-
-        teta = t[1:]
-        cor_val = [d.auto_cor_f(ti) for ti in teta]
-        self.time_auto_cor_plot.clear()
-        self.time_auto_cor_plot.plot(teta, cor_val,
-                                     pen=newPen((0, 0, 0), 1))
+        self.__time_series_plot.plot(d)
 
     def plot_time_series_smooth(self, x):
-        N = len(x)
-        t = np.arange(N)
-        self.time_val_plot.plot(t, x,
-                                pen=newPen((255, 0, 0), 1))
+        self.__time_series_plot.plot_smooth(x)
 
     def plot_time_series_trend(self, x):
-        N = len(x)
-        t = np.arange(N)
-        self.time_val_plot.plot(t, x,
-                                pen=newPen((0, 0, 255), 2))
+        self.__time_series_plot.plot_trend(x)
 
     def plot_time_series_components(self, components: np.ndarray):
-        N = components.shape[1]
-        t = np.arange(N)
-        for i in range(components.shape[0]):
-            self.time_val_plot.plot(t, components[i],
-                                    pen=newPen(unique_colors[-i], 3))
+        self.__time_series_plot.plot_components(components)
 
-    def plot1D(self, d: SamplingData, hist_data):
-        self.plot1DHist(d, hist_data)
-        self.plot1DEmp(d, hist_data)
+    def plot_1d(self, d: SamplingData, hist_data):
+        self.__1d_plot.plot(d, hist_data)
 
-    def plot1DHist(self, d: SamplingData, hist_data: np.ndarray,
-                   hist_plot: pg.PlotItem = None):
+    def plot_1d_reproduction(self, d: SamplingData, f, lF, F, hF):
+        self.__1d_plot.plot_reproduction(d, f, lF, F, hF)
+
+    def plot_2d_with_details(self, d2: DoubleSampleData,
+                             hist_data, classifier):
+        self.__2d_plot.plot(d2, hist_data, classifier)
+
+    def plot_2d_reproduction(self, d2: DoubleSampleData,
+                             tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f):
+        self.__2d_plot.plot_reproduction(d2, tl_lf, tl_mf, tr_lf,
+                                         tr_mf, tr_f_lf, tr_f_mf, f)
+
+    def plot3D(self, d3: SamplingDatas):
+        X1 = d3[0].raw
+        X2 = d3[1].raw
+        X3 = d3[2].raw
+        names = [d3[i].name for i in range(3)]
+        self.__3d_plot.plot_observers(X1, X2, X3, names)
+
+    def plotDiagnosticDiagram(self, dn: SamplingDatas, tr_l_f, f, tr_m_f):
+        Y = dn[-1].raw
+        X = [d.raw for d in dn[:-1]]
+        E = Y - f(*X)
+        self.__diag_plot.plot(Y, E)
+
+        if len(dn) == 3:
+            self.plot3D(dn)
+            self.plot3DReproduction(dn, tr_l_f, f, tr_m_f)
+
+    def plot3DReproduction(self, d3: SamplingDatas, tr_l_f, f, tr_m_f):
+        x1 = d3[0]
+        x2 = d3[1]
+        self.__3d_plot.plot_regression(x1.min, x1.max, x2.min, x2.max,
+                                       tr_l_f, f, tr_m_f)
+
+
+def newPen(color, width):
+    return {'color': color, 'width': width}
+
+
+class PlotDiagnosticWidget(pg.GraphicsLayoutWidget):
+    def __init__(self):
+        super().__init__()
+        off_warning_for_pyqtgraph(self)
+        self.__ax = self.ci.addPlot(
+            title="Похибка регресії",
+            labels={"left": "ε", "bottom": "Y"})
+
+    def clear(self):
+        self.__ax.clear()
+
+    def plot(self, Y, E):
+        self.__ax.clear()
+        self.__ax.plot(Y, E,
+                       symbolBrush=(30, 120, 180),
+                       symbolPen=(0, 0, 0, 200),
+                       symbolSize=7, pen=None)
+
+
+class Plot1d:
+    def __init__(self, graphics_layout: pg.GraphicsLayout):
+        self.__layout = graphics_layout
+
+    def create_layout(self):
+        self.__layout.clear()
+        self.hist_plot = self.__layout.addPlot(
+            title="Гістограмна оцінка",
+            labels={"left": "P"})
+        self.emp_plot = self.__layout.addPlot(
+            title="Емпірична функція розподілу",
+            labels={"left": "P"})
+
+    def plot(self, d: SamplingData, hist_data):
+        Plot1d.plot_hist(d, hist_data, self.hist_plot)
+        self.plot_emp(d, hist_data)
+
+    @staticmethod
+    def plot_hist(d: SamplingData, hist_data: np.ndarray,
+                  hist_plot: pg.PlotItem):
         h = abs(d.max - d.min) / len(hist_data)
         x = np.empty(len(hist_data) * 3, dtype=float)
         y = np.empty(len(hist_data) * 3, dtype=float)
@@ -201,8 +225,6 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
             y[p*3] = 0
             y[p*3+1] = y[p*3+2] = i
 
-        if hist_plot is None:
-            hist_plot = self.hist_plot
         hist_plot.clear()
         hist_plot.getAxis("bottom").setLabel(text=d.name)
         hist_plot.plot(x, y, fillLevel=0,
@@ -232,14 +254,14 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         self.emp_plot.plot(x_class, y_class,
                            pen=newPen((255, 0, 0), 2))
 
-    def plot1DEmp(self, d: SamplingData, hist_data: np.ndarray):
+    def plot_emp(self, d: SamplingData, hist_data: np.ndarray):
         self.plot_emp_hist(d, hist_data)
 
         y_stat = np.cumsum(d.probabilityX)
         self.emp_plot.plot(d._x, y_stat,
                            pen=newPen((0, 255, 0), 2))
 
-    def plot1DReproduction(self, d: SamplingData, f, lF, F, hF):
+    def plot_reproduction(self, d: SamplingData, f, lF, F, hF):
         if f is None:
             return
         x_gen = np.linspace(d.min, d.max, 500, dtype=float)
@@ -258,17 +280,42 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         self.emp_plot.plot(x_gen, y_emp, pen=newPen((0, 255, 255), 2))
         self.emp_plot.plot(x_gen, y_high, pen=newPen((128, 0, 128), 2))
 
-    def plot_2d_with_details(self, d2: DoubleSampleData, hist_data):
-        self.corr_plot.clear()
-        self.corr_plot.setLabel("left", d2.y.name)
-        self.corr_plot.setLabel("bottom", d2.x.name)
-        self.plot_2d_histogram(d2, hist_data, self.corr_plot)
-        self.plot_2d(d2, self.corr_plot)
 
-    def plot_2d_histogram(self,
-                          d2: DoubleSampleData,
-                          hist_data,
-                          corr_plot: pg.PlotItem):
+class Plot2d:
+    def __init__(self, graphics_layout: pg.GraphicsLayout) -> None:
+        self.__layout = graphics_layout
+        self.__color_map = pg.ColorMap(range(len(unique_colors)),
+                                       unique_colors)
+
+    def create_layout(self):
+        self.__layout.clear()
+        self.__ax = self.__layout.addPlot(
+            title="Корреляційне поле")
+
+    def plot(self, d2: DoubleSampleData, hist_data, classifier=None):
+        self.__ax.clear()
+        self.__ax.setLabel("left", d2.y.name)
+        self.__ax.setLabel("bottom", d2.x.name)
+        if classifier is not None:
+            self.plot_contours(d2, classifier)
+        else:
+            Plot2d.plot_histogram(d2, hist_data, self.__ax)
+        Plot2d.plot_scatter(d2, self.__ax)
+
+    def plot_reproduction(self, d2: DoubleSampleData,
+                          tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f):
+        x = np.linspace(d2.x.min, d2.x.max, 500, dtype=float)
+        self.__ax.plot(x, tl_lf(x), pen=newPen((0, 128, 128), 3))
+        self.__ax.plot(x, tl_mf(x), pen=newPen((0, 128, 128), 3))
+        self.__ax.plot(x, tr_lf(x), pen=newPen((255, 0, 255), 3))
+        self.__ax.plot(x, tr_mf(x), pen=newPen((255, 0, 255), 3))
+        self.__ax.plot(x, tr_f_lf(x), pen=newPen((0, 255, 128), 3))
+        self.__ax.plot(x, tr_f_mf(x), pen=newPen((0, 255, 128), 3))
+        self.__ax.plot(x, f(x), pen=newPen((255, 0, 0), 3))
+
+    @staticmethod
+    def plot_histogram(d2: DoubleSampleData, hist_data,
+                       corr_plot: pg.PlotItem):
         x = d2.x
         y = d2.y
 
@@ -279,7 +326,8 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
 
         corr_plot.addItem(histogram_image)
 
-    def plot_2d(self, d2: DoubleSampleData, corr_plot: pg.PlotItem):
+    @staticmethod
+    def plot_scatter(d2: DoubleSampleData, corr_plot: pg.PlotItem):
         x = d2.x
         y = d2.y
 
@@ -287,6 +335,7 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
             for i, cluster in enumerate(x.clusters):
                 corr_plot.plot(x.raw[cluster], y.raw[cluster],
                                symbolBrush=unique_colors[i],
+                               symbol=unique_symbols[i],
                                symbolPen=(0, 0, 0, 200), symbolSize=6,
                                pen=None)
         else:
@@ -295,63 +344,70 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
                            symbolPen=(0, 0, 0, 200), symbolSize=6,
                            pen=None)
 
-    def plot2DReproduction(self, d2: DoubleSampleData,
-                           tl_lf, tl_mf, tr_lf, tr_mf, tr_f_lf, tr_f_mf, f):
-        x = np.linspace(d2.x.min, d2.x.max, 500, dtype=float)
-        self.corr_plot.plot(x, tl_lf(x), pen=newPen((0, 128, 128), 3))
-        self.corr_plot.plot(x, tl_mf(x), pen=newPen((0, 128, 128), 3))
-        self.corr_plot.plot(x, tr_lf(x), pen=newPen((255, 0, 255), 3))
-        self.corr_plot.plot(x, tr_mf(x), pen=newPen((255, 0, 255), 3))
-        self.corr_plot.plot(x, tr_f_lf(x), pen=newPen((0, 255, 128), 3))
-        self.corr_plot.plot(x, tr_f_mf(x), pen=newPen((0, 255, 128), 3))
-        self.corr_plot.plot(x, f(x), pen=newPen((255, 0, 0), 3))
+    def plot_contours(self, d2: DoubleSampleData, classifier):
+        x_min = d2.x.min
+        x_max = d2.x.max
+        y_min = d2.y.min
+        y_max = d2.y.max
+        x = np.linspace(x_min, x_max, 700)
+        y = np.linspace(y_min, y_max, 700)
+        X, Y = np.meshgrid(x, y)
+        Z = classifier.predict(np.c_[X.ravel(), Y.ravel()])
+        Z = Z.reshape(X.shape)
 
-    def plot3D(self, d3: SamplingDatas):
-        X1 = d3[0].raw
-        X2 = d3[1].raw
-        X3 = d3[2].raw
-        names = [d3[i].name for i in range(3)]
-        self.__3d_plot.plot_observers(X1, X2, X3, names)
+        classes_image = pg.ImageItem(Z, lut=self.__color_map.getLookupTable())
+        width = x_max - x_min
+        height = y_max - y_min
+        classes_image.setRect(x_min, y_min, width, height)
 
-    def plotDiagnosticDiagram(self, dn: SamplingDatas, tr_l_f, f, tr_m_f):
-        Y = dn[-1].raw
-        X = [d.raw for d in dn[:-1]]
-        E = Y - f(*X)
-        self.__diagnostic_plot.plot(Y, E,
-                                    symbolBrush=(30, 120, 180),
-                                    symbolPen=(0, 0, 0, 200),
-                                    symbolSize=7, pen=None)
-        if len(dn) == 3:
-            self.plot3D(dn)
-            self.plot3DReproduction(dn, tr_l_f, f, tr_m_f)
-
-    def plot3DReproduction(self, d3: SamplingDatas, tr_l_f, f, tr_m_f):
-        x1 = d3[0]
-        x2 = d3[1]
-        self.__3d_plot.plot_regression(x1.min, x1.max, x2.min, x2.max,
-                                       tr_l_f, f, tr_m_f)
-
-    def plotScatterDiagram(self, dn: list[SamplingData], col):
-        self.__scatter_plot.set_labels_for_scatter_plot(dn)
-        plots = self.__scatter_plot.get_plots()
-        n = len(dn)
-        diag_i = 0
-        slide_cells = 0
-        for i in range(n):
-            self.plot1DHist(dn[i], dn[i].get_histogram_data(col),
-                            plots[diag_i])
-            diag_i += n - i
-            slide_cells += i
-            for j in range(diag_i - n + i + 1, diag_i):
-                d2 = DoubleSampleData(dn[i], dn[(j + slide_cells) % n])
-                plots[j].clear()
-                self.plot_2d_histogram(d2, d2.get_histogram_data(col),
-                                       plots[j])
-                self.plot_2d(d2, plots[j])
+        self.__ax.addItem(classes_image)
 
 
-def newPen(color, width):
-    return {'color': color, 'width': width}
+class PlotTimeSeries:
+    def __init__(self, graphics_layout: pg.GraphicsLayout):
+        self.__layout = graphics_layout
+
+    def create_layout(self):
+        self.__layout.clear()
+        self.__val = self.__layout.addPlot(
+            title="Часовий ряд",
+            labels={"left": "X(t)", "bottom": "t"})
+        self.__auto_cor = self.__layout.addPlot(
+            title="Автокореляційна функція",
+            labels={"left": "r(𝜏)", "bottom": "𝜏"})
+
+    def plot(self, d: TimeSeriesData):
+        N = len(d.x)
+        t = np.arange(N)
+        self.__val.clear()
+        self.__val.plot(t, d.x,
+                        pen=newPen(unique_colors[-1], 3),
+                        symbol='o', symbolSize=5,)
+
+        teta = t[1:]
+        cor_val = [d.auto_cor_f(ti) for ti in teta]
+        self.__auto_cor.clear()
+        self.__auto_cor.plot(teta, cor_val,
+                             pen=newPen((0, 0, 0), 1))
+
+    def plot_smooth(self, x):
+        N = len(x)
+        t = np.arange(N)
+        self.__val.plot(t, x,
+                        pen=newPen((255, 0, 0), 1))
+
+    def plot_trend(self, x):
+        N = len(x)
+        t = np.arange(N)
+        self.__val.plot(t, x,
+                        pen=newPen((0, 0, 255), 2))
+
+    def plot_components(self, components: np.ndarray):
+        N = components.shape[1]
+        t = np.arange(N)
+        for i in range(components.shape[0]):
+            self.__val.plot(t, components[i],
+                            pen=newPen(unique_colors[-i], 3))
 
 
 class Plot3dWidget(FigureCanvasQTAgg):
@@ -601,6 +657,23 @@ class PlotScatterWidget(pg.GraphicsLayoutWidget):
                     set_axis_style(plot_item, "bottom")
                 plot_item.setLabels(**labels)
 
+    def plot_observers(self, dn: list[SamplingData], col):
+        self.set_labels_for_scatter_plot(dn)
+        plots = self.get_plots()
+        n = len(dn)
+        diag_i = 0
+        slide_cells = 0
+        for i in range(n):
+            Plot1d.plot_hist(dn[i], dn[i].get_histogram_data(col),
+                             plots[diag_i])
+            diag_i += n - i
+            slide_cells += i
+            for j in range(diag_i - n + i + 1, diag_i):
+                d2 = DoubleSampleData(dn[i], dn[(j + slide_cells) % n])
+                plots[j].clear()
+                Plot2d.plot_histogram(d2, d2.get_histogram_data(col), plots[j])
+                Plot2d.plot_scatter(d2, plots[j])
+
 
 class PlotDendrogramWidget(pg.GraphicsLayoutWidget):
     def __init__(self):
@@ -703,4 +776,20 @@ unique_colors = [
     "#BF5650", "#E83000", "#66796D", "#DA007C", "#FF1A59", "#8ADBB4",
     "#1E0200", "#5B4E51", "#C895C5", "#320033", "#FF6832", "#66E1D3",
     "#CFCDAC", "#D0AC94", "#7ED379", "#012C58"
+]
+
+
+unique_symbols = [
+    'o',     # : Default symbol, round circle symbol
+    't',     # : Triangle pointing downwards symbol
+    't1',    # : Triangle pointing upwards symbol
+    't2',    # : Triangle pointing right side symbol
+    't3',    # : Triangle pointing left side symbol
+    's',     # : Square symbol
+    'p',     # : Pentagon symbol
+    'h',     # : Hexagon symbol
+    'star',  # : Star symbol
+    '+',     # : Plus symbol
+    'd',     # : Prism symbol
+    'x',     # : Cross symbol
 ]

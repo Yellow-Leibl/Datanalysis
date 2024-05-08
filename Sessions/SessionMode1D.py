@@ -27,7 +27,7 @@ class SessionMode1D(SessionMode):
         d.set_trust(self.window.feature_area.get_trust())
         hist_data = d.get_histogram_data(number_column)
         self.window.feature_area.silent_change_number_classes(len(hist_data))
-        self.plot_widget.plot1D(d, hist_data)
+        self.plot_widget.plot_1d(d, hist_data)
         self.drawReproductionSeries1D()
         super().update_sample(number_column)
 
@@ -39,7 +39,7 @@ class SessionMode1D(SessionMode):
         h = abs(d.max - d.min) / self.window.feature_area.get_number_classes()
         f = d.toCreateTrustIntervals(*(*f, h))
         self.d1_regr_F = f[2]
-        self.plot_widget.plot1DReproduction(d, *f)
+        self.plot_widget.plot_1d_reproduction(d, *f)
 
     def toCreateReproductionFunc(self, d: SamplingData, func_num):
         if func_num == 0:

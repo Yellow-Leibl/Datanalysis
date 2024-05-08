@@ -6,15 +6,10 @@ from GUI import DialogWindow, SpinBox
 class SessionModeND(SessionMode):
     def __init__(self, window):
         super().__init__(window)
-        self.datas_displayed = None
 
     def create_plot_layout(self):
         n = len(self.get_selected_indexes())
         self.plot_widget.create_nd_plot(n)
-
-    def create_n_samples(self) -> SamplingDatas:
-        samples = self.get_selected_samples()
-        return SamplingDatas(samples, self.window.feature_area.get_trust())
 
     def get_active_samples(self) -> SamplingDatas:
         return self.datas_displayed
@@ -32,9 +27,7 @@ class SessionModeND(SessionMode):
         self.datas_displayed.toIndependent()
 
     def update_sample(self, number_column=0):
-        self.datas_displayed = self.create_n_samples()
-        self.datas_displayed.toCalculateCharacteristic()
-        self.plot_widget.plotND(self.datas_displayed, number_column)
+        self.plot_widget.plot_nd(self.datas_displayed, number_column)
         self.drawReproductionSeriesND(self.datas_displayed)
         super().update_sample(number_column)
 

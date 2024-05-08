@@ -448,29 +448,42 @@ class ProtocolGenerator:
                 add_text()
 
         if hasattr(data, "signif_weighted_sum"):
-            add_text()
-            add_text("Оцінка якості кластеризації")
-            add_text()
-            addForm("Сума («зважена») внутрішньокластерних дисперсій",
-                    "", data.signif_weighted_sum)
-            addForm("Сума попарних внутрішньокластерних",
-                    "", data.signif_pair_sum)
-            addForm("Загальна внутрішньокластерна дисперсія",
-                    "", data.signif_general_dispersion)
-            addForm("Відношення функціоналів",
-                    "", data.signif_relation_functionals)
+            ProtocolGenerator.get_for_clusterization(data, inf_protocol)
 
         if hasattr(data, "acc_class"):
-            add_text()
-            add_text("Оцінка якості класифікації")
-            add_text()
-            addForm("Точність класифікації", "", data.acc_class)
-            addForm("PPV", "", data.ppv_class)
-            addForm("TPR", "", data.tpr_class)
-            addForm("FPR", "", data.fpr_class)
-            addForm("FNR", "", data.fnr_class)
+            ProtocolGenerator.get_for_classification(data, inf_protocol)
 
         return "\n".join(inf_protocol)
+
+    @staticmethod
+    def get_for_clusterization(data: SamplingDatas, inf_protocol: list):
+        def add_text(text=""): inf_protocol.append(text)
+        def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
+
+        add_text()
+        add_text("Оцінка якості кластеризації")
+        add_text()
+        addForm("Сума («зважена») внутрішньокластерних дисперсій",
+                "", data.signif_weighted_sum)
+        addForm("Сума попарних внутрішньокластерних",
+                "", data.signif_pair_sum)
+        addForm("Загальна внутрішньокластерна дисперсія",
+                "", data.signif_general_dispersion)
+        addForm("Відношення функціоналів",
+                "", data.signif_relation_functionals)
+
+    def get_for_classification(data: SamplingDatas, inf_protocol: list):
+        def add_text(text=""): inf_protocol.append(text)
+        def addForm(title, *args): inf_protocol.append(formRowNV(title, *args))
+
+        add_text()
+        add_text("Оцінка якості класифікації")
+        add_text()
+        addForm("Точність класифікації", "", data.acc_class)
+        addForm("PPV", "", data.ppv_class)
+        addForm("TPR", "", data.tpr_class)
+        addForm("FPR", "", data.fpr_class)
+        addForm("FNR", "", data.fnr_class)
 
 #
 #

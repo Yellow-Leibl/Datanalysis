@@ -157,3 +157,5 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
               self.k_nearest_neighbor_classification, "")
     addAction(clust_menu, "Логістична регресія",
               self.logistic_regression, "")
+    addAction(clust_menu, "Дискримінантний аналіз",
+              self.discriminant_analysis, "")

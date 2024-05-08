@@ -23,6 +23,7 @@ class SamplingDatas(SamplesCriteria):
         self.append_samples(samples)
         self.trust = trust
         self.clusters = None
+        self.classifier = None
 
     def append_sample(self, s: SamplingData):
         self.samples.append(s)
@@ -701,7 +702,7 @@ class SamplingDatas(SamplesCriteria):
         X = self.to_numpy()
         Y = self.get_tags_array()
         x_train, x_test, y_train, y_test = \
-            self.test_train_split(X, Y, train_size)
+            self.train_test_split(X, Y, train_size)
         model.fit(x_train, y_train)
 
         y_pred = model.predict(x_test)
@@ -715,7 +716,7 @@ class SamplingDatas(SamplesCriteria):
             Y[cluster] = i
         return Y
 
-    def test_train_split(self, x, y, train_size=0.7):
+    def train_test_split(self, x, y, train_size=0.7):
         N = len(x)
         indexes = np.arange(N)
         np.random.shuffle(indexes)
@@ -743,14 +744,15 @@ class SamplingDatas(SamplesCriteria):
 
     def logistic_regression_scores(self, train_size, train_speed, num_iter):
         lc = clstr.LogisticClassifier()
+        self.classifier = lc
         X = self.to_numpy()
         Y = self.get_tags_array()
         x_train, x_test, y_train, y_test = \
-            self.test_train_split(X, Y, train_size)
+            self.train_test_split(X, Y, train_size)
         lc.fit(x_train, y_train, train_speed, num_iter)
         fpr_arr, tpr_arr = self.roc_curve_data(x_test, y_test, lc)
 
-        accuracy, ppv, tpr, fpr, fnr = self.scores(y_test, lc.predict(X))
+        accuracy, ppv, tpr, fpr, fnr = self.scores(y_test, lc.predict(x_test))
         self.acc_class = accuracy
         self.ppv_class = ppv
         self.tpr_class = tpr
@@ -815,3 +817,22 @@ class SamplingDatas(SamplesCriteria):
         for i, j in zip(y_true, y_pred):
             K[n - i - 1, n - j - 1] += 1
         return K
+
+    def discriminant_analysis(self, train_size=0.7):
+        bc = clstr.BayesClassifier()
+        self.classifier = bc
+        X = self.to_numpy()
+        Y = self.get_tags_array()
+        x_train, x_test, y_train, y_test = \
+            self.train_test_split(X, Y, train_size)
+        bc.fit(x_train, y_train)
+
+        accuracy, ppv, tpr, fpr, fnr = self.scores(y_test, bc.predict(x_test))
+        self.acc_class = accuracy
+        self.ppv_class = ppv
+        self.tpr_class = tpr
+        self.fpr_class = fpr
+        self.fnr_class = fnr
+
+        #  fit for classes visualization
+        bc.fit(X, Y)
