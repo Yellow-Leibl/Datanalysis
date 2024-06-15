@@ -114,7 +114,15 @@ class DoubleSampleData(DoubleSampleRegression):
             for j in range(m(i)):
                 po_2_second_div += (y[i][j] - y_) ** 2
         self.po_2 /= po_2_second_div
+        self.po_2 = min(self.po_2, 1.0)
+        self.po_k = k
 
+        if self.po_2 == 1.0:
+            self.det_less_po = math.inf
+            self.det_more_po = math.inf
+            self.po_signif_t = math.inf
+            self.po_signif_f = math.inf
+            return
         nu1 = round((k - 1 + N * self.po_2) ** 2 /
                     (k - 1 + 2 * N * self.po_2))
         nu2 = N - k
@@ -127,7 +135,6 @@ class DoubleSampleData(DoubleSampleRegression):
         self.po_signif_t = self.po_2 ** 0.5 * (N - 2) ** 0.5 / (
             1 - self.po_2) ** 0.5
         self.po_signif_f = self.po_2 / (1 - self.po_2) * (N - k) / (k - 1)
-        self.po_k = k
 
     def coefficientsOfCombinationsOfTables(self):
         N = self.get_histogram_data(2)

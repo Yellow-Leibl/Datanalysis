@@ -40,19 +40,42 @@ class SamplingData:
     def init_characteristic(self):
         self.min = 0.0
         self.max = 0.0
-        self.x_ = 0.0       # mathematical exception
-        self.S = 0.0        # dispersion
-        self.Sigma = 0.0    # standart deviation
-        self.A = 0.0        # asymmetric_c
-        self.E = 0.0        # excess_c
-        self.c_E = 0.0      # contre_excess_c : X/-\
-        self.W_ = 0.0       # pearson_c
-        self.Wp = 0.0       # param_var_c
-        self.inter_range = 0.0
 
         self.MED = 0.0
-        self.MED_Walsh = 0.0
         self.MAD = 0.0
+
+        self.x_a = 0.0
+
+        self.MED_Walsh = 0.0
+
+        self.x_ = 0.0
+
+        self.S_slide = 0.0
+        self.Sigma_slide = 0.0
+        self.u2 = 0.0
+        self.u3 = 0.0
+        self.S = 0.0
+        self.Sigma = 0.0
+
+        self.A = 0.0
+        self.E = 0.0
+        self.c_E = 0.0
+
+        self.W_ = 0.0
+        self.Wp = 0.0
+
+        self.quant = []
+        self.inter_range = 0.0
+
+        self.det_x_ = 0.0
+        self.det_Sigma = 0.0
+        self.det_S = 0.0
+
+        self.det_A = 0.0
+        self.det_E = 0.0
+        self.det_c_E = 0.0
+        self.det_W_ = 0.0
+        self.vanga_x_ = 0.0
 
     def __len__(self) -> int:
         return len(self._x)
@@ -61,7 +84,19 @@ class SamplingData:
         return self._x[i]
 
     def remove_observations(self, i):
+        new_clusters = []
+        for cluster in self.clusters:
+            new_cluster = cluster[~np.isin(cluster, i)]
+
+            for ind in i[0]:
+                for k in range(len(new_cluster)):
+                    if new_cluster[k] > ind:
+                        new_cluster[k] -= 1
+            new_clusters.append(new_cluster)
+        metric = self.metric
+
         self.setSeries(np.delete(self.raw, i))
+        self.set_clusters(new_clusters, metric)
 
     def copy(self):
         return deepcopy(self)

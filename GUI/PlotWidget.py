@@ -95,7 +95,7 @@ class PlotWidget(gui.QtWidgets.QStackedWidget):
         if index == 4:
             self.plot3D(self.datas)
         if index == 5:
-            self.__buble_plot.plot_observers(samples)
+            self.__buble_plot.plot_observers(self.datas)
         if index == 6:
             self.__glyph_plot.plot_observers(samples, col)
 
@@ -287,6 +287,11 @@ class Plot2d:
         self.__color_map = pg.ColorMap(range(len(unique_colors)),
                                        unique_colors)
 
+    @staticmethod
+    def get_color_bar_item():
+        colorMap = pg.colormap.get("CET-D1")
+        return pg.ColorBarItem(colorMap=colorMap)
+
     def create_layout(self):
         self.__layout.clear()
         self.__ax = self.__layout.addPlot(
@@ -298,8 +303,8 @@ class Plot2d:
         self.__ax.setLabel("bottom", d2.x.name)
         if classifier is not None:
             self.plot_contours(d2, classifier)
-        else:
-            Plot2d.plot_histogram(d2, hist_data, self.__ax)
+        # else:
+        #     Plot2d.plot_histogram(d2, hist_data, self.__ax)
         Plot2d.plot_scatter(d2, self.__ax)
 
     def plot_reproduction(self, d2: DoubleSampleData,
@@ -538,7 +543,8 @@ class PlotBubleWidget(pg.GraphicsLayoutWidget):
         self.__buble_plot = self.ci.addPlot(
             labels={"left": "Y", "bottom": "X"})
 
-    def plot_observers(self, dn: list[SamplingData]):
+    def plot_observers(self, dn: SamplingDatas):
+        self.set_labels(dn)
         x_raw = dn[0].raw
         y_raw = dn[1].raw
         z_raw = dn[2].raw
@@ -549,6 +555,10 @@ class PlotBubleWidget(pg.GraphicsLayoutWidget):
         self.__buble_plot.clear()
         self.__buble_plot.plot(x_raw, y_raw,
                                symbolSize=z_norm, alphaHint=0.6, pen=None)
+
+    def set_labels(self, dn: SamplingDatas):
+        self.__buble_plot.setLabel("bottom", dn[0].name)
+        self.__buble_plot.setLabel("left", dn[1].name)
 
 
 class PlotGlyphWidget(pg.GraphicsLayoutWidget):
@@ -671,7 +681,7 @@ class PlotScatterWidget(pg.GraphicsLayoutWidget):
             for j in range(diag_i - n + i + 1, diag_i):
                 d2 = DoubleSampleData(dn[i], dn[(j + slide_cells) % n])
                 plots[j].clear()
-                Plot2d.plot_histogram(d2, d2.get_histogram_data(col), plots[j])
+                # Plot2d.plot_histogram(d2, d2.get_histogram_data(col), plots[j])
                 Plot2d.plot_scatter(d2, plots[j])
 
 

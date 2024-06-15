@@ -2,6 +2,7 @@ from GUI.WindowLayout import WindowLayout
 import Datanalysis as da
 import GUI.PlotWidget as cplt
 from GUI import DialogWindow, SpinBox, ComboBox, DoubleSpinBox
+import numpy as np
 
 
 class SessionMode:
@@ -33,6 +34,10 @@ class SessionMode:
 
     def get_selected_samples(self) -> list:
         return [self.window.all_datas[i] for i in self.get_selected_indexes()]
+
+    def add_samples(self, sampling_datas):
+        self.get_all_datas().append_samples(sampling_datas)
+        self.window.table.update_table()
 
     def set_regression_number(self, number):
         self.selected_regr_num = number
@@ -146,8 +151,25 @@ class SessionMode:
 
     def split_on_clusters(self):
         a_s = self.get_active_sampling_datas().split_on_clusters()
-        self.get_all_datas().append_samples(a_s)
-        self.window.table.update_table()
+        self.add_samples(a_s)
+
+    def merge_as_clusters(self):
+        data_ind = self.window.table.get_active_rows()
+        self.merge_as_clusters_with_index(data_ind)
+
+    def merge_as_clusters_with_index(self, data_ind):
+        all_datas = self.get_all_datas()
+        samples_raw = [all_datas[i].raw for i in data_ind]
+        data = np.concatenate([all_datas[i].raw for i in data_ind])
+        clusters_ind = [np.arange(len(samples_raw[0]))]
+        for i in range(1, len(samples_raw)):
+            clusters_ind.append(np.arange(len(samples_raw[i])) +
+                                clusters_ind[-1][-1] + 1)
+        new_sample = da.SamplingData(data)
+        new_sample.toRanking()
+        new_sample.toCalculateCharacteristic()
+        new_sample.set_clusters(clusters_ind, 'euclidean')
+        self.add_samples([new_sample])
 
     def nearest_neighbor_classification(self):
         train_size, metric = self.get_nearest_neighbor_parameters()

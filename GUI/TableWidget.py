@@ -92,7 +92,7 @@ class TableWidget(QTableWidget):
         if sel_indexes is None:
             return
         for i in range(self.rowCount()):
-            color = QtGui.QColor()
+            color = QtGui.QColor(0, 0, 0, 0)
             if i in sel_indexes:
                 color = self.__selected_row_color
             self.item(i, 0).setBackground(color)

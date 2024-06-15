@@ -69,15 +69,21 @@ class WindowLayout(QtWidgets.QMainWindow):
         mes.exec()
 
     def open_file_act(self):
-        filename = self.open_file_dialog()
-        if filename == '':
+        filenames = self.open_file_dialog()
+        if len(filenames) == 0:
             return
-        self.open_file(filename)
+        self.open_files(filenames)
 
     def open_file_dialog(self) -> str:
-        file_name, _ = QFileDialog().getOpenFileName(
+        file_name, _ = QFileDialog().getOpenFileNames(
             self, "Відкрити файл", os.getcwd(), "Bci файли (*)")
         return file_name
+
+    def open_clusters_files_act(self):
+        filenames = self.open_file_dialog()
+        if len(filenames) == 0:
+            return
+        self.open_clusters_files(filenames)
 
     def save_file_act(self):
         filename = self.save_file_dialog()

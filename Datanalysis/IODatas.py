@@ -65,7 +65,7 @@ class IODatas:
         return (names, ticks), arr.transpose()
 
     def make_samples(self, names: list[str], ticks, vectors: np.ndarray):
-        datas = []
+        datas: list[SamplingData] = []
         for name, ticksi, v in zip(names, ticks, vectors):
             datas.append(SamplingData(v, move_data=True,
                                       name=name, ticks=ticksi))
@@ -93,4 +93,6 @@ class IODatas:
     def load_project(self, filename: str):
         with open(filename, 'rb') as file:
             datas = pickle.load(file)
+            if type(datas) is not list:
+                raise ValueError('Invalid file')
         return datas

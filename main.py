@@ -7,7 +7,7 @@ from GUI import DialogWindow, DoubleSpinBox, ComboBox
 
 import Sessions as ses
 
-from Datanalysis import SamplingDatas, IODatas
+from Datanalysis import SamplingDatas, IODatas, SamplingData
 from Datanalysis.SamplesTools import timer
 
 logging.basicConfig(level=logging.INFO)
@@ -25,16 +25,41 @@ class Window(WindowLayout):
         self.io_datas = IODatas()
         self.sel_indexes: list[int] = []
         self.datas_crits: list[list] = []
-        self.open_file(file, is_file_name)
+        self.open_files([file], is_file_name)
         if auto_select is not None:
             self.auto_select(auto_select)
 
-    def open_file(self, file: str, is_file_name=True):
-        if is_file_name:
-            samples = self.io_datas.read_from_file(file)
+    def open_files(self, files: list[str] | str, is_file_names=True):
+        if is_file_names:
+            samples = []
+            for file in files:
+                samples += self.io_datas.read_from_file(file)
         else:
-            samples = self.io_datas.read_from_text(file.split('\n'))
+            samples = self.io_datas.read_from_text(files.split('\n'))
         self.load_from_data(samples)
+
+    def open_clusters_files(self, files: list[str]):
+        samples = []
+        for file in files:
+            samples.append(self.io_datas.read_from_file(file))
+
+        n = len(samples[0])
+        n_arr = [len(sample[0].raw) for sample in samples]
+        clusters = []
+        prev_n = 0
+        for ni in n_arr:
+            clusters.append(np.arange(prev_n, prev_n + ni))
+            prev_n += ni
+
+        merged_samples = []
+        for i in range(n):
+            samples_i_raw = [sample[i].raw for sample in samples]
+            raw = np.concatenate(samples_i_raw)
+            s = SamplingData(raw, name=samples[0][i].name)
+            s.set_clusters(clusters, 'euclidean')
+            merged_samples.append(s)
+
+        self.load_from_data(merged_samples)
 
     def save_file(self, filename):
         self.io_datas.save_to_csv(filename,
@@ -329,6 +354,9 @@ class Window(WindowLayout):
     def split_on_clusters(self):
         self.session.split_on_clusters()
 
+    def merge_as_clusters(self):
+        self.session.merge_as_clusters()
+
     def nearest_neighbor_classification(self):
         self.session.nearest_neighbor_classification()
 
@@ -418,6 +446,16 @@ def demo_mode_tmo():
     launch_app(file, is_file_name=True, auto_select=range(1))
 
 
+def demo_mode_dyplom():
+    file = "/Users/user/Desktop/source/Dyplom/drone_videos/combined_hand_proj.sdatas"
+    launch_app(file, is_file_name=True, auto_select=range(1))
+
+
+def demo_mode_dyplom1():
+    file = "/Users/user/Desktop/source/Dyplom/drone_videos/rgb_proj.sdatas"
+    launch_app(file, is_file_name=True, auto_select=range(1))
+
+
 def launch_app(file, is_file_name: bool, auto_select=None):
     app = QtWidgets.QApplication(sys.argv)
     widget = Window(file, is_file_name=is_file_name, auto_select=auto_select)
@@ -426,4 +464,4 @@ def launch_app(file, is_file_name: bool, auto_select=None):
 
 
 if __name__ == "__main__":
-    demo_mode_classification()
+    demo_mode_dyplom()

@@ -16,6 +16,8 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
     file_menu = menuBar.addMenu("Файл")
 
     addAction(file_menu, "Відкрити", self.open_file_act, "Ctrl+O")
+    addAction(file_menu, "Відкрити як кластери", self.open_clusters_files_act,
+              "")
     addAction(file_menu, "Зберегти", self.save_file_act, "Ctrl+S")
     addAction(file_menu, "Зберегти як обʼєкт", self.save_file_as_obj_act,
               "Ctrl+Shift+S")
@@ -146,6 +148,8 @@ def fill_menu_bar(self: QtWidgets.QMainWindow):
               self.remove_clusters, "")
     addAction(clust_menu, "Поділити на кластери",
               self.split_on_clusters, "")
+    addAction(clust_menu, "Обʼєднати як кластери",
+              self.merge_as_clusters, "")
 
     clust_menu.addSeparator()
     addSection(clust_menu, "Класифікація")

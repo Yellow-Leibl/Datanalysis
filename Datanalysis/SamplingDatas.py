@@ -147,6 +147,7 @@ class SamplingDatas(SamplesCriteria):
                 self.r_part[i][j] = self.r_part[j][i] = part_r
                 self.r_part_t_test[i][j] = self.r_part_t_test[j][i] = t_test
 
+    @timer
     def to_calc_cluster_signif(self):
         if self[0].clusters is None:
             return
@@ -301,7 +302,8 @@ class SamplingDatas(SamplesCriteria):
 
         eps = 0.00001
 
-        while True:
+        max_iterations = 100
+        for _ in range(max_iterations):
             hk = calc_hk(evec_redu, w)
             calc_redu(Red, hk)
             eval_redu, evec_redu = func.EigenvalueJacob(Red)
